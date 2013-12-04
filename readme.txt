@@ -19,21 +19,21 @@ The library was written for Matlab and its functions can be called only from Mat
 
 The library contains 3 main functions to call:
 
-1) [weights, trainerr] = cnntrain(layers, params, train_x, train_y, funtype, weights_in(optionally))
+1). [weights, trainerr] = cnntrain(layers, params, train_x, train_y, funtype, weights_in(optionally))
 Performs neural net training. Returns weights from all layers as a single vector.
-2) [pred, err] = cnntest(layers, weights, test_x, test_y, funtype)
+2). [pred, err] = cnntest(layers, weights, test_x, test_y, funtype)
 Calculates the test error. Based on cnnclassify, that returns only the predictions.
-3) [weights_in] = genweights(layers, funtype);
+3). [weights_in] = genweights(layers, funtype);
 Returns randomly generated weights for neural net. If you need to get repeatable results, just pass these weights to the cnntrain or cnntest.
 
 Parameters:
 
 'layers' - the structure of CNN. Sets up as cell array, with each element representing an independent layer. Layers can be one of 4 types:
-1) 'i' - input layer. Must be the first and only first. Must contain the 'mapsize' field, that is a vector with 2 integer values, representing the objects size.
-2) 'c' - convolutional layer. Must contain the 'kernelsize' field, that identifies the filter size. Must not be greater than the size of maps on the previous layer. Must also contain the 'outputmaps' field, that is the number of maps for each objects on this layer. If the previous layer has 'm' maps and the current one has 'n' maps, the total number of filters on it is m * n;
+1). 'i' - input layer. Must be the first and only first. Must contain the 'mapsize' field, that is a vector with 2 integer values, representing the objects size.
+2). 'c' - convolutional layer. Must contain the 'kernelsize' field, that identifies the filter size. Must not be greater than the size of maps on the previous layer. Must also contain the 'outputmaps' field, that is the number of maps for each objects on this layer. If the previous layer has 'm' maps and the current one has 'n' maps, the total number of filters on it is m * n;
 Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions.
-3) 's' - scaling layer. Reduces the map size by pooling. Must contain the 'scale' field, that is also a vector with integer 2 values.
-4) 'f' - fully connected layer. Must contain the 'length' field that defines the number of its outputs. Must be the last one. For the last layer it must coincide with the number of classes.
+3). 's' - scaling layer. Reduces the map size by pooling. Must contain the 'scale' field, that is also a vector with integer 2 values.
+4). 'f' - fully connected layer. Must contain the 'length' field that defines the number of its outputs. Must be the last one. For the last layer it must coincide with the number of classes.
 
 All layers except 'i' may contain the 'function' field, that defines their action. For:
 - 'c' and 'f' it defines the non-linear function. It can be either 'sigm' or 'relu', for sigmoids and rectified linear units respectively. The default value is 'sigm'.
@@ -42,13 +42,13 @@ See www.cs.toronto.edu/~tang/papers/dlsvm.pdf for details. Has been tested only 
 - 's' it defines the pooling procedure, that can be either 'mean' or 'max'. The default value is 'mean'. 
 
 'params' - identify the learning process. It is a cell with the following fields. If some of them are absent, the value by default is taken.
-1) alpha - defines the learning rate speed. Default is 1, for 'SVM' on the last layer should be about 10 times lower.
-2) batchsize - defines the number of batches. Default is 50.
-3) numepochs - the number of repeats the training procedure with different batch splits. Default is 1.
-4) momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0.
-5) adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we and it to learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.05.
-6) maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively.
-7) balance - was supposed to balance errors for highly unbalanced datasets but was not fully implemented.
+1). alpha - defines the learning rate speed. Default is 1, for 'SVM' on the last layer should be about 10 times lower.
+2). batchsize - defines the number of batches. Default is 50.
+3). numepochs - the number of repeats the training procedure with different batch splits. Default is 1.
+4). momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0.
+5). adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we and it to learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.05.
+6). maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively.
+7). balance - was supposed to balance errors for highly unbalanced datasets but was not fully implemented.
 
 'weights'(weights_in) - the weights vector obtained from genweights or cnntrain, that is used for weights initialization. Can be used for testing, repeating the results or continuing the training procedure. 
 
@@ -73,5 +73,5 @@ ACKNOLEDGEMENTS
 
 - The original Matlab code and the 'mnist_uint8.mat' workspace was created by Rasmus Berg Palm and can be found in his DeepLearnToolbox(https://github.com/rasmusbergpalm/DeepLearnToolbox). The Matlab version basically remained the same structure as there.
 
-- The C++ version was inspired by Yichuan Tang(http://www.cs.toronto.edu/~tang) and his solution for the Facial Expression Recognition Challenge. The structure of C++ code was originated from there.
+- The C++ version was inspired by Yichuan Tang(http://www.cs.toronto.edu/~tang) and his solution for the Kaggle Facial Expression Recognition Challenge. The structure of C++ code was originated from there.
  
