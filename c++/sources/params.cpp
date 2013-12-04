@@ -24,9 +24,10 @@ Params::Params() {
   numepochs_ = 1;
   balance_ = false;
   alpha_ = 1;
-  momentum_ = 0;
-  maxcoef_ = 1;
-  mincoef_ = 1;
+  momentum_ = 0.5;
+  adjustrate_ = 0.05;
+  maxcoef_ = 10;
+  mincoef_ = 10;
 }
   
 void Params::Init(const mxArray *mx_params) {

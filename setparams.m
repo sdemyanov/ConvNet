@@ -13,7 +13,7 @@ if (~isfield(params, 'alpha'))
   params.alpha = 1;  
 end;
 if (~isfield(params, 'momentum'))
-  params.momentum = 0; % no momentum
+  params.momentum = 0.5;
 end;
 if (~isfield(params, 'adjustrate'))
   params.adjustrate = 0.05;
