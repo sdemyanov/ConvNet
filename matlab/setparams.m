@@ -16,7 +16,7 @@ if (~isfield(params, 'momentum'))
   params.momentum = 0.5;
 end;
 if (~isfield(params, 'adjustrate'))
-  params.adjustrate = 0.05;
+  params.adjustrate = 0;
 end;
 if (~isfield(params, 'maxcoef'))
   params.maxcoef = 10;

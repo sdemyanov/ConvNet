@@ -25,7 +25,7 @@ Params::Params() {
   balance_ = false;
   alpha_ = 1;
   momentum_ = 0.5;
-  adjustrate_ = 0.05;
+  adjustrate_ = 0;
   maxcoef_ = 10;
   mincoef_ = 0.1;
 }
