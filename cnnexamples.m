@@ -1,5 +1,5 @@
 
-clear; close all; clear mex;
+clear; close all; clc; clear mex;
 
 addpath('./c++/build');
 addpath('./matlab');
@@ -36,10 +36,10 @@ params.maxcoef = 10;
 params.balance = 0;
 
 layers = {
-    struct('type', 'i', 'mapsize', [28 28], 'outputmaps', 1) % input layer    
-    struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 6, 'function', 'relu') %convolution layer
+    struct('type', 'i', 'mapsize', kXSize) % input layer    
+    struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 6, 'function', 'relu') % convolution layer
     struct('type', 's', 'scale', [2 2], 'function', 'mean') % subsampling layer
-    struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 12, 'function', 'relu') %convolution layer
+    struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 12, 'function', 'relu') % convolution layer
     struct('type', 's', 'scale', [2 2], 'function', 'mean') % subsampling layer    
     struct('type', 'f', 'length', kOutputs) % fully connected layer
 };
