@@ -1,4 +1,3 @@
-
 clear; close all; clc; clear mex;
 
 addpath('./c++/build');
@@ -34,7 +33,7 @@ layers = {
     struct('type', 's', 'scale', [2 2], 'function', 'mean') %sub sampling layer
     struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 12, 'function', 'relu') %convolution layer
     struct('type', 's', 'scale', [2 2], 'function', 'mean') %subsampling layer    
-    struct('type', 'f', 'length', kOutputs) %subsampling layer    
+    struct('type', 'f', 'length', kOutputs) %fully connected layer    
 };
 
 %funtype = 'mexfun';
