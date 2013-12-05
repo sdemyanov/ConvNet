@@ -59,7 +59,7 @@ for l = 2 : n   %  for each layer
       layers{l}.fv = layers{l-1}.ov;
     end;
 
-    if (regime == 0) % training
+    if (regime == 1) % training
       dropmat = rand(size(layers{l}.fv));
       dropmat(dropmat < layers{l}.droprate) = 0;
       dropmat(dropmat >= layers{l}.droprate) = 1;
