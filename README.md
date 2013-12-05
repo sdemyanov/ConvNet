@@ -30,10 +30,10 @@ Returns randomly generated weights for neural net. If you need to get repeatable
 Parameters:
 
 layers - the structure of CNN. Sets up as cell array, with each element representing an independent layer. Layers can be one of 4 types:
-- i - input layer. Must be the first and only first. Must contain the "mapsize" field, that is a vector with 2 integer values, representing the objects size.
+- i - input layer. Must be the first and only first. Must contain the "mapsize" field, that is a vector with 2 integer values, representing the objects size. May also contain the "outputmaps" field, that specifies the number of independent data sources. In this case the function input must be a cell array with "outputmaps" number of cells.
 - c - convolutional layer. Must contain the "kernelsize" field, that identifies the filter size. Must not be greater than the size of maps on the previous layer. Must also contain the "outputmaps" field, that is the number of maps for each objects on this layer. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m * n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions.
 - s - scaling layer. Reduces the map size by pooling. Must contain the "scale" field, that is also a vector with integer 2 values.
-- f - fully connected layer. Must contain the "length" field that defines the number of its outputs. Must be the last one. For the last layer it must coincide with the number of classes.
+- f - fully connected layer. Must contain the "length" field that defines the number of its outputs. Must be the last one. For the last layer the length must coincide with the number of classes. May also contain the "dropout" field, that defines the dropout ratio. 0 means no dropout. Should not be larger that 1 - 1/length.
 
 All layers except "i" may contain the "function" field, that defines their action. For:
 - c and f - it defines the non-linear function. It can be either "sigm" or "relu", for sigmoids and rectified linear units respectively. The default value is "sigm".
@@ -46,7 +46,7 @@ params - define the learning process. It is a cell with the following fields. If
 - batchsize - defines the number of batches. Default is 50.
 - numepochs - the number of repeats the training procedure with different batch splits. Default is 1.
 - momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0.
-- adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we and it to learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.05.
+- adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
 - maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively.
 - balance - was supposed to balance errors for highly unbalanced datasets but was not fully implemented.
 
