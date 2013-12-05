@@ -27,43 +27,47 @@ Params::Params() {
   momentum_ = 0.5;
   adjustrate_ = 0.05;
   maxcoef_ = 10;
-  mincoef_ = 10;
+  mincoef_ = 0.1;
 }
   
 void Params::Init(const mxArray *mx_params) {
   
-  mexAssert(mx_params != NULL, "Params array is NULL or empty");
-  
   if (mexIsField(mx_params, "batchsize")) {    
     batchsize_ = (size_t) mexGetScalar(mexGetField(mx_params, "batchsize"));    
+    mexAssert(batchsize_ > 0, "Batchsize must be positive");
   }  
   mexPrintMsg("batchsize", batchsize_);
   
   if (mexIsField(mx_params, "numepochs")) {    
     numepochs_ = (size_t) mexGetScalar(mexGetField(mx_params, "numepochs"));    
+    mexAssert(numepochs_ > 0, "Numepochs must be positive");
   }
   mexPrintMsg("numepochs", numepochs_);
   
   if (mexIsField(mx_params, "alpha")) {    
-    alpha_ = (float) mexGetScalar(mexGetField(mx_params, "alpha"));    
+    alpha_ = mexGetScalar(mexGetField(mx_params, "alpha"));
+    mexAssert(alpha_ > 0, "Alpha must be positive");
   }
   mexPrintMsg("alpha", alpha_);
   
   if (mexIsField(mx_params, "momentum")) {    
-    momentum_ = (float) mexGetScalar(mexGetField(mx_params, "momentum"));    
+    momentum_ = mexGetScalar(mexGetField(mx_params, "momentum"));    
+    mexAssert(0 <= momentum_ && momentum_ < 1, "Momentum is out of range [0, 1)");
   }
   mexPrintMsg("momentum", momentum_);
   
   if (mexIsField(mx_params, "adjustrate")) {    
-    adjustrate_ = (float) mexGetScalar(mexGetField(mx_params, "adjustrate"));    
+    adjustrate_ = mexGetScalar(mexGetField(mx_params, "adjustrate"));    
+    mexAssert(0 <= adjustrate_, "Adjustrate must be non-negative");
   }
   mexPrintMsg("adjustrate", adjustrate_);
   
   if (mexIsField(mx_params, "maxcoef")) {    
-    maxcoef_ = (float) mexGetScalar(mexGetField(mx_params, "maxcoef"));
-    mincoef_ = (float) 1 / maxcoef_;    
+    maxcoef_ = mexGetScalar(mexGetField(mx_params, "maxcoef"));
+    mexAssert(1 <= maxcoef_ , "Maxcoef must be larger or equal to 1");
+    mincoef_ = 1 / maxcoef_;    
   }  
-  mexPrintMsg("maxcoef", maxcoef_);
+  mexPrintMsg("maxcoef", maxcoef_);  
   
   if (mexIsField(mx_params, "balance")) {    
     balance_ = (bool) mexGetScalar(mexGetField(mx_params, "balance"));    

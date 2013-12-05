@@ -28,11 +28,11 @@ public:
   size_t batchsize_;
   size_t numepochs_;
   bool balance_;
-  float alpha_;
-  float momentum_;
-  float adjustrate_;
-  float maxcoef_;
-  float mincoef_;
+  double alpha_;
+  double momentum_;
+  double adjustrate_;
+  double maxcoef_;
+  double mincoef_;
 
   Params();
   

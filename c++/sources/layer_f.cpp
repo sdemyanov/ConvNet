@@ -27,6 +27,7 @@ void LayerFull::Init(const mxArray *mx_layer, Layer *prev_layer) {
   
   mexAssert(mexIsField(mx_layer, "length"), "The 'f' type layer must contain the 'length' field");
   length_ = (size_t) mexGetScalar(mexGetField(mx_layer, "length"));
+  mexAssert(1 <= length_, "Length on the 'f' layer must be greater or equal to 1");
   if (prev_layer->type_ != "f") {
     length_prev_ = prev_layer->mapsize_[0] * prev_layer->mapsize_[1] * prev_layer->outputmaps_;
   } else {
@@ -42,7 +43,8 @@ void LayerFull::Init(const mxArray *mx_layer, Layer *prev_layer) {
   }
   if (function_ == "SVM") {
     mexAssert(mexIsField(mx_layer, "C"), "The 'SVM' layer must contain the 'C' field");
-    c_ = (float) mexGetScalar(mexGetField(mx_layer, "C"));
+    c_ = mexGetScalar(mexGetField(mx_layer, "C"));
+    mexAssert(c_ > 0, "C on the 'f' layer must be positive");
   } else {
     std::string errmsg = function_ + " - unknown function for the layer";      
     mexAssert(function_ == "sigmoid" || function_ == "relu", errmsg);
@@ -50,8 +52,10 @@ void LayerFull::Init(const mxArray *mx_layer, Layer *prev_layer) {
   if (!mexIsField(mx_layer, "droprate")) {
     droprate_ = 0;
   } else {
-    droprate_ = (float) mexGetScalar(mexGetField(mx_layer, "droprate"));
-  }  
+    droprate_ = mexGetScalar(mexGetField(mx_layer, "droprate"));
+  }
+  mexAssert(0 <= droprate_, "Droprate must be non-negative");
+  mexAssert(droprate_ < 1 - (float) 1/length_, "Droprate must be smaller than 1-(1/length)");
   double rand_coef = 2 * sqrt((double) 6 / (length_ + length_prev_));  
   std::vector<size_t> lengthsize(2);
   lengthsize[0] = length_; lengthsize[1] = length_prev_;
@@ -73,16 +77,10 @@ void LayerFull::Forward(const Layer *prev_layer, bool istrain) {
   // processing the layer
   if (istrain) { // dropout, training
     std::vector<size_t> dropsize(2);
-    dropsize[0] = length_; dropsize[1] = batchsize_;
+    dropsize[0] = length_prev_; dropsize[1] = batchsize_;
     Mat dropmat(dropsize);
     dropmat.Rand();
-    for (size_t i = 0; i < length_; ++i) {
-      for (size_t j = 0; j < length_prev_; ++j) {
-        if (dropmat(i, j) < droprate_) {
-          input_(i, j) = 0;
-        }
-      }
-    }
+    input_.CondAssign(dropmat, droprate_, false, 0);    
   } else { // dropout, testing
     input_ *= (1 - droprate_);
   }  
@@ -144,17 +142,13 @@ void LayerFull::SetWeights(std::vector<double> &weights) {
   
   size_t numel = length_ * length_prev_;
   mexAssert(weights.size() >= numel, "Vector of weights is too short!");
-  std::vector<double> curweights(weights.begin(), weights.begin() + numel);
-  std::vector<size_t> lengthsize(2);
-  lengthsize[0] = length_; lengthsize[1] = length_prev_;
-  weights_.get().FromVect(curweights, lengthsize);      
+  std::vector<double> curweights(weights.begin(), weights.begin() + numel);  
+  weights_.get().FromVect(curweights, weights_.size());      
   weights.erase(weights.begin(), weights.begin() + numel);
   
   mexAssert(weights.size() >= length_, "Vector of weights is too short!");
-  std::vector<double> curbiases(weights.begin(), weights.begin() + length_);
-  std::vector<size_t> biassize(2);
-  biassize[0] = length_; biassize[1] = 1;
-  biases_.get().FromVect(curbiases, biassize);
+  std::vector<double> curbiases(weights.begin(), weights.begin() + length_);  
+  biases_.get().FromVect(curbiases, biases_.size());
   weights.erase(weights.begin(), weights.begin() + length_);        
 }
 

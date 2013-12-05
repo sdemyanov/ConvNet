@@ -24,11 +24,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mex_print.h"
 #include <vector>
 
+bool mexIsCell(const mxArray *mx_array);
+
+const mxArray* mexGetCell(const mxArray *mx_array, size_t ind);
+
+bool mexIsStruct(const mxArray *mx_array);
+
 const mxArray* mexGetField(const mxArray *mx_array, const char *fieldname);
 
 size_t mexGetDimensionsNum(const mxArray *mx_array);
 
 std::vector<size_t> mexGetDimensions(const mxArray *mx_array);
+
+size_t mexGetNumel(const mxArray *mx_array);
 
 double mexGetScalar(const mxArray *mx_array);
 

@@ -33,10 +33,13 @@ void LayerConv::Init(const mxArray *mx_layer, Layer *prev_layer) {
   mexAssert(mapsize_.size() == kernelsize_.size(), "Kernels and maps must be the same dimensionality");
   for (size_t i = 0; i < mapsize_.size(); ++i) {
     kernelsize_[i] = (size_t) kernelsize[i];
+    mexAssert(1 <= kernelsize_[i], "Kernelsize on the 'c' layer must be greater or equal to 1");
     mapsize_[i] = prev_layer->mapsize_[i] - kernelsize_[i] + 1;
+    mexAssert(1 <= mapsize_[i], "Kernelsize on the 'c' layer must be smaller or equal to mapsize");
   }
   mexAssert(mexIsField(mx_layer, "outputmaps"), "The 'c' type layer must contain the 'outputmaps' field");
   outputmaps_ = (size_t) mexGetScalar(mexGetField(mx_layer, "outputmaps"));  
+  mexAssert(1 <= outputmaps_, "Outputmaps on the 'i' layer must be greater or equal to 1");
   if (!mexIsField(mx_layer, "function")) {
     function_ = "sigmoid";
   } else {
@@ -167,10 +170,8 @@ void LayerConv::SetWeights(std::vector<double> &weights) {
     }    
   }
   mexAssert(weights.size() >= outputmaps_, "Vector of weights is too short!");
-  std::vector<double> curbiases(weights.begin(), weights.begin() + outputmaps_);
-  std::vector<size_t> biassize(2);
-  biassize[0] = outputmaps_; biassize[1] = 1;
-  biases_.get().FromVect(curbiases, biassize);      
+  std::vector<double> curbiases(weights.begin(), weights.begin() + outputmaps_);  
+  biases_.get().FromVect(curbiases, biases_.size());      
   weights.erase(weights.begin(), weights.begin() + outputmaps_);      
 }
 

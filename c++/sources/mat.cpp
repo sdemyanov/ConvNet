@@ -286,9 +286,10 @@ Mat& Mat::assign(double val) {
 }
 
 Mat& Mat::Rand() {
+  double eps = (double) 1 / RAND_MAX;
   for (size_t i = 0; i < mat_.size1(); ++i) {
     for (size_t j = 0; j < mat_.size2(); ++j) {
-      mat_(i, j) = (double) rand() / RAND_MAX;      
+      mat_(i, j) = eps + (double) rand() / RAND_MAX; // to avoid it be 0
     }
   }
   return *this;
@@ -437,7 +438,7 @@ std::vector<double> Mat::ToVect() const {
 Mat& Mat::ElemProd(const Mat &a) {
   mexAssert(mat_.size1() == a.size1() && mat_.size2() == a.size2(), 
     "In 'Mat::ElemProd' the matrices are of the different size");
-  mat_ = element_prod(mat_, a.mat_);
+  mat_ = element_prod(mat_, a.mat_);  
   return *this;
 }
 
@@ -482,7 +483,7 @@ Mat& Mat::CondAssign(const Mat &condmat, double threshold, bool incase, double a
 Mat& Mat::CondAdd(const Mat &condmat, double threshold, bool incase, double a) {
   for (size_t i = 0; i < mat_.size1(); ++i) {
     for (size_t j = 0; j < mat_.size2(); ++j) {      
-      if (incase != (condmat(i, j) > threshold)) mat_(i, j) += a; // xor
+      if (incase == (condmat(i, j) > threshold)) mat_(i, j) += a; // xor
     }
   }
   return *this;
@@ -491,7 +492,7 @@ Mat& Mat::CondAdd(const Mat &condmat, double threshold, bool incase, double a) {
 Mat& Mat::CondProd(const Mat &condmat, double threshold, bool incase, double a) {
   for (size_t i = 0; i < mat_.size1(); ++i) {
     for (size_t j = 0; j < mat_.size2(); ++j) {      
-      if (incase != (condmat(i, j) > threshold)) mat_(i, j) *= a; // xor
+      if (incase == (condmat(i, j) > threshold)) mat_(i, j) *= a; // xor
     }
   }
   return *this;

@@ -1,8 +1,10 @@
 function [layers, pred] = cnnff(layers, x, regime)
 
 n = numel(layers);
-batchsize = size(x, 3); % number of examples in the minibatch
-layers{1}.a{1} = x;
+batchsize = size(x{1}, 3); % number of examples in the minibatch
+for k = 1:length(x)
+  layers{1}.a{k} = x{k};
+end;
 
 for l = 2 : n   %  for each layer
   if strcmp(layers{l}.type, 'c')
@@ -46,6 +48,33 @@ for l = 2 : n   %  for each layer
       end;      
     end
     
+    elseif strcmp(layers{l}.type, 't') % neighborhood of maximum        
+      s = layers{l}.mapsize; % size vertical
+      lv = floor((s(1) - 1)/2); hv = s(1) - lv - 1; % lowest vertical, highest vertical
+      lh = floor((s(2) - 1)/2); hh = s(2) - lh - 1; % lowest horizontal, highest horizontal
+      for j = 1 : layers{l-1}.outputmaps
+        layers{l}.a{j} = zeros(s(1), s(2), batchsize);
+        layers{l}.mi{j} = zeros(2, batchsize); % maximum indices
+        for e = 1 : batchsize
+          curval = layers{l-1}.a{j}(:, :, e);
+          sc = size(curval); % size current
+          while (sc(1) < s(1))
+            curval(end+1, :) = 0; %curval(end, :);
+            sc(1) = sc(1) + 1;
+          end;
+          while (sc(2) < s(2))
+            curval(:, end+1) = 0; %curval(:, end);
+            sc(2) = sc(2) + 1;
+          end;
+          availmax = curval(1+lv:sc(1)-hv, 1+lh:sc(2)-hh);
+          % maximum vertical, maximum horizontal
+          [mv, mh] = find(availmax == max(availmax(:)), 1, 'first');
+          mv = mv + lv; mh = mh + lh;
+          layers{l}.a{j}(:, :, e) = curval(mv-lv:mv+hv, mh-lh:mh+hh);
+          layers{l}.mi{j}(:, e) = [mv; mh];                                  
+        end;        
+      end
+
   elseif strcmp(layers{l}.type, 'f')
     %  concatenate all end layer feature maps into vector
     if ~strcmp(layers{l-1}.type, 'f')          
@@ -59,7 +88,7 @@ for l = 2 : n   %  for each layer
       layers{l}.fv = layers{l-1}.ov;
     end;
 
-    if (regime == 0) % training
+    if (regime == 1) % training
       dropmat = rand(size(layers{l}.fv));
       dropmat(dropmat < layers{l}.droprate) = 0;
       dropmat(dropmat >= layers{l}.droprate) = 1;

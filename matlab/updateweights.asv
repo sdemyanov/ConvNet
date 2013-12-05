@@ -6,17 +6,15 @@ for l = 2 : numel(layers)
     for i = 1 : layers{l}.outputmaps
       for j = 1 : layers{l-1}.outputmaps
         if (regime == 0)  
-          layers{l}.dkp{i, j} = params.momentum * layers{l}.dkp{i, j};
-          delta = layers{l}.dkp{i, j};
+          delta = params.momentum * layers{l}.dkp{i, j};          
         else
-          layers{l}.dk{i, j} = (1 - params.momentum) * layers{l}.dk{i, j};
-          delta = layers{l}.dk{i, j};
+          delta = (1 - params.momentum) * layers{l}.dk{i, j};          
           signs = layers{l}.dk{i, j} .* layers{l}.dkp{i, j};          
-          layers{l}.dkp{i, j} = layers{l}.dkp{i, j} + delta;
+          layers{l}.dkp{i, j} = params.momentum * layers{l}.dkp{i, j} + delta;
           layers{l}.gk{i, j}(signs > 0) = layers{l}.gk{i, j}(signs > 0) + params.adjustrate;
           layers{l}.gk{i, j}(signs <= 0) = layers{l}.gk{i, j}(signs <= 0) * (1 - params.adjustrate);
           layers{l}.gk{i, j}(layers{l}.gk{i, j} > params.maxcoef) = params.maxcoef;
-          layers{l}.gk{i, j}(layers{l}.gk{i, j} <= 1/params.maxcoef) = 1/params.maxcoef;          
+          layers{l}.gk{i, j}(layers{l}.gk{i, j} <= params.mincoef) = params.mincoef;          
         end;
         layers{l}.k{i, j} = layers{l}.k{i, j} - params.alpha * layers{l}.gk{i, j} .* delta;                      
       end             
@@ -24,17 +22,15 @@ for l = 2 : numel(layers)
     
   elseif strcmp(layers{l}.type, 'f')
     if (regime == 0)      
-      layers{l}.dwp = params.momentum * layers{l}.dwp;  
-      delta = layers{l}.dwp;  
+      delta = params.momentum * layers{l}.dwp;      
     else
-      layers{l}.dw = (1 - params.momentum) * layers{l}.dw;
-      delta = layers{l}.dw;
+      delta = (1 - params.momentum) * layers{l}.dw;      
       signs = sign(layers{l}.dw) .* sign(layers{l}.dwp);
-      layers{l}.dwp = layers{l}.dwp + delta;  
+      layers{l}.dwp = params.momentum * layers{l}.dwp + delta;  
       layers{l}.gw(signs > 0) = layers{l}.gw(signs > 0) + params.adjustrate;
       layers{l}.gw(signs <= 0) = layers{l}.gw(signs <= 0) * (1 - params.adjustrate);
       layers{l}.gw(layers{l}.gw > params.maxcoef) = params.maxcoef;
-      layers{l}.gw(layers{l}.gw <= 1/params.maxcoef) = 1/params.maxcoef;        
+      layers{l}.gw(layers{l}.gw <= params.mincoef) = 1/params.mincoef;        
     end;  
     layers{l}.w = layers{l}.w - params.alpha * layers{l}.gw .* delta;
     %constr = 0.4;
@@ -55,7 +51,7 @@ for l = 2 : numel(layers)
       layers{l}.gb(signs > 0) = layers{l}.gb(signs > 0) + params.adjustrate;
       layers{l}.gb(signs <= 0) = layers{l}.gb(signs <= 0) * (1 - params.adjustrate);
       layers{l}.gb(layers{l}.gb > params.maxcoef) = params.maxcoef;
-      layers{l}.gb(layers{l}.gb <= 1/params.maxcoef) = 1/params.maxcoef;              
+      layers{l}.gb(layers{l}.gb <= params.mincoef) = 1/params.mincoef;              
     end;        
     layers{l}.b = layers{l}.b - params.alpha * layers{l}.gb .* delta;
   end;

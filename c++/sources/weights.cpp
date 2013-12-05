@@ -24,28 +24,27 @@ void Weights::Init(const std::vector<size_t> &newsize, double coef) {
   (weights_.Rand() -= 0.5) *= coef;
   weights_der_.init(newsize, 0);
   weights_der_prev_.init(newsize, 0);
-  weights_learn_coefs_.init(newsize, 1);  
+  weights_learn_coefs_.init(newsize, 1);
+  size_ = newsize;
 }
 
 void Weights::Update(const Params &params, bool isafter) {
 
-  Mat weights_delta;
+  Mat signs(size_);
   if (!isafter) {
-    weights_der_prev_ *= params.momentum_;
-    weights_delta = weights_der_prev_;
+    weights_der_ = weights_der_prev_;
+    weights_der_ *= params.momentum_;    
   } else {
-    weights_der_ *= (1 - params.momentum_);
-    weights_delta = weights_der_;
-    weights_der_.ElemProd(weights_der_prev_); // just to get the sign
-    weights_der_prev_ += weights_delta;
-    weights_learn_coefs_.CondAdd(weights_der_, 0, true, params.adjustrate_);
-    weights_learn_coefs_.CondProd(weights_der_, 0, false, 1 - params.adjustrate_);
+    signs = weights_der_prev_;
+    signs.ElemProd(weights_der_);
+    weights_learn_coefs_.CondAdd(signs, 0, true, params.adjustrate_);
+    weights_learn_coefs_.CondProd(signs, 0, false, 1-params.adjustrate_);
     weights_learn_coefs_.CondAssign(weights_learn_coefs_, params.maxcoef_, true, params.maxcoef_);
     weights_learn_coefs_.CondAssign(weights_learn_coefs_, params.mincoef_, false, params.mincoef_);
-  }
-  weights_delta.ElemProd(weights_learn_coefs_);
-  weights_delta *= params.alpha_;
-  weights_ -= (weights_delta.ElemProd(weights_learn_coefs_) *= params.alpha_);
+    weights_der_prev_ = weights_der_;    
+    weights_der_ *= (1 - params.momentum_);    
+  }  
+  weights_ -= (weights_der_.ElemProd(weights_learn_coefs_) *= params.alpha_);
   // direction that decreases the error    
 }
 
@@ -55,6 +54,10 @@ Mat& Weights::get() {
 
 const Mat& Weights::get() const {
   return weights_;
+}
+
+std::vector<size_t> Weights::size() const {
+  return size_;
 }
 
 const double& Weights::get(size_t ind) const {

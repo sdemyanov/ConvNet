@@ -20,6 +20,9 @@ if (~isfield(params, 'adjustrate'))
 end;
 if (~isfield(params, 'maxcoef'))
   params.maxcoef = 10;
+  params.mincoef = 0.1;
+else
+  params.mincoef = 1 / params.maxcoef;
 end;
 
 end

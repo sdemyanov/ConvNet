@@ -30,6 +30,7 @@ public:
   Mat& get();
   const Mat& get() const;
   const double& get(size_t ind) const;
+  std::vector<size_t> size() const; 
   Mat& der();  
   double& der(size_t ind);  
   
@@ -38,6 +39,7 @@ private:
   Mat weights_der_;
   Mat weights_der_prev_;
   Mat weights_learn_coefs_; 
+  std::vector<size_t> size_;
   
 };
 

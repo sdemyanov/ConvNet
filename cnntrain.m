@@ -26,6 +26,6 @@ else
   error('"%s" - wrong type, must be either "mexfun" or "matlab"', type);
 end;
 t = toc;
-disp(['Total training time:' num2str(t)]);
+disp(['Total training time: ' num2str(t)]);
 
 end

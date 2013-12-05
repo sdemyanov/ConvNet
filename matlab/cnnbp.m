@@ -49,6 +49,19 @@ function [layers, loss] = cnnbp(layers, y)
         end;          
       end
 
+    elseif strcmp(layers{l}.type, 't')
+      s = layers{l}.mapsize;
+      lv = floor((s(1) - 1)/2); hv = s(1) - lv - 1; % lowest vertical, highest vertical
+      lh = floor((s(2) - 1)/2); hh = s(2) - lh - 1; % lowest horizontal, highest horizontal        
+      for i = 1 : layers{l-1}.outputmaps
+        mi = layers{l}.mi{i};
+        layers{l-1}.d{i} = zeros([layers{l-1}.mapsize batchsize]);
+        for e = 1 : batchsize            
+          layers{l-1}.d{i}(mi(1, e)-lv:mi(1, e)+hv, mi(2, e)-lh:mi(2, e)+hh, e) = ...
+            layers{l}.d{i}(:, :, e);
+        end;                    
+      end
+
     elseif strcmp(layers{l}.type, 'f')
       if strcmp(layers{l}.function, 'SVM') % for SVM
       elseif strcmp(layers{l}.function, 'sigmoid') % for sigmoids

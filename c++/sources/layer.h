@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mat.h"
 #include "weights.h"
 #include "params.h"
+#include "mex_util.h"
 #include <vector>
 #include <string>
 

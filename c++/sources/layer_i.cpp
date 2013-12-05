@@ -30,13 +30,15 @@ void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
   std::vector<double> mapsize = mexGetVector(mexGetField(mx_layer, "mapsize"));
   mexAssert(mapsize.size() == 2, "Input mapsize must contain 2 values");
   mapsize_.resize(mapsize.size());  
-  for (size_t i = 0; i < mapsize_.size(); ++i) {
+  for (size_t i = 0; i < mapsize_.size(); ++i) {    
     mapsize_[i] = (size_t) mapsize[i];        
+    mexAssert(1 <= mapsize_[i], "Mapsize on the 'i' layer must be greater or equal to 1");
   }  
   if (!mexIsField(mx_layer, "outputmaps")) {
     outputmaps_ = 1;
   } else {
     outputmaps_ = (size_t) mexGetScalar(mexGetField(mx_layer, "outputmaps"));
+    mexAssert(1 <= outputmaps_, "Outputmaps on the 'i' layer must be greater or equal to 1");
   }  
   activ_.resize(outputmaps_);
   deriv_.resize(outputmaps_);  

@@ -33,6 +33,7 @@ void LayerScal::Init(const mxArray *mx_layer, Layer *prev_layer) {
   scale_.resize(scale.size());
   for (size_t i = 0; i < mapsize_.size(); ++i) {
     scale_[i] = (size_t) scale[i];
+    mexAssert(1 <= scale_[i], "Scale size on the 's' layer must be greater or equal to 1");
     mapsize_[i] = ceil((double) prev_layer->mapsize_[i] / scale_[i]);
   }    
   outputmaps_ = prev_layer->outputmaps_;

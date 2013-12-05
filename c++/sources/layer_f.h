@@ -45,8 +45,8 @@ public:
 private:
   Weights weights_;
   Weights biases_;
-  float droprate_;  
-  float c_; // coefficient for SVM
+  double droprate_;  
+  double c_; // coefficient for SVM
   
 };
 
