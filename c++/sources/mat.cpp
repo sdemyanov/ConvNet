@@ -579,19 +579,19 @@ Mat& Mat::operator /= (double a) {
   
 void Trans(const Mat &a, Mat &c) {
   c.mat_.resize(a.size2(), a.size1());
-  c.mat_ = trans(a.mat_);
+  noalias(c.mat_) = trans(a.mat_);
 }
 
 void Prod(const Mat &a, const Mat &b, Mat &c) {
   mexAssert(a.size2() == b.size1(),
   "In Prod the sizes of matrices do not correspond");
   c.mat_.resize(a.size1(), b.size2());
-  c.mat_ = prod(a.mat_, b.mat_);  
+  noalias(c.mat_) = prod(a.mat_, b.mat_);  
 }
 
 void Sum(const Mat &a, const Mat &b, Mat &c) {  
   mexAssert(a.size1() == b.size1() && a.size2() == b.size2(),
   "In Sum the sizes of matrices do not correspond");
   c.mat_.resize(a.size1(), b.size2());
-  c.mat_ = a.mat_ + b.mat_;
+  noalias(c.mat_) = a.mat_ + b.mat_;
 }
