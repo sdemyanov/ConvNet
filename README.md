@@ -8,11 +8,10 @@ This library has been written as a part of my project on facial expression analy
 
 GENERAL INFORMATION
 
-Convolitional neural net is a type of deep learning classification algorithms, that can learn useful features from raw data by themselves. Learning is performed by tuning its weighs. CNNs consist of several layers, that are usually convolutional and subsampling layers following each other. Convolution layer performs filtering of its input with a small matrix of weights and applies some non-linear function to the result. Subsampling layer does not contain weights and simply reduces the size of its input by averaging of max-pooling operation. The last layer is fully connected by weights with all outputs of the previous layer. The output is also modified by a non-linear function.
+Convolitional neural net is a type of deep learning classification algorithms, that can learn useful features from raw data by themselves. Learning is performed by tuning its weighs. CNNs consist of several layers, that are usually convolutional and subsampling layers following each other. Convolution layer performs filtering of its input with a small matrix of weights and applies some non-linear function to the result. Subsampling layer does not contain weights and simply reduces the size of its input by averaging of max-pooling operation. The last layer is fully connected by weights with all outputs of the previous layer. The output is also modified by a non-linear function. If your neural net consists of only fully connected layers, you get a classic neural net.
 
-Learning process consists of 2 steps: forward and backward passes, that repeat for all objects in a training set. On the forward pass each layer transforms the output from the previous layer according to its function. The output of the last layer is compared with the label values and the total error is computed. On the backward pass the corresponding transformation happens with the derivatives of error with respect to outputs and weights of this layer. After the backward pass finished, the weights are changed in the direction that decreases the total error.
+Learning process consists of 2 steps: forward and backward passes, that repeat for all objects in a training set. On the forward pass each layer transforms the output from the previous layer according to its function. The output of the last layer is compared with the label values and the total error is computed. On the backward pass the corresponding transformation happens with the derivatives of error with respect to outputs and weights of this layer. After the backward pass finished, the weights are changed in the direction that decreases the total error. This process is performed for a batch of objects simultaneously, in order to decrease the sample bias. After all the object have been processed, the process might repeat for different batch splits.
 
-This process is performed for a batch of objects simultaneously, in order to decrease the sample bias. After all the object have been processed, the process might repeat for different batch splits.
  
 DESCRIPTION
 
@@ -48,7 +47,8 @@ params - define the learning process. It is a cell with the following fields. If
 - momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0.
 - adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
 - maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively.
-- balance - was supposed to balance errors for highly unbalanced datasets but was not fully implemented.
+- balance - boolean variable. Balances errors according to the class appearance frequencies. Useful for highly unbalanced datasets. Default is 0.
+- verbose - Determines output info during learning. For 0 there is no output, for 1 it prints only number of epochs, for 2 it prints both numbers of epoch and batch. Default is 2.
 
 weights - the weights vector obtained from genweights or cnntrain, that is used for weights initialization. Can be used for testing, repeating the results or continuing the training procedure. 
 
@@ -61,7 +61,7 @@ TECHNICAL DETAILS
 - The "cnnexamples.m" file requires "mnist_uint8.mat" file to be performed. You can download it from 
 Matlab Central File Exchange, just google it and save in ./data folder. You also need to create ./workspaces folder to save your weights.
 
-- Uncertainty comes not only from weights but also from batch shuffling. Therefore, when weights are passed to the cnntrain function, the batches are created in a natural order: first "batchsize" objects become the first batch and so on.
+- Uncertainty comes not only from weights but also from batch shuffling. Therefore, when weights are passed to the cnntrain function, the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Another source of uncertainity is the dropout matrix. Therefore if want to get repeatable resutls, you need to setup all dropout rates to 0.
 
 SOME COMMENTS 
 
