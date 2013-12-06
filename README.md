@@ -32,12 +32,12 @@ layers - the structure of CNN. Sets up as cell array, with each element represen
 - i - input layer. Must be the first and only first. Must contain the "mapsize" field, that is a vector with 2 integer values, representing the objects size. May also contain the "outputmaps" field, that specifies the number of independent data sources. In this case the function input must be a cell array with the "outputmaps" number of cells.
 - c - convolutional layer. Must contain the "kernelsize" field, that identifies the filter size. Must not be greater than the size of maps on the previous layer. Must also contain the "outputmaps" field, that is the number of maps for each objects on this layer. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m * n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions.
 - s - scaling layer. Reduces the map size by pooling. Must contain the "scale" field, that is also a vector with integer 2 values.
-- f - fully connected layer. Must contain the "length" field that defines the number of its outputs. Must be the last one. For the last layer the length must coincide with the number of classes. May also contain the "dropout" field, that determines the dropout ratio. 0 means no dropout. Should not be larger that 1 - 1/length.
+- f - fully connected layer. Must contain the "length" field that defines the number of its outputs. Must be the last one. For the last layer the length must coincide with the number of classes. May also contain the "dropout" field, that determines the probabilty of dropping the input elements. Should not be too large, otherwise it drops everything.
 
 All layers except "i" may contain the "function" field, that defines their action. For:
 - c and f - it defines the non-linear function. It can be either "sigm" or "relu", for sigmoids and rectified linear units respectively. The default value is "sigm".
 - f - it can also be "SVM", that calculates the SVM error function.
-See www.cs.toronto.edu/~tang/papers/dlsvm.pdf for details. Has been tested only for final layer.
+See [this article](www.cs.toronto.edu/~tang/papers/dlsvm.pdf) for the details. Has been tested only for final layer.
 - s - it defines the pooling procedure, that can be either "mean" or "max". The default value is "mean". 
 
 params - define the learning process. It is a cell with the following fields. If some of them are absent, the value by default is taken.
@@ -58,8 +58,8 @@ TECHNICAL DETAILS
 
 - For compilation the C++ version you need the have the Boost library. Just modify the paths in compile.m and run it. I tried it only in Windows, but it should work in Linux as well. You can also download the binaries from my website.
 
-- The "cnnexamples.m" file requires "mnist_uint8.mat" file to be performed. You can download it from 
-Matlab Central File Exchange, just google it and save in ./data folder. You also need to create ./workspaces folder to save your weights.
+- The "cnnexamples.m" file requires "mnist_uint8.mat" file to be performed. You can get it from 
+[Matlab Central File Exchange](http://www.mathworks.com.au/matlabcentral/fileexchange/38310-deep-learning-toolbox/content/rasmusbergpalm-DeepLearnToolbox-45ef96c/data/mnist_uint8.mat), just download it and save in ./data folder.
 
 - Uncertainty comes not only from weights but also from batch shuffling. Therefore, when weights are passed to the cnntrain function, the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Another source of uncertainity is the dropout matrix. Therefore if want to get repeatable resutls, you need to setup all dropout rates to 0.
 
@@ -71,7 +71,7 @@ SOME COMMENTS
 
 ACKNOLEDGEMENTS
 
-- The original Matlab code and the "mnist_uint8.mat" workspace was created by Rasmus Berg Palm and can be found in his DeepLearnToolbox(https://github.com/rasmusbergpalm/DeepLearnToolbox). The Matlab version basically remained the same structure as there.
+- The original Matlab code and the "mnist_uint8.mat" workspace was created by [Rasmus Berg Palm](dtu.academia.edu/RasmusBergPalm) and can be found in his [DeepLearnToolbox](https://github.com/rasmusbergpalm/DeepLearnToolbox). The Matlab version basically remained the same structure as there.
 
-- The C++ version was inspired by Yichuan Tang(http://www.cs.toronto.edu/~tang) and his solution(http://code.google.com/p/deep-learning-faces/) for the Kaggle Facial Expression Recognition Challenge. The structure of C++ code was originated from there.
+- The C++ version was inspired by [Yichuan Tang](http://www.cs.toronto.edu/~tang) and his [solution](http://code.google.com/p/deep-learning-faces/) for the Kaggle Facial Expression Recognition Challenge. The structure of C++ code was originated from there.
  
