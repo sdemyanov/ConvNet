@@ -56,8 +56,13 @@ for i = 1 : params.numepochs
     [layers, loss] = cnnbp(layers, batch_y);
     layers = updateweights(layers, params, 1); % final update
     trainerr((i-1)*numbatches+j) = loss;    
-    disp([i j]);
-  end  
+    if (params.verbose == 2)
+      disp(['Epoch: ' num2str(i) ', batch: ', num2str(j)]);
+    end;
+  end
+  if (params.verbose == 1)
+    disp(['Epoch: ' num2str(i)]);
+  end;
 end
     
 weights = getweights(layers);

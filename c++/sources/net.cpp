@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 void Net::InitLayers(const mxArray *mx_layers) {
   
-  mexPrintMsg("Start layers initialization...");
+  //mexPrintMsg("Start layers initialization...");
   std::srand((unsigned) std::time(0));  
   size_t layers_num = mexGetNumel(mx_layers);  
   mexAssert(layers_num >= 2, "The net must contain at least 2 layers");
@@ -34,7 +34,7 @@ void Net::InitLayers(const mxArray *mx_layers) {
   mexAssert(layer_type == "i", "The first layer must be the type of 'i'");
   layers_.resize(layers_num);
   layers_[0] = new LayerInput();
-  mexPrintMsg("Initializing layer of type", layer_type);    
+  //mexPrintMsg("Initializing layer of type", layer_type);    
   layers_.front()->Init(mx_layer, NULL); 
   for (size_t i = 1; i < layers_num; ++i) {    
     Layer *prev_layer = layers_[i-1];
@@ -48,24 +48,23 @@ void Net::InitLayers(const mxArray *mx_layers) {
       layers_[i] = new LayerFull();
     } else {
       mexAssert(false, layer_type + " - unknown type of the layer");
-    }
-    //std::string layer_info = std::string("number ") + i + std::string(", type ") + layer_type;
-    mexPrintMsg("Initializing layer of type", layer_type);    
+    }    
+    //mexPrintMsg("Initializing layer of type", layer_type);    
     layers_[i]->Init(mx_layer, prev_layer);    
   }
   mexAssert(layer_type == "f", "The last layer must be the type of 'f'");
-  mexPrintMsg("Layers initialization finished");
+  //mexPrintMsg("Layers initialization finished");
 }
 
 void Net::InitParams(const mxArray *mx_params) {
-  mexPrintMsg("Start params initialization...");
+  //mexPrintMsg("Start params initialization...");
   params_.Init(mx_params);
-  mexPrintMsg("Params initialization finished");
+  //mexPrintMsg("Params initialization finished");
 }
 
 void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {  
   
-  mexPrintMsg("Start training...");
+  //mexPrintMsg("Start training...");
   LayerFull *lastlayer = static_cast<LayerFull*>(layers_.back());
   std::vector<size_t> labels_dim = mexGetDimensions(mx_labels);  
   mexAssert(labels_dim.size() == 2, "The label array must have 2 dimensions");    
@@ -139,17 +138,24 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       UpdateWeights(false);      
       Forward(data_batch, pred_batch, true);
       Backward(labels_batch, trainerror_[epoch * numbatches + batch]);      
-      UpdateWeights(true);      
-      mexPrintMsg("Batch", batch + 1);      
+      UpdateWeights(true);
+      if (params_.verbose_ == 2) {
+        std::string info = std::string("Epoch: ") + std::to_string(epoch+1) +
+                           std::string(", batch: ") + std::to_string(batch+1);
+        mexPrintMsg(info);
+      }
     } // batch    
+    if (params_.verbose_ == 1) {
+      std::string info = std::string("Epoch: ") + std::to_string(epoch+1);                         
+      mexPrintMsg(info);
+    }
   } // epoch
-  mexPrintMsg("Training finished");
+  //mexPrintMsg("Training finished");
 }
 
 void Net::Classify(const mxArray *mx_data, Mat &pred) {
   
-  mexPrintMsg("Start classification...");
-  
+  //mexPrintMsg("Start classification...");  
   size_t mapnum = 1;  
   if (mexIsCell(mx_data)) {
     mapnum = mexGetNumel(mx_data);    
@@ -173,7 +179,7 @@ void Net::Classify(const mxArray *mx_data, Mat &pred) {
   }
 
   Forward(data, pred, false);
-  mexPrintMsg("Classification finished");
+  //mexPrintMsg("Classification finished");
 }
 
 void Net::Forward(const std::vector< std::vector<Mat> > &data_batch, Mat &pred, bool regime) {

@@ -24,6 +24,9 @@ if (~isfield(params, 'maxcoef'))
 else
   params.mincoef = 1 / params.maxcoef;
 end;
+if (~isfield(params, 'verbose'))
+  params.verbose = 2;
+end;
 
 end
 

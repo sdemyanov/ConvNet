@@ -37,7 +37,6 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   net.SetWeights(weights);  
   Mat pred;
   net.Classify(IN_X, pred);  
-  
   OUT_P = mexSetMatrix(pred);  
   
 }

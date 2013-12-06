@@ -39,8 +39,7 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   
   Net net;
   net.InitLayers(IN_L);
-  if (nRhs == 5) {
-    mexPrintMsg("Setting up weights...");
+  if (nRhs == 5) {    
     std::vector<double> weights_in = mexGetVector(IN_W);
     net.SetWeights(weights_in);
   }
@@ -50,17 +49,6 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   std::vector<double> weights = net.GetWeights();  
   std::vector<double> trainerror = net.GetTrainError();  
   OUT_W = mexSetVector(weights);
-  OUT_E = mexSetVector(trainerror);
-  /*
-  Mat kern(5, 5);
-  for (int i =0; i < 5; ++i) {
-    for (int j =0; j < 5; ++j) {
-      kern(i, j) = static_cast<LayerConv*>(net.layers_[1])->kernels_[0][0](i, j);
-    }
-  }  
-  OUT_W = mexSetMatrix(kern);
-  */
-  //OUT_W = mexSetScalar(static_cast<LayerConv*>(net.layers_[3])->kernels_[2][5](3, 4));
-  //OUT_E = mexSetScalar(5);
+  OUT_E = mexSetVector(trainerror);  
   
 }

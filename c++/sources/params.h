@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 class Params {
 
 public:
+  size_t verbose_;
   size_t batchsize_;
   size_t numepochs_;
   bool balance_;
@@ -32,7 +33,7 @@ public:
   double momentum_;
   double adjustrate_;
   double maxcoef_;
-  double mincoef_;
+  double mincoef_;  
 
   Params();
   
