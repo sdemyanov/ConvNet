@@ -1,5 +1,5 @@
 
-clear; close all; clc; clear mex;
+clear; close all; clear mex;
 
 addpath('./c++/build');
 addpath('./matlab');
@@ -23,25 +23,36 @@ train_y = double(train_y)';
 test_y = double(test_y)';
 kOutputs = size(train_y, 1);
 
-kTrainNum = 60000;
+kTrainNum = 5000;
 train_x = train_x(:, :, 1:kTrainNum);
 train_y = train_y(:, 1:kTrainNum);
+
+%{
+copy_x = train_x;
+clear train_x;
+train_x{1} = copy_x(:, 1:14, :);
+train_x{2} = copy_x(:, 15:28, :);
+copy_x = test_x;
+clear test_x;
+test_x{1} = copy_x(:, 1:14, :);
+test_x{2} = copy_x(:, 15:28, :);
+%}
 
 params.alpha = 1;
 params.batchsize = 50;
 params.numepochs = 1;
-params.momentum = 0.5;  
+params.momentum = 0;  
 params.adjustrate = 0;
 params.maxcoef = 10;
-params.balance = 0;
+params.balance = 1;
 
 layers = {
-    struct('type', 'i', 'mapsize', kXSize) % input layer    
-    struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 6, 'function', 'relu') % convolution layer
+    struct('type', 'i', 'mapsize', [28 28], 'outputmaps', 1) % input layer    
+    struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 6, 'function', 'relu') %convolution layer
     struct('type', 's', 'scale', [2 2], 'function', 'mean') % subsampling layer
-    struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 12, 'function', 'relu') % convolution layer
+    struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 12, 'function', 'relu') %convolution layer
     struct('type', 's', 'scale', [2 2], 'function', 'mean') % subsampling layer    
-    struct('type', 'f', 'length', kOutputs) % fully connected layer
+    struct('type', 'f', 'length', kOutputs, 'dropout', 0) % fully connected layer
 };
 
 %funtype = 'mexfun';
@@ -54,5 +65,5 @@ plot(trainerr);
 %save(fullfile(kWorkspaceFolder, 'weights.mat'), 'weights');
 %load(fullfile(kWorkspaceFolder, 'weights.mat'), 'weights');
 %%
-[pred, err]  = cnntest(layers, weights, test_x, test_y, funtype);
+[pred, err, ~]  = cnntest(layers, weights, test_x, test_y, funtype);
 disp([num2str(err*100) '% error']);

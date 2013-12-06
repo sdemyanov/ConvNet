@@ -32,11 +32,14 @@ class Mat{
 public:
   Mat() {};
   Mat(const std::vector<size_t> &newsize);
-  Mat(const std::vector<size_t> &newsize, double val);
+  Mat(size_t size1, size_t size2);  
   Mat& resize(const std::vector<size_t> &newsize);  
+  Mat& resize(size_t size1, size_t size2);  
   Mat& init(const std::vector<size_t> &newsize, double val);  
+  Mat& init(size_t size1, size_t size2, double val);  
   Mat& assign(double val);
   Mat& AddVect(const Mat &vect, size_t dim);
+  Mat& MultVect(const std::vector<double> &vect, size_t dim); // ElementWise!
   Mat& FromVect(const std::vector<double> &vect, const std::vector<size_t> &newsize);
   std::vector<double> ToVect() const;
   Mat& Rand();

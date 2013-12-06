@@ -54,8 +54,7 @@ void LayerFull::Init(const mxArray *mx_layer, Layer *prev_layer) {
   } else {
     droprate_ = mexGetScalar(mexGetField(mx_layer, "droprate"));
   }
-  mexAssert(0 <= droprate_, "Droprate must be non-negative");
-  mexAssert(droprate_ < 1 - (float) 1/length_, "Droprate must be smaller than 1-(1/length)");
+  mexAssert(0 <= droprate_ && droprate_ < 1, "Droprate must be in the range [0, 1)");  
   double rand_coef = 2 * sqrt((double) 6 / (length_ + length_prev_));  
   std::vector<size_t> lengthsize(2);
   lengthsize[0] = length_; lengthsize[1] = length_prev_;
@@ -75,10 +74,8 @@ void LayerFull::Forward(const Layer *prev_layer, bool istrain) {
     input_ = static_cast<const LayerFull*>(prev_layer)->output_;    
   }  
   // processing the layer
-  if (istrain) { // dropout, training
-    std::vector<size_t> dropsize(2);
-    dropsize[0] = length_prev_; dropsize[1] = batchsize_;
-    Mat dropmat(dropsize);
+  if (istrain) { // dropout, training    
+    Mat dropmat(length_prev_, batchsize_);
     dropmat.Rand();
     input_.CondAssign(dropmat, droprate_, false, 0);    
   } else { // dropout, testing

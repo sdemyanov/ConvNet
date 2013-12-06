@@ -31,9 +31,9 @@ assert(length(size(train_y)) == 2, 'The label array must have 2 dimensions');
 assert(size(train_y, 2) == train_num, 'Data and labels must have equal number of objects');
 assert(size(train_y, 1) == layers{end}.length, 'Labels and last layer must have equal number of classes');
 if (params.balance == 1)
-  layers{end}.coef = mean(train_y, 2);
+  layers{end}.coef = ones(size(train_y, 1), 1) ./ mean(train_y, 2) / size(train_y, 1);
 elseif (params.balance == 0)
-  layers{end}.coef = ones(size(train_y, 1), 1) / 2;  
+  layers{end}.coef = ones(size(train_y, 1), 1);  
 end;
 
 numbatches = ceil(train_num/params.batchsize);

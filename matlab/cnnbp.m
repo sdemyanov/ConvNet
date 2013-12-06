@@ -1,16 +1,16 @@
 function [layers, loss] = cnnbp(layers, y)
   n = numel(layers);
-  batchsize = size(y, 2); % number of examples in the minibatch    
-  coefs = (y ./ repmat(layers{n}.coef, 1, batchsize) + (1 - y) ./ (1 - repmat(layers{n}.coef, 1, batchsize))) / 2;
+  batchsize = size(y, 2); % number of examples in the minibatch  
   if (strcmp(layers{n}.function, 'SVM')) % for SVM 
     y(y == 0) = -1; 
-    layers{n}.ovd = -2 * coefs .* y .* max(1 - layers{n}.ov .* y, 0);      
+    layers{n}.ovd = -2 * y .* max(1 - layers{n}.ov .* y, 0);      
     loss = 1/2 * sum(sum(layers{n}.w * layers{n}.w')) / layers{n}.C + ...
        sum(sum(max(1 - layers{n}.ov .* y, 0).^2)) / batchsize;
   elseif (strcmp(layers{n}.function, 'sigmoid')) % for sigmoids
-    layers{n}.ovd =  coefs .* (layers{n}.ov - y);
+    layers{n}.ovd = layers{n}.ov - y;
     loss = 1/2 * sum(layers{n}.ovd(:).^2) / batchsize;
-  end;    
+  end;
+  layers{n}.ovd = layers{n}.ovd .* repmat(layers{end}.coef, 1, batchsize); 
 
   for l = n : -1 : 2
 
