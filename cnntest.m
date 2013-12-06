@@ -1,4 +1,4 @@
-function [pred, err] = cnntest(layers, weights, x, y, type)
+function [pred, err, bad] = cnntest(layers, weights, x, y, type)
 
 pred = cnnclassify(layers, weights, x, type);
 
