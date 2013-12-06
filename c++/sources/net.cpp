@@ -185,10 +185,8 @@ void Net::Classify(const mxArray *mx_data, Mat &pred) {
 void Net::Forward(const std::vector< std::vector<Mat> > &data_batch, Mat &pred, bool regime) {
   
   //mexPrintMsg("Start forward pass...");  
-  layers_.front()->batchsize_ = data_batch[0].size();
-  for (size_t map = 0; map < data_batch.size(); ++map) {
-    layers_.front()->activ_[map] = data_batch[map];
-  }  
+  layers_.front()->activ_ = data_batch;  
+  layers_.front()->batchsize_ = layers_.front()->activ_[0].size(); 
   for (size_t i = 1; i < layers_.size(); ++i) {
     //mexPrintMsg("Forward pass for layer", i);
     layers_[i]->Forward(layers_[i-1], regime);
