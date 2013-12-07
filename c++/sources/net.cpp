@@ -117,7 +117,7 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
     for (size_t i = 0; i < train_num; ++i) {
       randind[i] = i;
     }
-    if (shuffle_) {
+    if (params_.shuffle_) {
       std::random_shuffle(randind.begin(), randind.end());
     }
     std::vector<size_t>::const_iterator iter = randind.begin();
@@ -186,7 +186,7 @@ void Net::Forward(const std::vector< std::vector<Mat> > &data_batch, Mat &pred, 
   
   //mexPrintMsg("Start forward pass...");  
   layers_.front()->activ_ = data_batch;  
-  layers_.front()->batchsize_ = layers_.front()->activ_[0].size(); 
+  layers_.front()->batchsize_ = layers_.front()->activ_[0].size();
   for (size_t i = 1; i < layers_.size(); ++i) {
     //mexPrintMsg("Forward pass for layer", i);
     layers_[i]->Forward(layers_[i-1], regime);
@@ -259,15 +259,10 @@ void Net::SetWeights(std::vector<double> &weights) {
     layers_[i]->SetWeights(weights);
   }
   mexAssert(weights.size() == 0, "Vector of weights is too long!");
-  shuffle_ = false;  
 }
 
 std::vector<double> Net::GetTrainError() const {
   return trainerror_;
-}
-
-Net::Net() {
-  shuffle_ = true;
 }
 
 Net::~Net() {

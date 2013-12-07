@@ -39,7 +39,7 @@ end;
 numbatches = ceil(train_num/params.batchsize);
 trainerr = zeros(params.numepochs * numbatches, 1);
 for i = 1 : params.numepochs
-  if (nargin == 5)
+  if (params.shuffle == 0)
     kk = 1:train_num;
   else
     kk = randperm(train_num);

@@ -35,15 +35,14 @@ public:
   std::vector<double> GetWeights() const;
   std::vector<double> GetTrainError() const;
   
-  Net();
+  Net() {};
   ~Net();  
   
 private:
   std::vector<Layer*> layers_;
   Params params_;
   std::vector<double> classcoefs_;
-  std::vector<double> trainerror_;
-  bool shuffle_; 
+  std::vector<double> trainerror_;  
 
   void Forward(const std::vector< std::vector<Mat> > &data_batch, Mat &pred, bool istrain);
   void Backward(const Mat &labels_batch, double &loss);
