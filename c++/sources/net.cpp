@@ -73,6 +73,15 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
   size_t train_num = labels_dim[1];  
   Mat labels(labels_dim);
   mexGetMatrix(mx_labels, labels);
+  classcoefs_.assign(labels_dim[0], 1);
+  if (params_.balance_) {  
+    Mat labels_mean(labels_dim[0], 1);
+    labels.Mean(2, labels_mean);
+    for (size_t i = 0; i < labels_dim[0]; ++i) {
+      mexAssert(labels_mean(i) > 0, "Balancing impossible: one of the classes is not presented");  
+      (classcoefs_[i] /= labels_mean(i)) /= labels_dim[0];      
+    }
+  }
   if (lastlayer->function_ == "SVM") {
     (labels *= 2) -= 1;    
   }
@@ -100,15 +109,7 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
     mexGetMatrix3D(mx_cell, data[map]);
   }
   
-  classcoefs_.assign(labels_dim[0], 1);
-  if (params_.balance_) {  
-    Mat labels_mean(labels_dim[0], 1);
-    labels.Mean(2, labels_mean);
-    for (size_t i = 0; i < labels_dim[0]; ++i) {
-      mexAssert(labels_mean(i) > 0, "Balancing impossible: one of the classes is not presented");  
-      (classcoefs_[i] /= labels_mean(i)) /= labels_dim[0];      
-    }
-  }    
+      
   
   size_t numbatches = ceil((double) train_num/params_.batchsize_);
   trainerror_.assign(params_.numepochs_ * numbatches, 0);
