@@ -48,7 +48,8 @@ params - define the learning process. It is a cell with the following fields. If
 - adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
 - maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively.
 - balance - boolean variable. Balances errors according to the class appearance frequencies. Useful for highly unbalanced datasets. Default is 0.
-- verbose - Determines output info during learning. For 0 there is no output, for 1 it prints only number of epochs, for 2 it prints both numbers of epoch and batch. Default is 2.
+- shuffle - determines whether the input dataset will be shuffled or not. If you want repeatable results, you need to set it to 0. In this case the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Otherwise, it should be 1. Default is 1.
+- verbose - determines output info during learning. For 0 there is no output, for 1 it prints only number of epochs, for 2 it prints both numbers of epoch and batch. Default is 2.
 
 weights - the weights vector obtained from genweights or cnntrain, that is used for weights initialization. Can be used for testing, repeating the results or continuing the training procedure. 
 
@@ -61,7 +62,7 @@ TECHNICAL DETAILS
 - The "cnnexamples.m" file requires "mnist_uint8.mat" file to be performed. You can get it from 
 [Matlab Central File Exchange](http://www.mathworks.com.au/matlabcentral/fileexchange/38310-deep-learning-toolbox/content/rasmusbergpalm-DeepLearnToolbox-45ef96c/data/mnist_uint8.mat), just download it and save in ./data folder.
 
-- Uncertainty comes not only from weights but also from batch shuffling. Therefore, when weights are passed to the cnntrain function, the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Another source of uncertainity is the dropout matrix. Therefore if want to get repeatable resutls, you need to setup all dropout rates to 0.
+- Uncertainty comes not only from weights and the input data order. Another source of uncertainity is the dropout matrix. Therefore if want to get repeatable resutls, you need to setup all dropout rates to 0.
 
 SOME COMMENTS 
 
