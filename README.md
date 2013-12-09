@@ -37,16 +37,16 @@ layers - the structure of CNN. Sets up as cell array, with each element represen
 All layers except "i" may contain the "function" field, that defines their action. For:
 - c and f - it defines the non-linear function. It can be either "sigm" or "relu", for sigmoids and rectified linear units respectively. The default value is "sigm".
 - f - it can also be "SVM", that calculates the SVM error function.
-See [this article](www.cs.toronto.edu/~tang/papers/dlsvm.pdf) for the details. Has been tested only for final layer.
+See [this article](www.cs.toronto.edu/~tang/papers/dlsvm.pdf) for the details. Has been tested only for the final layer.
 - s - it defines the pooling procedure, that can be either "mean" or "max". The default value is "mean". 
 
-params - define the learning process. It is a cell with the following fields. If some of them are absent, the value by default is taken.
+params - define the learning process. It is a structure with the following fields. If some of them are absent, the value by default is taken.
 - alpha - defines the learning rate speed. Default is 1, for "SVM" on the last layer should be about 10 times lower.
 - batchsize - defines the number of batches. Default is 50.
 - numepochs - the number of repeats the training procedure with different batch splits. Default is 1.
 - momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0.
 - adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
-- maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively.
+- maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively. Default is 10.
 - balance - boolean variable. Balances errors according to the class appearance frequencies. Useful for highly unbalanced datasets. Default is 0.
 - shuffle - determines whether the input dataset will be shuffled or not. If you want repeatable results, you need to set it to 0. In this case the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Otherwise, it should be 1. Default is 1.
 - verbose - determines output info during learning. For 0 there is no output, for 1 it prints only number of epochs, for 2 it prints both numbers of epoch and batch. Default is 2.
