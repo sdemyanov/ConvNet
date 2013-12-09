@@ -8,17 +8,19 @@ for l = 2 : numel(layers)
         if (regime == 0)  
           layers{l}.dk{i, j} = params.momentum * layers{l}.dkp{i, j};          
         else
-          signs = layers{l}.dk{i, j} .* layers{l}.dkp{i, j};          
-          layers{l}.gk{i, j}(signs > 0) = layers{l}.gk{i, j}(signs > 0) + params.adjustrate;
-          layers{l}.gk{i, j}(signs <= 0) = layers{l}.gk{i, j}(signs <= 0) * (1 - params.adjustrate);
+          signs = layers{l}.dk{i, j} .* layers{l}.dkp{i, j};
+          if params.adjustrate ~= 0
+            layers{l}.gk{i, j}(signs > 0) = layers{l}.gk{i, j}(signs > 0) + params.adjustrate;
+            layers{l}.gk{i, j}(signs <= 0) = layers{l}.gk{i, j}(signs <= 0) * (1 - params.adjustrate);
+          end
           layers{l}.gk{i, j}(layers{l}.gk{i, j} > params.maxcoef) = params.maxcoef;
           layers{l}.gk{i, j}(layers{l}.gk{i, j} <= params.mincoef) = params.mincoef;          
           layers{l}.dkp{i, j} = layers{l}.dk{i, j};          
           layers{l}.dk{i, j} = (1 - params.momentum) * layers{l}.dk{i, j};
         end;
-        layers{l}.k{i, j} = layers{l}.k{i, j} - params.alpha * layers{l}.gk{i, j} .* layers{l}.dk{i, j};                      
       end             
     end
+    layers{l}.k = cellfun(@(k,gk,dk) k - params.alpha * gk .* dk, layers{l}.k, layers{l}.gk, layers{l}.dk, 'UniformOutput', false);
     
   elseif strcmp(layers{l}.type, 'f')
     if (regime == 0)      
