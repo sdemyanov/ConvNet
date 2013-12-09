@@ -21,13 +21,6 @@ for l = 1 : n   %  layer
     end;
     mapsize = ceil(mapsize ./ layers{l}.scale);
     
-  elseif strcmp(layers{l}.type, 't') % neighborhood of maximum      
-    assert(isfield(layers{l}, 'mapsize'), 'The "t" type layer must contain the "mapsize" field');
-    for j = 1 : outputmaps
-      layers{l}.b{j} = 0;
-    end
-    mapsize = layers{l}.mapsize; 
-
   elseif strcmp(layers{l}.type, 'c') % convolutional
     assert(isfield(layers{l}, 'kernelsize'), 'The "c" type layer must contain the "kernelsize" field');
     assert(isfield(layers{l}, 'outputmaps'), 'The "c" type layer must contain the "outputmaps" field');
