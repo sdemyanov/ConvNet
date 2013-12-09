@@ -88,18 +88,19 @@ for l = 2 : n   %  for each layer
       layers{l}.fv = layers{l-1}.ov;
     end;
 
-    if (regime == 1) % training
-      if (layers{l}.droprate > 0)
+    if (layers{l}.dropout > 0) % dropout
+      if (regime == 1) % training      
         dropmat = rand(size(layers{l}.fv));
-        dropmat(dropmat <= layers{l}.droprate) = 0;
-        dropmat(dropmat > layers{l}.droprate) = 1;
-        layers{l}.fv = layers{l}.fv .* dropmat;
-      end
-      w = layers{l}.w;
-    else % testing
-      w = layers{l}.w * (1 - layers{l}.droprate);
-    end;    
-    layers{l}.ov = w * layers{l}.fv + repmat(layers{l}.b, 1, batchsize);
+        dropmat(dropmat < layers{l}.droprate) = 0;
+        dropmat(dropmat >= layers{l}.droprate) = 1;
+        layers{l}.fv = layers{l}.fv .* dropmat;      
+      else % testing      
+        layers{l}.w = layers{l}.w * (1 - layers{l}.droprate);
+        % on the test we do not have a backward pass and have  ...
+        % only one forward pass, so we can change the weights
+      end;
+    end;
+    layers{l}.ov = layers{l}.w * layers{l}.fv + repmat(layers{l}.b, 1, batchsize);
     if strcmp(layers{l}.function, 'sigmoid')
       layers{l}.ov = sigm(layers{l}.ov);
     elseif strcmp(layers{l}.function, 'SVM')      
