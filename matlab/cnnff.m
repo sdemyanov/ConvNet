@@ -89,10 +89,12 @@ for l = 2 : n   %  for each layer
     end;
 
     if (regime == 1) % training
-      dropmat = rand(size(layers{l}.fv));
-      dropmat(dropmat < layers{l}.droprate) = 0;
-      dropmat(dropmat >= layers{l}.droprate) = 1;
-      layers{l}.fv = layers{l}.fv .* dropmat;
+      if layers{l}.droprate > 0
+        dropmat = rand(size(layers{l}.fv));
+        dropmat(dropmat < layers{l}.droprate) = 0;
+        dropmat(dropmat >= layers{l}.droprate) = 1;
+        layers{l}.fv = layers{l}.fv .* dropmat;
+      end
       w = layers{l}.w;
     else % testing
       w = layers{l}.w * (1 - layers{l}.droprate);
