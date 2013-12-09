@@ -22,7 +22,7 @@ train_y = double(train_y)';
 test_y = double(test_y)';
 kOutputs = size(train_y, 1);
 
-kTrainNum = 5000;
+kTrainNum = 60000;
 train_x = train_x(:, :, 1:kTrainNum);
 train_y = train_y(:, 1:kTrainNum);
 
@@ -31,9 +31,9 @@ params.batchsize = 50;
 params.numepochs = 1;
 params.momentum = 0;  
 params.adjustrate = 0;
-params.maxcoef = 10;
-params.balance = 1;
-params.shuffle = 1;
+params.maxcoef = 1;
+params.balance = 0;
+params.shuffle = 0;
 params.verbose = 2;
 
 layers = {
@@ -48,7 +48,7 @@ layers = {
 funtype = 'mexfun';
 %funtype = 'matlab';
 weights_in = genweights(layers, funtype);
-%save(fullfile(kWorkspaceFolder, 'weights_in.mat'), 'weights_in');
+save(fullfile(kWorkspaceFolder, 'weights_in.mat'), 'weights_in');
 %load(fullfile(kWorkspaceFolder, 'weights_in.mat'), 'weights_in');
 [weights, trainerr] = cnntrain(layers, params, train_x, train_y, funtype, weights_in);
 plot(trainerr);
