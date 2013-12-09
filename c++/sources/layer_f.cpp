@@ -74,13 +74,17 @@ void LayerFull::Forward(const Layer *prev_layer, bool istrain) {
     input_ = static_cast<const LayerFull*>(prev_layer)->output_;    
   }  
   // processing the layer
-  if (istrain) { // dropout, training    
-    Mat dropmat(length_prev_, batchsize_);
-    dropmat.Rand();
-    input_.CondAssign(dropmat, droprate_, false, 0);    
-  } else { // dropout, testing
-    input_ *= (1 - droprate_);
-  }  
+  if (droprate_ > 0) { // dropout
+    if (istrain) { // training        
+      Mat dropmat(length_prev_, batchsize_);
+      dropmat.Rand();
+      input_.CondAssign(dropmat, droprate_, false, 0);
+    } else { // testing
+      weights_.get() *= (1 - droprate_);
+      // on the test we do not have a backward pass and have 
+      // only one forward pass, so we can change the weights
+    }
+  } 
   
   Prod(weights_.get(), input_, output_);
   output_.AddVect(biases_.get(), 1);
