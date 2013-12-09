@@ -1,4 +1,3 @@
-
 clear; close all; clear mex;
 
 addpath('./c++/build');
@@ -48,9 +47,9 @@ layers = {
 
 funtype = 'mexfun';
 %funtype = 'matlab';
-%weights_in = genweights(layers, funtype);
+weights_in = genweights(layers, funtype);
 %save(fullfile(kWorkspaceFolder, 'weights_in.mat'), 'weights_in');
-load(fullfile(kWorkspaceFolder, 'weights_in.mat'), 'weights_in');
+%load(fullfile(kWorkspaceFolder, 'weights_in.mat'), 'weights_in');
 [weights, trainerr] = cnntrain(layers, params, train_x, train_y, funtype, weights_in);
 plot(trainerr);
 %save(fullfile(kWorkspaceFolder, 'weights.mat'), 'weights');
