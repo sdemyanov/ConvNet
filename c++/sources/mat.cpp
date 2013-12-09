@@ -282,10 +282,9 @@ Mat& Mat::assign(double val) {
 }
 
 Mat& Mat::Rand() {
-  double eps = (double) 1 / RAND_MAX;
   for (size_t i = 0; i < mat_.size1(); ++i) {
     for (size_t j = 0; j < mat_.size2(); ++j) {
-      mat_(i, j) = eps + (double) rand() / RAND_MAX; // to avoid it be 0
+      mat_(i, j) = (double) rand() / RAND_MAX;
     }
   }
   return *this;
