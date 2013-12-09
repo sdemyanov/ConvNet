@@ -42,7 +42,7 @@ See [this article](www.cs.toronto.edu/~tang/papers/dlsvm.pdf) for the details. H
 
 params - define the learning process. It is a structure with the following fields. If some of them are absent, the value by default is taken.
 - alpha - defines the learning rate speed. Default is 1, for "SVM" on the last layer should be about 10 times lower.
-- batchsize - defines the number of batches. Default is 50.
+- batchsize - defines the size of batches. Default is 50.
 - numepochs - the number of repeats the training procedure with different batch splits. Default is 1.
 - momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0.
 - adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
