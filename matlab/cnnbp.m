@@ -4,8 +4,8 @@ function [layers, loss] = cnnbp(layers, y)
   if (strcmp(layers{n}.function, 'SVM')) % for SVM 
     y(y == 0) = -1; 
     layers{n}.ovd = -2 * y .* max(1 - layers{n}.ov .* y, 0);      
-    loss = 1/2 * sum(sum(layers{n}.w * layers{n}.w')) / layers{n}.C + ...
-       sum(sum(max(1 - layers{n}.ov .* y, 0).^2)) / batchsize;
+    loss = sum(sum(max(1 - layers{n}.ov .* y, 0).^2)) / batchsize;
+    % + 1/2 * sum(sum(layers{n}.w * layers{n}.w')) / layers{n}.C - too long
   elseif (strcmp(layers{n}.function, 'sigmoid')) % for sigmoids
     layers{n}.ovd = layers{n}.ov - y;
     loss = 1/2 * sum(layers{n}.ovd(:).^2) / batchsize;
