@@ -21,41 +21,28 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define _MEX_UTIL_H_
 
 #include "mat.h"
-#include "mex_print.h"
-#include <vector>
-
-bool mexIsCell(const mxArray *mx_array);
-
-const mxArray* mexGetCell(const mxArray *mx_array, size_t ind);
 
 bool mexIsStruct(const mxArray *mx_array);
+bool mexIsCell(const mxArray *mx_array);
+bool mexIsField(const mxArray *mx_array, const char *fieldname);
 
+const mxArray* mexGetCell(const mxArray *mx_array, size_t ind);
 const mxArray* mexGetField(const mxArray *mx_array, const char *fieldname);
 
 size_t mexGetDimensionsNum(const mxArray *mx_array);
-
 std::vector<size_t> mexGetDimensions(const mxArray *mx_array);
-
 size_t mexGetNumel(const mxArray *mx_array);
-
-double mexGetScalar(const mxArray *mx_array);
-
-std::vector<double> mexGetVector(const mxArray *mx_array);
-
-std::vector< std::vector<double> > mexGetVector2D(const mxArray *mx_array);
-
-void mexGetMatrix(const mxArray *mx_array, Mat &array);
-
-void mexGetMatrix3D(const mxArray *mx_array, std::vector<Mat> &array);
 
 std::string mexGetString(const mxArray *mx_array);
 
-bool mexIsField(const mxArray *mx_array, const char *fieldname);
+ftype* mexGetPointer(const mxArray *mx_array);
+ftype mexGetScalar(const mxArray *mx_array);
+std::vector<ftype> mexGetVector(const mxArray *mx_array);
+void mexGetMatrix(const mxArray *mx_array, Mat &array);
 
-mxArray* mexSetScalar(double scalar);
-
-mxArray* mexSetVector(const std::vector<double> &vect);
-
+mxArray* mexNewMatrix(size_t size1, size_t size2);
+mxArray* mexSetScalar(ftype scalar);
+mxArray* mexSetVector(const std::vector<ftype> &vect);
 mxArray* mexSetMatrix(const Mat &mat);
 
 #endif

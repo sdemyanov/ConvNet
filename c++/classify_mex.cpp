@@ -29,14 +29,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
 
-  mexAssert(nRhs == NARGIN && nLhs == NARGOUT, "Number of input and/or output arguments is not correct!" );
+  mexAssert(nRhs == NARGIN && nLhs == NARGOUT, 
+    "Number of input and/or output arguments is not correct!" );
   
   Net net;
   net.InitLayers(IN_L);  
-  std::vector<double> weights = mexGetVector(IN_W);
-  net.SetWeights(weights);  
-  Mat pred;
-  net.Classify(IN_X, pred);  
-  OUT_P = mexSetMatrix(pred);  
+  net.SetWeights(IN_W);  
+  net.Classify(IN_X, OUT_P);
   
 }

@@ -27,11 +27,11 @@ class Params {
 public:
   size_t batchsize_;
   size_t numepochs_;
-  double alpha_;
-  double momentum_;
-  double adjustrate_;
-  double maxcoef_;
-  double mincoef_;
+  ftype alpha_;
+  ftype momentum_;
+  ftype adjustrate_;
+  ftype maxcoef_;
+  ftype mincoef_;
   bool balance_;
   bool shuffle_;
   size_t verbose_;

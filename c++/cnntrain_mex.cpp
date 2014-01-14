@@ -39,16 +39,11 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   
   Net net;
   net.InitLayers(IN_L);
-  if (nRhs == 5) {    
-    std::vector<double> weights_in = mexGetVector(IN_W);
-    net.SetWeights(weights_in);
-  }
-  
+  if (nRhs == 5) net.SetWeights(IN_W);
+  else net.SetWeights(NULL);
   net.InitParams(IN_P);
   net.Train(IN_X, IN_Y);
-  std::vector<double> weights = net.GetWeights();  
-  std::vector<double> trainerror = net.GetTrainError();  
-  OUT_W = mexSetVector(weights);
-  OUT_E = mexSetVector(trainerror);  
+  net.GetWeights(OUT_W);
+  net.GetTrainError(OUT_E);
   
 }

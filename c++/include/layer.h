@@ -24,26 +24,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "weights.h"
 #include "params.h"
 #include "mex_util.h"
-#include <vector>
-#include <string>
 
 class Layer {
   
 public:
-  std::vector< std::vector<Mat> > activ_; // activations
-  std::vector< std::vector<Mat> > deriv_; // derivatives  
-  size_t outputmaps_;
-  size_t batchsize_;
+  Mat activ_mat_, deriv_mat_; // activations, derivatives
+  std::vector< std::vector<Mat> > activ_, deriv_;  // same, but with easier access  
   std::vector<size_t> mapsize_;
-  std::string type_;
-  std::string function_;
+  size_t numdim_, outputmaps_, batchsize_, length_, length_prev_;  
+  std::string type_, function_;  
   
+  Layer() {};
+  virtual ~Layer() {};
   virtual void Init(const mxArray *mx_layer, Layer *prev_layer) = 0;
-  virtual void Forward(const Layer *prev_layer, bool istrain) = 0;
+  virtual void Forward(Layer *prev_layer, bool istrain) = 0;
   virtual void Backward(Layer *prev_layer) = 0;
   virtual void UpdateWeights(const Params &params, bool isafter) = 0;
-  virtual void GetWeights(std::vector<double> &weights) const = 0;
-  virtual void SetWeights(std::vector<double> &weights) = 0;
+  virtual void GetWeights(ftype *&weights, ftype *weights_end) const = 0;  
+  virtual void SetWeights(ftype *&weights, ftype *weights_end) = 0;
+  virtual size_t NumWeights() const = 0;
   
 };
 

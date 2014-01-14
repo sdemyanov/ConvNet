@@ -32,7 +32,7 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   
   Net net;
   net.InitLayers(IN_L);
-  std::vector<double> weights = net.GetWeights();      
-  OUT_W = mexSetVector(weights);  
+  net.SetWeights(NULL);
+  net.GetWeights(OUT_W);  
   
 }

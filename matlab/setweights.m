@@ -4,15 +4,11 @@ n = numel(layers);
 ind = 0;
 for l = 2 : n   %  layer  
   if strcmp(layers{l}.type, 'c') % convolutional
-    curlen = prod(layers{l}.kernelsize);
-    for i = 1 : layers{l}.outputmaps  %  output map
-      for j = 1 : layers{l-1}.outputmaps  %  input map
-        k_trans = layers{l}.k{i, j}';
-        k_trans(:) = weights(ind+1:ind+curlen);
-        layers{l}.k{i, j} = k_trans';
-        ind = ind + curlen;
-      end      
-    end
+    k_trans = permute(layers{l}.k, [2 1 3 4]);
+    curlen = length(k_trans(:));
+    k_trans(:) = weights(ind+1:ind+curlen);
+    layers{l}.k = permute(k_trans, [2 1 3 4]);
+    ind = ind + curlen;    
     curlen = layers{l}.outputmaps;
     layers{l}.b(:) = weights(ind+1:ind+curlen);
     ind = ind + curlen;

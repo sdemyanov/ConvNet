@@ -19,9 +19,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "weights.h"
 
-void Weights::Init(const std::vector<size_t> &newsize, double coef) {
-  weights_.resize(newsize);
-  (weights_.Rand() -= 0.5) *= coef;
+void Weights::Init(ftype coef, const std::vector<size_t> &newsize) {
+  (weights_.rand(newsize) -= 0.5) *= coef;
+  weights_der_.init(newsize, 0);
+  weights_der_prev_.init(newsize, 0);
+  weights_learn_coefs_.init(newsize, 1);
+  size_ = newsize;
+}
+
+void Weights::Init(ftype *weights, const std::vector<size_t> &newsize) {
+  weights_.attach(weights, newsize);  
   weights_der_.init(newsize, 0);
   weights_der_prev_.init(newsize, 0);
   weights_learn_coefs_.init(newsize, 1);
@@ -30,14 +37,13 @@ void Weights::Init(const std::vector<size_t> &newsize, double coef) {
 
 void Weights::Update(const Params &params, bool isafter) {
 
-  Mat signs(size_);
   if (!isafter) {
     weights_der_ = weights_der_prev_;
     weights_der_ *= params.momentum_;    
   } else {
-    if (params.adjustrate_ > 0) {      
-      signs = weights_der_prev_;
-      signs.ElemProd(weights_der_);
+    if (params.adjustrate_ > 0) {
+      Mat signs = weights_der_prev_;      
+      signs *= weights_der_;
       weights_learn_coefs_.CondAdd(signs, 0, true, params.adjustrate_);
       weights_learn_coefs_.CondProd(signs, 0, false, 1-params.adjustrate_);
       weights_learn_coefs_.CondAssign(weights_learn_coefs_, params.maxcoef_, true, params.maxcoef_);
@@ -45,31 +51,7 @@ void Weights::Update(const Params &params, bool isafter) {
     }
     weights_der_prev_ = weights_der_;
     weights_der_ *= (1 - params.momentum_);    
-  }  
-  weights_ -= (weights_der_.ElemProd(weights_learn_coefs_) *= params.alpha_);
+  }
+  weights_ -= (weights_der_ *= weights_learn_coefs_) *= params.alpha_;
   // direction that decreases the error    
-}
-
-Mat& Weights::get() {
-  return weights_;
-}
-
-const Mat& Weights::get() const {
-  return weights_;
-}
-
-std::vector<size_t> Weights::size() const {
-  return size_;
-}
-
-const double& Weights::get(size_t ind) const {
-  return weights_(ind);
-}
-
-Mat& Weights::der(){
-  return weights_der_;
-}
-
-double& Weights::der(size_t ind){
-  return weights_der_(ind);
 }

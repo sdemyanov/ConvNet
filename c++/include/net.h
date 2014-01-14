@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "layer.h"
 #include "params.h"
-#include <vector>
 
 class Net {
 
@@ -30,10 +29,11 @@ public:
   void InitLayers(const mxArray *mx_layers);
   void InitParams(const mxArray *mx_params);
   void Train(const mxArray *mx_data, const mxArray *mx_labels);
-  void Classify(const mxArray *mx_data, Mat &pred);
-  void SetWeights(std::vector<double> &weights);
-  std::vector<double> GetWeights() const;
-  std::vector<double> GetTrainError() const;
+  void Classify(const mxArray *mx_data, mxArray *&mx_pred);
+  void SetWeights(const mxArray *mx_weights);
+  void GetWeights(mxArray *&mx_weights) const;
+  void GetTrainError(mxArray *&mx_errors) const;
+  size_t NumWeights() const;  
   
   Net() {};
   ~Net();  
@@ -41,13 +41,15 @@ public:
 private:
   std::vector<Layer*> layers_;
   Params params_;
-  std::vector<double> classcoefs_;
-  std::vector<double> trainerror_;  
+  Mat data_, labels_, trainerror_;
+  Mat classcoefs_; // in fact vector
 
-  void Forward(const std::vector< std::vector<Mat> > &data_batch, Mat &pred, bool istrain);
-  void Backward(const Mat &labels_batch, double &loss);
-  void UpdateWeights(bool isafter);
-
+  void ReadData(const mxArray *mx_data);
+  void ReadLabels(const mxArray *mx_labels);
+  void CalcDeriv(const Mat &labels_batch, ftype &loss);
+  void Forward(Mat &data_batch, Mat &pred, bool istrain);
+  void Backward(Mat &labels_batch, ftype &loss);
+  void UpdateWeights(bool isafter);  
 };
 
 #endif

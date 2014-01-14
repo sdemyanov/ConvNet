@@ -26,27 +26,22 @@ class LayerFull : public Layer {
   
 public:
   // activ_ and deriv_ are not used in this class
-  Mat input_;
-  Mat output_;  
-  Mat input_der_;
-  Mat output_der_;  
-  
-  size_t length_;
-  size_t length_prev_;
   
   LayerFull();  
+  ~LayerFull() {};    
   void Init(const mxArray *mx_layer, Layer *prev_layer);
-  void Forward(const Layer *prev_layer, bool istrain);
+  void Forward(Layer *prev_layer, bool istrain);
   void Backward(Layer *prev_layer);
   void UpdateWeights(const Params &params, bool isafter);
-  void GetWeights(std::vector<double> &weights) const;
-  void SetWeights(std::vector<double> &weights);
+  void GetWeights(ftype *&weights, ftype *weights_end) const;
+  void SetWeights(ftype *&weights, ftype *weights_end);
+  size_t NumWeights() const;
   
 private:
   Weights weights_;
   Weights biases_;
-  double droprate_;  
-  double c_; // coefficient for SVM
+  ftype droprate_;  
+  ftype c_; // coefficient for SVM
   
 };
 

@@ -1,10 +1,27 @@
-function pred = cnnclassify(layers, weights, x, type)
+function pred = cnnclassify(layers, weights, test_x, type)
+
+if (length(size(test_x)) == 3)
+  % insert singletone maps index
+  test_x = permute(test_x, [1 2 4 3]); 
+end;
 
 tic;
 if strcmp(type, 'mexfun')
-  pred = classify_mex(layers, weights, x);
+  test_x = permute(test_x, [2 1 3 4]);
+  if (isfield(layers{1}, 'mean'))
+    layers{1}.mean = permute(layers{1}.mean, [2 1 3]);
+  end;
+  if (isfield(layers{1}, 'stdev'))
+    layers{1}.stdev = permute(layers{1}.stdev, [2 1 3]);
+  end;
+  pred = classify_mex(layers, weights, test_x);
+  pred = permute(pred, [2 1]);
+  %z = logsumexp(pred, 2);
+  %pred = exp(bsxfun(@minus, pred, z));  
 elseif strcmp(type, 'matlab')
-  pred = classify_mat(layers, weights, x);
+  pred = classify_mat(layers, weights, test_x);
+  %z = logsumexp(pred, 2);
+  %pred = exp(bsxfun(@minus, pred, z));  
 else
   error('"%s" - wrong type, must be either "mexfun" or "matlab"', type);
 end;

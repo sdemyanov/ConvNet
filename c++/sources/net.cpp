@@ -19,9 +19,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "net.h"
 #include "layer_i.h"
+#include "layer_j.h"
 #include "layer_c.h"
 #include "layer_s.h"
+#include "layer_t.h"
 #include "layer_f.h"
+#include <ctime>
 
 void Net::InitLayers(const mxArray *mx_layers) {
   
@@ -35,15 +38,19 @@ void Net::InitLayers(const mxArray *mx_layers) {
   layers_.resize(layers_num);
   layers_[0] = new LayerInput();
   //mexPrintMsg("Initializing layer of type", layer_type);    
-  layers_.front()->Init(mx_layer, NULL); 
+  layers_[0]->Init(mx_layer, NULL); 
   for (size_t i = 1; i < layers_num; ++i) {    
     Layer *prev_layer = layers_[i-1];
     mx_layer = mexGetCell(mx_layers, i);  
     layer_type = mexGetString(mexGetField(mx_layer, "type"));
-    if (layer_type == "c") {      
+    if (layer_type == "j") {
+      layers_[i] = new LayerJitter();
+    } else if (layer_type == "c") {      
       layers_[i] = new LayerConv();
     } else if (layer_type == "s") {
       layers_[i] = new LayerScal();
+    } else if (layer_type == "t") {
+      layers_[i] = new LayerTrim();
     } else if (layer_type == "f") {
       layers_[i] = new LayerFull();
     } else {
@@ -64,55 +71,17 @@ void Net::InitParams(const mxArray *mx_params) {
 
 void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {  
   
-  //mexPrintMsg("Start training...");
-  LayerFull *lastlayer = static_cast<LayerFull*>(layers_.back());
-  std::vector<size_t> labels_dim = mexGetDimensions(mx_labels);  
-  mexAssert(labels_dim.size() == 2, "The label array must have 2 dimensions");    
-  mexAssert(labels_dim[0] == lastlayer->length_,
-    "Labels and last layer must have equal number of classes");  
-  size_t train_num = labels_dim[1];  
-  Mat labels(labels_dim);
-  mexGetMatrix(mx_labels, labels);
-  classcoefs_.assign(labels_dim[0], 1);
-  if (params_.balance_) {  
-    Mat labels_mean(labels_dim[0], 1);
-    labels.Mean(2, labels_mean);
-    for (size_t i = 0; i < labels_dim[0]; ++i) {
-      mexAssert(labels_mean(i) > 0, "Balancing impossible: one of the classes is not presented");  
-      (classcoefs_[i] /= labels_mean(i)) /= labels_dim[0];      
-    }
-  }
-  if (lastlayer->function_ == "SVM") {
-    (labels *= 2) -= 1;    
-  }
+  //mexPrintMsg("Start training...");  
+  ReadData(mx_data);
+  ReadLabels(mx_labels);
   
-  size_t mapnum = 1;  
-  if (mexIsCell(mx_data)) {
-    mapnum = mexGetNumel(mx_data);    
-  }
-  mexAssert(mapnum == layers_.front()->outputmaps_,
-    "Data must have the same number of cells as outputmaps on the first layer");
-  std::vector< std::vector<Mat> > data(mapnum);  
-  for (size_t map = 0; map < mapnum; ++map) {
-    const mxArray *mx_cell;  
-    if (mexIsCell(mx_data)) {
-      mx_cell = mxGetCell(mx_data, map);
-    } else {
-      mx_cell = mx_data;
-    }
-    std::vector<size_t> data_dim = mexGetDimensions(mx_cell);  
-    mexAssert(data_dim.size() == 3, "The data array must have 3 dimensions");  
-    mexAssert(data_dim[0] == layers_.front()->mapsize_[0] && 
-              data_dim[1] == layers_.front()->mapsize_[1],
-             "Data and the first layer must have equal sizes");    
-    mexAssert(data_dim[2] == train_num, "All data maps and labels must have equal number of objects");    
-    mexGetMatrix3D(mx_cell, data[map]);
-  }
-  
-      
-  
-  size_t numbatches = ceil((double) train_num/params_.batchsize_);
-  trainerror_.assign(params_.numepochs_ * numbatches, 0);
+  size_t train_num = labels_.size1();
+  size_t classes_num = labels_.size2();
+  size_t numbatches = (size_t) ceil((ftype) train_num/params_.batchsize_);
+  trainerror_.resize(params_.numepochs_, numbatches);
+  Mat data_batch(params_.batchsize_, data_.size2());
+  Mat labels_batch(params_.batchsize_, classes_num);
+  Mat pred_batch;
   for (size_t epoch = 0; epoch < params_.numepochs_; ++epoch) {    
     std::vector<size_t> randind(train_num);
     for (size_t i = 0; i < train_num; ++i) {
@@ -125,20 +94,12 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
     for (size_t batch = 0; batch < numbatches; ++batch) {
       size_t batchsize = std::min(params_.batchsize_, (size_t)(randind.end() - iter));
       std::vector<size_t> batch_ind = std::vector<size_t>(iter, iter + batchsize);
-      iter = iter + batchsize;
-      std::vector< std::vector<Mat> > data_batch(mapnum);
-      for (size_t map = 0; map < mapnum; ++map) {
-        data_batch[map].resize(batchsize);
-        for (size_t i = 0; i < batchsize; ++i) {        
-          data_batch[map][i] = data[map][batch_ind[i]];
-        }
-      }      
-      Mat labels_batch(labels_dim[0], batchsize);
-      Mat pred_batch(labels_dim[0], batchsize);
-      labels.SubMat(batch_ind, 2 ,labels_batch);
+      iter = iter + batchsize;      
+      SubMat(data_, batch_ind, 1, data_batch);      
+      SubMat(labels_, batch_ind, 1, labels_batch);      
       UpdateWeights(false);      
       Forward(data_batch, pred_batch, true);
-      Backward(labels_batch, trainerror_[epoch * numbatches + batch]);      
+      Backward(labels_batch, trainerror_(epoch, batch));      
       UpdateWeights(true);
       if (params_.verbose_ == 2) {
         std::string info = std::string("Epoch: ") + std::to_string(epoch+1) +
@@ -147,123 +108,169 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       }
     } // batch    
     if (params_.verbose_ == 1) {
-      std::string info = std::string("Epoch: ") + std::to_string(epoch+1);                         
+      std::string info = std::string("Epoch: ") + std::to_string(epoch+1);
       mexPrintMsg(info);
     }
   } // epoch
   //mexPrintMsg("Training finished");
 }
 
-void Net::Classify(const mxArray *mx_data, Mat &pred) {
-  
-  //mexPrintMsg("Start classification...");  
-  size_t mapnum = 1;  
-  if (mexIsCell(mx_data)) {
-    mapnum = mexGetNumel(mx_data);    
-  }
-  mexAssert(mapnum == layers_.front()->outputmaps_,
-    "Data must have the same number of cells as outputmaps on the first layer");
-  std::vector< std::vector<Mat> > data(mapnum);  
-  for (size_t i = 0; i < mapnum; ++i) {
-    const mxArray *mx_cell;  
-    if (mexIsCell(mx_data)) {
-      mx_cell = mxGetCell(mx_data, i);
-    } else {
-      mx_cell = mx_data;
-    }
-    std::vector<size_t> data_dim = mexGetDimensions(mx_cell);  
-    mexAssert(data_dim.size() == 3, "The data array must have 3 dimensions");  
-    mexAssert(data_dim[0] == layers_.front()->mapsize_[0] && 
-              data_dim[1] == layers_.front()->mapsize_[1],
-             "Data and the first layer must have equal sizes");      
-    mexGetMatrix3D(mx_cell, data[i]);
-  }
-
-  Forward(data, pred, false);
+void Net::Classify(const mxArray *mx_data, mxArray *&mx_pred) {  
+  //mexPrintMsg("Start classification...");
+  ReadData(mx_data);
+  Mat pred;
+  Forward(data_, pred, false);
+  mx_pred = mexSetMatrix(pred);
   //mexPrintMsg("Classification finished");
 }
 
-void Net::Forward(const std::vector< std::vector<Mat> > &data_batch, Mat &pred, bool regime) {
+void Net::Forward(Mat &data_batch, Mat &pred, bool istrain) {
   
-  //mexPrintMsg("Start forward pass...");  
-  layers_.front()->activ_ = data_batch;  
-  layers_.front()->batchsize_ = layers_.front()->activ_[0].size();
+  mexAssert(layers_.size() >= 2 , "The net is not initialized");
+  //mexPrintMsg("Start forward pass...");
+  layers_[0]->activ_mat_.attach(data_batch);
+  //mexPrintMsg("Forward pass for layer", layers_[0]->type_);
+  layers_[0]->Forward(NULL, istrain);
   for (size_t i = 1; i < layers_.size(); ++i) {
-    //mexPrintMsg("Forward pass for layer", i);
-    layers_[i]->Forward(layers_[i-1], regime);
-  }
-  //mexPrintMsg("Forward pass finished");
-  LayerFull *lastlayer = static_cast<LayerFull*>(layers_.back());  
-  pred.resize(lastlayer->length_, lastlayer->batchsize_);
-  pred = lastlayer->output_;  
+    //mexPrintMsg("Forward pass for layer", layers_[i]->type_);
+    layers_[i]->Forward(layers_[i-1], istrain);
+  }  
+  pred.attach(layers_.back()->activ_mat_);  
+  //("Forward pass finished");
 }
 
-void Net::Backward(const Mat &labels_batch, double &loss) {
+void Net::Backward(Mat &labels_batch, ftype &loss) {
   
   //mexPrintMsg("Start backward pass...");
-  size_t batchsize = labels_batch.size2();
-  size_t classes_num = labels_batch.size1();
-  loss = 0;
-  LayerFull *lastlayer = static_cast<LayerFull*>(layers_.back());
-  mexAssert(batchsize == lastlayer->batchsize_, 
-    "The number of objects in data and label batches is different");
-  mexAssert(classes_num == lastlayer->length_, 
-    "Labels in batch and last layer must have equal number of classes");  
-  lastlayer->output_der_.init(classes_num, batchsize, 0);  
-  
-  if (lastlayer->function_ == "SVM") {
-    Mat lossmat = lastlayer->output_;
-    lossmat.ElemProd(labels_batch);
-    (lossmat *= -1) += 1;    
-    lossmat.ElemMax(0);
-    lastlayer->output_der_ = lossmat;
-    lastlayer->output_der_.ElemProd(labels_batch);
-    lastlayer->output_der_ *= -2;
-    //lastlayer->output_der_ *= curcoef;    
-    // correct loss also contains weightsT * weights, but it is too long to calculate it
-    lossmat.ElemProd(lossmat);
-    loss = lossmat.Sum() / batchsize;    
-  } else if (lastlayer->function_ == "sigmoid") {
-    lastlayer->output_der_ = lastlayer->output_;
-    lastlayer->output_der_ -= labels_batch;    
-    Mat lossmat = lastlayer->output_der_;
-    lossmat.ElemProd(lastlayer->output_der_);
-    loss = lossmat.Sum() / (2 * batchsize);
-  } else {
-    mexAssert(false, "Net::Backward");
-  }
-  lastlayer->output_der_.MultVect(classcoefs_, 1);  
-  
+  CalcDeriv(labels_batch, loss);
   for (size_t i = layers_.size() - 1; i > 0; --i) {
-    //mexPrintMsg("Backward pass for layer", i);    
+    //mexPrintMsg("Backward pass for layer", layers_[i]->type_);    
     layers_[i]->Backward(layers_[i-1]);
-  }  
+  }
+  //mexPrintMsg("Backward pass for layer", layers_[0]->type_);
+  layers_[0]->Backward(NULL);
   //mexPrintMsg("Backward pass finished");  
 }
 
 void Net::UpdateWeights(bool isafter) {
   for (size_t i = 1; i < layers_.size(); ++i) {
     layers_[i]->UpdateWeights(params_, isafter);
-  }  
+  }
 }
 
-std::vector<double> Net::GetWeights() const {
-  std::vector<double> weights;  
+void Net::ReadData(const mxArray *mx_data) {
+  std::vector<size_t> data_dim = mexGetDimensions(mx_data);
+  mexAssert(data_dim.size() == 4, "The data array must have 4 dimensions");  
+  mexAssert(data_dim[0] == layers_[0]->mapsize_[0] && 
+            data_dim[1] == layers_[0]->mapsize_[1],
+    "Data and the first layer must have equal sizes");  
+  mexAssert(data_dim[2] == layers_[0]->outputmaps_,
+    "Data's 3rd dimension must be equal to the outputmaps on the input layer");
+  mexAssert(data_dim[3] > 0, "Input data array is empty");
+  ftype *data = mexGetPointer(mx_data);
+  data_.attach(data, data_dim[3], data_dim[0] * data_dim[1] * data_dim[2]);
+  /*
+  data_.resize(data_dim[3]);
+  size_t numel = data_dim[0] * data_dim[1];  
+  for (size_t i = 0; i < data_dim[3]; ++i) {    
+    data_[i].resize(data_dim[2]);
+    for (size_t j = 0; j < data_dim[2]; ++j) {
+      data_[i][j].attach(data, data_dim[0], data_dim[1]);
+      data += numel;
+    }
+  }*/
+}
+
+void Net::ReadLabels(const mxArray *mx_labels) {
+  std::vector<size_t> labels_dim = mexGetDimensions(mx_labels);  
+  mexAssert(labels_dim.size() == 2, "The label array must have 2 dimensions");
+  //mexPrintMsg("labels_dim.", labels_dim[0]);
+  //mexPrintMsg("data_.size()", data_.size());  
+  mexAssert(labels_dim[0] == data_.size1(),
+    "All data maps and labels must have equal number of objects");
+  size_t classes_num = labels_dim[1];
+  mexAssert(classes_num == layers_.back()->length_,
+    "Labels and last layer must have equal number of classes");  
+  mexGetMatrix(mx_labels, labels_);
+  classcoefs_.init(1, classes_num, 1);
+  if (params_.balance_) {  
+    Mat labels_mean = Mean(labels_, 1);
+    for (size_t i = 0; i < classes_num; ++i) {
+      mexAssert(labels_mean(i) > 0, "Balancing impossible: one of the classes is not presented");
+      (classcoefs_(i) /= labels_mean(i)) /= classes_num;      
+    }
+  }
+  if (layers_.back()->function_ == "SVM") {
+    (labels_ *= 2) -= 1;    
+  }
+}
+
+void Net::CalcDeriv(const Mat &labels_batch, ftype &loss) {  
+  size_t batchsize = labels_batch.size1();
+  size_t classes_num = labels_batch.size2();
+  Layer *lastlayer = layers_.back();
+  mexAssert(batchsize == lastlayer->batchsize_, 
+    "The number of objects in data and label batches is different");
+  mexAssert(classes_num == lastlayer->length_, 
+    "Labels in batch and last layer must have equal number of classes");  
+  if (lastlayer->function_ == "SVM") {
+    Mat lossmat = lastlayer->activ_mat_;
+    (((lossmat *= labels_batch) *= -1) += 1).ElemMax(0);        
+    lastlayer->deriv_mat_ = lossmat;
+    (lastlayer->deriv_mat_ *= labels_batch) *= -2;
+    // correct loss also contains weightsT * weights, but it is too long to calculate it
+    loss = (lossmat *= lossmat).Sum() / batchsize;    
+  } else if (lastlayer->function_ == "sigmoid") {
+    lastlayer->deriv_mat_ = lastlayer->activ_mat_;
+    lastlayer->deriv_mat_ -= labels_batch;    
+    Mat lossmat = lastlayer->deriv_mat_;
+    loss = (lossmat *= lastlayer->deriv_mat_).Sum() / (2 * batchsize);
+  } else {
+    mexAssert(false, "Net::Backward");
+  }
+  lastlayer->deriv_mat_.MultVect(classcoefs_, 2);  
+}
+
+size_t Net::NumWeights() const {
+  size_t num_weights = 0;
   for (size_t i = 1; i < layers_.size(); ++i) {    
-    layers_[i]->GetWeights(weights);
-  }  
-  return weights;
+    num_weights += layers_[i]->NumWeights();
+  }
+  return num_weights;
+}
+
+void Net::GetWeights(mxArray *&mx_weights) const {
+  size_t num_weights = NumWeights();
+  //mexPrintMsg("num_weights", num_weights);
+  mx_weights = mexNewMatrix(1, num_weights);  
+  ftype *weights = mexGetPointer(mx_weights);
+  ftype *weights_end = weights + num_weights;
+  //mexPrintMsg("weights_end - weights", weights_end - weights);
+  for (size_t i = 1; i < layers_.size(); ++i) {    
+    layers_[i]->GetWeights(weights, weights_end);
+  }
+  //mexPrintMsg("weights_end - weights", weights_end - weights);
+  mexAssert(weights == weights_end, "In GetWeights the vector of weights is too long!");
 }  
 
-void Net::SetWeights(std::vector<double> &weights) {  
-  for (size_t i = 1; i < layers_.size(); ++i) {
-    layers_[i]->SetWeights(weights);
+void Net::SetWeights(const mxArray *mx_weights) {
+  ftype *weights, *weights_end;
+  if (mx_weights == NULL) {
+    weights = NULL;
+    weights_end = NULL;    
+  } else {
+    size_t num_weights = mexGetNumel(mx_weights);
+    weights = mexGetPointer(mx_weights);  
+    weights_end = weights + num_weights;    
   }
-  mexAssert(weights.size() == 0, "Vector of weights is too long!");
+  for (size_t i = 1; i < layers_.size(); ++i) {
+    layers_[i]->SetWeights(weights, weights_end);
+  }
+  mexAssert(weights == weights_end, "In SetWeights the vector of weights is too long!");
 }
 
-std::vector<double> Net::GetTrainError() const {
-  return trainerror_;
+void Net::GetTrainError(mxArray *&mx_errors) const {  
+  mx_errors = mexSetMatrix(trainerror_);
 }
 
 Net::~Net() {

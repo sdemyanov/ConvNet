@@ -20,26 +20,99 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "layer_i.h"
 
 LayerInput::LayerInput() {
-  type_ = "i";    
+  type_ = "i";
+  numdim_ = 2;
+  batchsize_ = 0;
+  length_prev_ = 0;
 }  
   
 void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
   
   mexAssert(prev_layer == NULL, "The 'i' type layer must be the first one");
+  outputmaps_ = 1;
+  if (mexIsField(mx_layer, "outputmaps")) {
+    ftype outputmaps = mexGetScalar(mexGetField(mx_layer, "outputmaps"));
+    mexAssert(1 <= outputmaps, "Outputmaps on the 'i' layer must be greater or equal to 1");
+    outputmaps_ = (size_t) outputmaps;    
+  }
   mexAssert(mexIsField(mx_layer, "mapsize"), "The first layer must contain the 'mapsize' field");
-  std::vector<double> mapsize = mexGetVector(mexGetField(mx_layer, "mapsize"));
-  mexAssert(mapsize.size() == 2, "Input mapsize must contain 2 values");
-  mapsize_.resize(mapsize.size());  
-  for (size_t i = 0; i < mapsize_.size(); ++i) {    
-    mapsize_[i] = (size_t) mapsize[i];        
-    mexAssert(1 <= mapsize_[i], "Mapsize on the 'i' layer must be greater or equal to 1");
-  }  
-  if (!mexIsField(mx_layer, "outputmaps")) {
-    outputmaps_ = 1;
-  } else {
-    outputmaps_ = (size_t) mexGetScalar(mexGetField(mx_layer, "outputmaps"));
-    mexAssert(1 <= outputmaps_, "Outputmaps on the 'i' layer must be greater or equal to 1");
-  }  
-  activ_.resize(outputmaps_);
-  deriv_.resize(outputmaps_);  
-} 
+  std::vector<ftype> mapsize = mexGetVector(mexGetField(mx_layer, "mapsize"));  
+  mexAssert(mapsize.size() == numdim_, "Input mapsize length must be 2");  
+  mapsize_.resize(numdim_);  
+  length_ = outputmaps_;
+  size_t numel = 1;
+  for (size_t i = 0; i < numdim_; ++i) {    
+    mexAssert(1 <= mapsize[i], "Mapsize on the 'i' layer must be greater or equal to 1");
+    mapsize_[i] = (size_t) mapsize[i];
+    length_ *= mapsize_[i];
+    numel *= mapsize_[i];
+  }
+  norm_ = 0;
+  if (mexIsField(mx_layer, "norm")) {
+    norm_ = mexGetScalar(mexGetField(mx_layer, "norm"));
+    mexAssert(0 < norm_, "Norm on the 'i' layer must be positive");    
+  }
+  if (mexIsField(mx_layer, "mean")) {
+    std::vector<size_t> data_dim = mexGetDimensions(mexGetField(mx_layer, "mean"));
+    mexAssert(numdim_ <= data_dim.size() && data_dim.size() <= numdim_ + 1, 
+      "Mean matrix on the 'i' layer has wrong the number of dimensions");
+    for (size_t i = 0; i < numdim_; ++i) {    
+      mexAssert(data_dim[i] == mapsize_[i], "The size of Mean matrix must coincide with the mapsize");
+    }
+    if (data_dim.size() == numdim_) {
+      mexAssert(outputmaps_ == 1, "Not enough Mean matrices for this outputmaps number");      
+    } else {
+      mexAssert(outputmaps_ == data_dim[numdim_],
+        "The number of Mean matrices must coincide with the outputmaps");        
+    }
+    mean_.resize(outputmaps_);
+    ftype *mean = mexGetPointer(mexGetField(mx_layer, "mean"));
+    for (size_t i = 0; i < outputmaps_; ++i) {
+      mean_[i].attach(mean, mapsize_);
+      mean += numel;
+    }    
+  }
+  if (mexIsField(mx_layer, "stdev")) {
+    std::vector<size_t> data_dim = mexGetDimensions(mexGetField(mx_layer, "stdev"));    
+    mexAssert(numdim_ <= data_dim.size() && data_dim.size() <= numdim_ + 1, 
+      "Mean matrix on the 'i' layer has wrong the number of dimensions");    
+    for (size_t i = 0; i < numdim_; ++i) {    
+      mexAssert(data_dim[i] == mapsize_[i], "The size of Stdev matrix must coincide with the mapsize");
+    }
+    if (data_dim.size() == numdim_) {
+      mexAssert(outputmaps_ == 1, "Not enough Stdev matrices for this outputmaps number");      
+    } else {
+      mexAssert(outputmaps_ == data_dim[numdim_],
+        "The number of Stdev matrices must coincide with the outputmaps");        
+    }
+    stdev_.resize(outputmaps_);
+    ftype *stdev = mexGetPointer(mexGetField(mx_layer, "stdev"));
+    for (size_t i = 0; i < outputmaps_; ++i) {
+      stdev_[i].attach(stdev, mapsize_);
+      stdev += numel;
+      Mat cond;
+      cond.init(mapsize_, 0);    
+      cond.CondAssign(stdev_[i], 0, false, 1);    
+      mexAssert(cond.Sum() == 0, "All elements of stdev matrix must be positive");
+    }    
+  }
+}
+
+void LayerInput::Forward(Layer *prev_layer, bool istrain) {  
+  batchsize_ = activ_mat_.size1();
+  activ_.assign(batchsize_, std::vector<Mat>(outputmaps_));
+  InitMaps(activ_mat_, mapsize_, activ_);
+  bool is_mean = (mean_.size() > 0);
+  bool is_stdev = (stdev_.size() > 0);
+  for (size_t k = 0; k < batchsize_; ++k) {
+    for (size_t i = 0; i < outputmaps_; ++i) {    
+      if (norm_ > 0) activ_[k][i].Normalize(norm_);
+      if (is_mean) activ_[k][i] -= mean_[i];
+      if (is_stdev) activ_[k][i] /= stdev_[i];      
+    }    
+  }
+  /*
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("Conv: activ_[0][0]", activ_[0][0](0, i)); 
+  }*/  
+}

@@ -20,66 +20,90 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "layer_s.h"
 
 LayerScal::LayerScal() {
-  type_ = "s";    
+  type_ = "s";
+  batchsize_ = 0;  
 }  
   
 void LayerScal::Init(const mxArray *mx_layer, Layer *prev_layer) {
   
   mexAssert(prev_layer->type_ != "f", "The 's' type layer cannot be after 'f' type layer");
-  mexAssert(mexIsField(mx_layer, "scale"), "The 's' type layer must contain the 'scale' field");
-  mapsize_.resize(prev_layer->mapsize_.size());
-  std::vector<double> scale = mexGetVector(mexGetField(mx_layer, "scale"));  
-  mexAssert(scale.size() == mapsize_.size(), "Length of scale vector and maps dimensionality must coincide");
-  scale_.resize(scale.size());
-  for (size_t i = 0; i < mapsize_.size(); ++i) {
-    scale_[i] = (size_t) scale[i];
-    mexAssert(1 <= scale_[i], "Scale size on the 's' layer must be greater or equal to 1");
-    mapsize_[i] = ceil((double) prev_layer->mapsize_[i] / scale_[i]);
-  }    
+  numdim_ = prev_layer->numdim_;
   outputmaps_ = prev_layer->outputmaps_;
-  if (!mexIsField(mx_layer, "function")) {
-    function_ = "mean";
-  } else {
+  length_prev_ = prev_layer->outputmaps_;
+  mexAssert(mexIsField(mx_layer, "scale"), "The 's' type layer must contain the 'scale' field");
+  std::vector<ftype> scale = mexGetVector(mexGetField(mx_layer, "scale"));  
+  mexAssert(scale.size() == numdim_, "Length of the scale vector and maps dimensionality must coincide");
+  scale_.resize(numdim_);
+  stride_.resize(numdim_);
+  mapsize_.resize(numdim_);
+  length_ = outputmaps_;
+  for (size_t i = 0; i < numdim_; ++i) {
+    mexAssert(1 <= scale[i] && scale[i] <= prev_layer->mapsize_[i], "Scale on the 's' layer must be in the range [1, previous_layer_mapsize]");
+    scale_[i] = (size_t) scale[i];    
+    stride_[i] = scale_[i];
+    mapsize_[i] = ceil((ftype) prev_layer->mapsize_[i] / stride_[i]);    
+    length_ *= mapsize_[i];
+  }
+  
+  if (mexIsField(mx_layer, "stride")) {
+    std::vector<ftype> stride = mexGetVector(mexGetField(mx_layer, "stride"));
+    mexAssert(stride.size() == numdim_, "Stride vector has the wrong length");
+    length_ = outputmaps_;
+    for (size_t i = 0; i < numdim_; ++i) {
+      mexAssert(1 <= stride[i] && stride[i] <= prev_layer->mapsize_[i], "Stride on the 's' layer must be in the range [1, previous_layer_mapsize]");    
+      stride_[i] = (size_t) stride[i];
+      mapsize_[i] = ceil((ftype) prev_layer->mapsize_[i] / stride_[i]);
+      length_ *= mapsize_[i];
+    }
+  }  
+  function_ = "mean";   
+  if (mexIsField(mx_layer, "function")) {
     function_ = mexGetString(mexGetField(mx_layer, "function"));
   }
   std::string errmsg = function_ + " - unknown function for the layer";    
   mexAssert(function_ == "max" || function_ == "mean", errmsg);
-  activ_.resize(outputmaps_);
-  deriv_.resize(outputmaps_);  
   
 }
     
-void LayerScal::Forward(const Layer *prev_layer, bool istrain) {
-  
+void LayerScal::Forward(Layer *prev_layer, bool istrain) {  
+
   batchsize_ = prev_layer->batchsize_;
-  for (size_t i = 0; i < outputmaps_; ++i) {
-    activ_[i].resize(batchsize_);
-    for (size_t k = 0; k < batchsize_; ++k) {      
-      activ_[i][k].resize(mapsize_);
+  activ_mat_.resize(batchsize_, length_);
+  activ_.assign(batchsize_, std::vector<Mat>(outputmaps_));
+  InitMaps(activ_mat_, mapsize_, activ_);  
+  for (size_t k = 0; k < batchsize_; ++k) {      
+    for (size_t i = 0; i < outputmaps_; ++i) {
       if (function_ == "mean") {
-        prev_layer->activ_[i][k].MeanScale(scale_, activ_[i][k]);
+        MeanScale(prev_layer->activ_[k][i], scale_, stride_, activ_[k][i]);
       } else if (function_ == "max") {
-        prev_layer->activ_[i][k].MaxScale(scale_, activ_[i][k]);
+        MaxScale(prev_layer->activ_[k][i], scale_, stride_, activ_[k][i]);
       } else {
         mexAssert(false, "LayerScal::Forward");
-      }
+      }      
     }    
-  }  
+  }
+  if (!istrain) prev_layer->activ_mat_.clear();  
+  /*
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("Scal: activ_[0][0]", activ_[0][0](0, i)); 
+  } */
 }
 
-void LayerScal::Backward(Layer *prev_layer) {
-  
-  for (size_t i = 0; i < outputmaps_; ++i) {
-    prev_layer->deriv_[i].resize(batchsize_);
-    for (size_t k = 0; k < batchsize_; ++k) {
-      prev_layer->deriv_[i][k].resize(prev_layer->mapsize_);
+void LayerScal::Backward(Layer *prev_layer) {  
+  if (prev_layer->type_ == "i" || prev_layer->type_ == "j") return;
+  prev_layer->deriv_mat_.resize(prev_layer->batchsize_, prev_layer->length_);
+  prev_layer->deriv_.assign(prev_layer->batchsize_, std::vector<Mat>(prev_layer->outputmaps_));
+  InitMaps(prev_layer->deriv_mat_, prev_layer->mapsize_, prev_layer->deriv_);  
+  for (size_t k = 0; k < batchsize_; ++k) {
+    for (size_t i = 0; i < outputmaps_; ++i) {
       if (function_ == "mean") {
-        deriv_[i][k].MeanScaleDer(scale_, prev_layer->deriv_[i][k]);
+        MeanScaleDer(deriv_[k][i], scale_, stride_, prev_layer->deriv_[k][i]);
       } else if (function_ == "max") {
-        deriv_[i][k].MaxScaleDer(scale_, activ_[i][k], prev_layer->activ_[i][k], prev_layer->deriv_[i][k]);
+        MaxScaleDer(deriv_[k][i], activ_[k][i], prev_layer->activ_[k][i], 
+                    scale_, stride_, prev_layer->deriv_[k][i]);
       } else {
         mexAssert(false, "LayerScal::Forward");
       }      
     }
-  }
+  }  
 }

@@ -24,15 +24,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "params.h"
 
 class Weights {
+  
 public:
-  void Init(const std::vector<size_t> &newsize, double coef);
-  void Update(const Params &params, bool isafter);    
-  Mat& get();
-  const Mat& get() const;
-  const double& get(size_t ind) const;
-  std::vector<size_t> size() const; 
-  Mat& der();  
-  double& der(size_t ind);  
+  Weights() {};
+  ~Weights() {};
+  void Init(ftype coef, const std::vector<size_t> &newsize);
+  void Init(ftype *weights, const std::vector<size_t> &newsize);
+  void Update(const Params &params, bool isafter);
+  inline void Write(ftype *weights) const { weights_.ToVect(weights); }
+  inline Mat& get() { return weights_; }
+  inline const Mat& get() const { return weights_; }
+  inline const ftype& get(size_t ind) const { return weights_(ind); }
+  inline std::vector<size_t> size() const { return size_; }
+  inline Mat& der() { return weights_der_; }
+  inline ftype& der(size_t ind) { return weights_der_(ind); }
   
 private:
   Mat weights_;

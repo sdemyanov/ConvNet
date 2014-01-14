@@ -26,15 +26,18 @@ class LayerScal : public Layer {
   
 public:  
   LayerScal();
+  ~LayerScal() {};  
   void Init(const mxArray *mx_layer, Layer *prev_layer);
-  void Forward(const Layer *prev_layer, bool istrain);
+  void Forward(Layer *prev_layer, bool istrain);
   void Backward(Layer *prev_layer);
   void UpdateWeights(const Params &params, bool isafter) {};
-  void GetWeights(std::vector<double> &weights) const {};
-  void SetWeights(std::vector<double> &weights) {};
+  void GetWeights(ftype *&weights, ftype *weights_end) const {};
+  void SetWeights(ftype *&weights, ftype *weights_end) {};
+  size_t NumWeights() const { return 0; };
   
 private:
   std::vector<size_t> scale_;
+  std::vector<size_t> stride_;
   
 };
 

@@ -21,110 +21,94 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LayerFull::LayerFull() {
   type_ = "f";    
+  function_ = "sigmoid";
+  outputmaps_ = 0;
+  droprate_ = 0;
+  numdim_ = 1;
+  batchsize_ = 0;
 }  
   
 void LayerFull::Init(const mxArray *mx_layer, Layer *prev_layer) {
   
   mexAssert(mexIsField(mx_layer, "length"), "The 'f' type layer must contain the 'length' field");
-  length_ = (size_t) mexGetScalar(mexGetField(mx_layer, "length"));
-  mexAssert(1 <= length_, "Length on the 'f' layer must be greater or equal to 1");
-  if (prev_layer->type_ != "f") {
-    length_prev_ = prev_layer->mapsize_[0] * prev_layer->mapsize_[1] * prev_layer->outputmaps_;
-  } else {
-    length_prev_ = ((LayerFull*) prev_layer)->length_;
-  }        
-  outputmaps_ = 0;
-  mapsize_.resize(prev_layer->mapsize_.size());
-  mapsize_[0] = mapsize_[1] = 0;
-  if (!mexIsField(mx_layer, "function")) {
-    function_ = "sigmoid";
-  } else {
+  ftype length = mexGetScalar(mexGetField(mx_layer, "length"));
+  mexAssert(1 <= length, "Length on the 'f' layer must be greater or equal to 1");
+  length_ = (size_t) length;  
+  mapsize_.assign(prev_layer->numdim_, 0);  
+  length_prev_ = prev_layer->length_;
+  if (mexIsField(mx_layer, "function")) {
     function_ = mexGetString(mexGetField(mx_layer, "function"));
   }
   if (function_ == "SVM") {
     mexAssert(mexIsField(mx_layer, "C"), "The 'SVM' layer must contain the 'C' field");
     c_ = mexGetScalar(mexGetField(mx_layer, "C"));
     mexAssert(c_ > 0, "C on the 'f' layer must be positive");
-  } else {
-    std::string errmsg = function_ + " - unknown function for the layer";      
-    mexAssert(function_ == "sigmoid" || function_ == "relu", errmsg);
+  } else {    
+    mexAssert(function_ == "sigmoid" || function_ == "relu", "Unknown function for the 'f' layer");
   }
-  if (!mexIsField(mx_layer, "droprate")) {
-    droprate_ = 0;
-  } else {
+  if (mexIsField(mx_layer, "droprate")) {
     droprate_ = mexGetScalar(mexGetField(mx_layer, "droprate"));
   }
   mexAssert(0 <= droprate_ && droprate_ < 1, "Droprate must be in the range [0, 1)");  
-  double rand_coef = 2 * sqrt((double) 6 / (length_ + length_prev_));  
-  std::vector<size_t> lengthsize(2);
-  lengthsize[0] = length_; lengthsize[1] = length_prev_;
-  weights_.Init(lengthsize, rand_coef);
-  std::vector<size_t> biassize(2);
-  biassize[0] = length_; biassize[1] = 1;
-  biases_.Init(biassize, 0);
 }
 
-void LayerFull::Forward(const Layer *prev_layer, bool istrain) {
+void LayerFull::Forward(Layer *prev_layer, bool istrain) {
   
-  // concatenate all end layer feature maps into vector for each object
   batchsize_ = prev_layer->batchsize_;
-  if (prev_layer->type_ != "f") {    
-    input_.ReshapeFrom(prev_layer->activ_);
-  } else {    
-    input_ = static_cast<const LayerFull*>(prev_layer)->output_;    
-  }  
-  // processing the layer
+  activ_mat_.resize(batchsize_, length_);
   if (droprate_ > 0) { // dropout
-    if (istrain) { // training        
-      Mat dropmat(length_prev_, batchsize_);
-      dropmat.Rand();
-      input_.CondAssign(dropmat, droprate_, false, 0);
+    if (istrain) { // training      
+      Mat dropmat;
+      dropmat.rand(batchsize_, length_prev_);
+      prev_layer->activ_mat_.CondAssign(dropmat, droprate_, false, 0);
     } else { // testing
-      weights_.get() *= (1 - droprate_);
-      // on the test we do not have a backward pass and have 
-      // only one forward pass, so we can change the weights
+      prev_layer->activ_mat_ *= (1 - droprate_);      
     }
-  } 
-  
-  Prod(weights_.get(), input_, output_);
-  output_.AddVect(biases_.get(), 1);
+  }
+  Prod(prev_layer->activ_mat_, false, weights_.get(), false, activ_mat_);
+  activ_mat_.AddVect(biases_.get(), 2);
   if (function_ == "sigmoid") {
-    output_.Sigmoid();
+    activ_mat_.Sigmoid();
   } else if (function_ == "relu") {
-    output_.ElemMax(0);
+    activ_mat_.ElemMax(0);
   } else if (function_ == "SVM") {
   } else {
     mexAssert(false, "LayerFull::Forward");
-  }  
+  }
+  if (!istrain) prev_layer->activ_mat_.clear();
+  /*
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("Full: activ_[0]", activ_mat_(0, i)); 
+  } */
 }
 
 void LayerFull::Backward(Layer *prev_layer) {
-  
   if (function_ == "sigmoid") {
-    output_der_.SigmDer(output_);    
+    deriv_mat_.SigmDer(activ_mat_);    
   } else if (function_ == "relu") {    
-    output_der_.CondAssign(output_, 0, false, 0);    
+    deriv_mat_.CondAssign(activ_mat_, 0, false, 0);    
   } else if (function_ == "SVM") {    
   } else {
     mexAssert(false, "LayerFull::Forward");
   }
-  input_.Trans();
-  Prod(output_der_, input_, weights_.der());
+  Prod(prev_layer->activ_mat_, true, deriv_mat_, false, weights_.der());
   weights_.der() /= batchsize_;
   if (function_ == "SVM") {
     Mat weights_reg = weights_.get();    
     weights_.der() += (weights_reg /= c_);
-  }
-  output_der_.Mean(2, biases_.der());
-  Mat weights_tr;
-  Trans(weights_.get(), weights_tr);
-  Prod(weights_tr, output_der_, input_der_);
-  if (prev_layer->type_ != "f") {    
-    input_der_.ReshapeTo(prev_layer->deriv_, prev_layer->outputmaps_, 
-                         prev_layer->batchsize_, prev_layer->mapsize_);
-  } else {
-    static_cast<LayerFull*>(prev_layer)->output_der_ = input_der_;    
   }  
+  biases_.der() = Mean(deriv_mat_, 1);
+  if (prev_layer->type_ != "i" && prev_layer->type_ != "j") {
+    Prod(deriv_mat_, false, weights_.get(), true, prev_layer->deriv_mat_);
+    if (prev_layer->type_ != "f") {
+      prev_layer->deriv_.assign(prev_layer->batchsize_, std::vector<Mat>(prev_layer->outputmaps_));
+      InitMaps(prev_layer->deriv_mat_, prev_layer->mapsize_, prev_layer->deriv_);
+    }    
+  }
+  /*
+  for (int i = 0; i < 10; ++i) {
+    mexPrintMsg("Full: deriv_weig", weights_.der()(0, i)); 
+  } */
 }
 
 void LayerFull::UpdateWeights(const Params &params, bool isafter) {
@@ -132,24 +116,52 @@ void LayerFull::UpdateWeights(const Params &params, bool isafter) {
   biases_.Update(params, isafter);  
 }
 
-void LayerFull::GetWeights(std::vector<double> &weights) const {  
-  std::vector<double> curweights = weights_.get().ToVect();
-  weights.insert(weights.end(), curweights.begin(), curweights.end());
-  std::vector<double> curbiases = biases_.get().ToVect();
-  weights.insert(weights.end(), curbiases.begin(), curbiases.end());  
+void LayerFull::GetWeights(ftype *&weights, ftype *weights_end) const { 
+  
+  size_t numel = length_prev_ * length_;
+  mexAssert(weights_end - weights >= numel,
+    "In 'LayerFull::GetWeights the vector of weights is too short!");
+  weights_.Write(weights);
+  weights += numel;
+
+  mexAssert(weights_end - weights >= length_,
+    "In 'LayerFull::GetWeights the vector of weights is too short!");
+  biases_.Write(weights);
+  weights += length_;  
 }
 
-void LayerFull::SetWeights(std::vector<double> &weights) {
+void LayerFull::SetWeights(ftype *&weights, ftype *weights_end) {
   
-  size_t numel = length_ * length_prev_;
-  mexAssert(weights.size() >= numel, "Vector of weights is too short!");
-  std::vector<double> curweights(weights.begin(), weights.begin() + numel);  
-  weights_.get().FromVect(curweights, weights_.size());      
-  weights.erase(weights.begin(), weights.begin() + numel);
+  std::vector<size_t> weightssize(2);
+  weightssize[0] = length_prev_; weightssize[1] = length_;
+  if (weights == NULL) {
+    ftype rand_coef = 2 * sqrt((ftype) 6 / (length_prev_ + length_));  
+    weights_.Init(rand_coef, weightssize);
+  } else {
+    size_t numel = length_prev_ * length_;
+    mexAssert(weights_end - weights >= numel,
+      "In 'LayerFull::SetWeights the vector of weights is too short!");  
+    weights_.Init(weights, weightssize);      
+    weights += numel;
+  }
   
-  mexAssert(weights.size() >= length_, "Vector of weights is too short!");
-  std::vector<double> curbiases(weights.begin(), weights.begin() + length_);  
-  biases_.get().FromVect(curbiases, biases_.size());
-  weights.erase(weights.begin(), weights.begin() + length_);        
+  std::vector<size_t> biassize(2);
+  biassize[0] = 1; biassize[1] = length_;    
+  if (weights == NULL) {
+    biases_.Init((ftype) 0, biassize);
+  } else {
+    mexAssert(weights_end - weights >= length_,
+      "In 'LayerFull::SetWeights the vector of weights is too short!");  
+    biases_.Init(weights, biassize);
+    weights += length_;
+  }
+
+  //mexPrintMsg("length_prev_", length_prev_);
+  //mexPrintMsg("length_", length_);
+  
+}
+
+size_t LayerFull::NumWeights() const {
+  return (length_prev_ + 1) * length_; // +1 for biases
 }
 
