@@ -36,7 +36,7 @@ public:
   size_t NumWeights() const { return 0; };
   
 private:
-  ftype norm_;
+  std::vector<ftype> norm_;
   std::vector<Mat> mean_;
   std::vector<Mat> stdev_;
   

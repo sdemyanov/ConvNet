@@ -47,10 +47,12 @@ void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
     length_ *= mapsize_[i];
     numel *= mapsize_[i];
   }
-  norm_ = 0;
   if (mexIsField(mx_layer, "norm")) {
-    norm_ = mexGetScalar(mexGetField(mx_layer, "norm"));
-    mexAssert(0 < norm_, "Norm on the 'i' layer must be positive");    
+    norm_ = mexGetVector(mexGetField(mx_layer, "norm"));
+    mexAssert(norm_.size() == outputmaps_, "The length of the norm vector is wrong");
+    for (size_t i = 0; i < outputmaps_; ++i) {      
+      mexAssert(0 < norm_[i], "Norm on the 'i' layer must be positive");          
+    }
   }
   if (mexIsField(mx_layer, "mean")) {
     std::vector<size_t> data_dim = mexGetDimensions(mexGetField(mx_layer, "mean"));
@@ -102,11 +104,12 @@ void LayerInput::Forward(Layer *prev_layer, bool istrain) {
   batchsize_ = activ_mat_.size1();
   activ_.assign(batchsize_, std::vector<Mat>(outputmaps_));
   InitMaps(activ_mat_, mapsize_, activ_);
+  bool is_norm = (norm_.size() > 0);
   bool is_mean = (mean_.size() > 0);
   bool is_stdev = (stdev_.size() > 0);
   for (size_t k = 0; k < batchsize_; ++k) {
     for (size_t i = 0; i < outputmaps_; ++i) {    
-      if (norm_ > 0) activ_[k][i].Normalize(norm_);
+      if (is_norm) activ_[k][i].Normalize(norm_[i]);
       if (is_mean) activ_[k][i] -= mean_[i];
       if (is_stdev) activ_[k][i] /= stdev_[i];      
     }    
