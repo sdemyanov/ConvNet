@@ -1,5 +1,10 @@
 clear mex
 
+kBuildFolder = './c++/build';
+if (~exist(kBuildFolder, 'dir'))
+  mkdir(kBuildFolder);
+end;
+
 mex ./c++/cnntrain_mex.cpp ./c++/sources/*.cpp ...
   -largeArrayDims ...
   -I"./c++/include/" ...
