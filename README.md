@@ -58,7 +58,7 @@ funtype - defines the actual function that is used. Can be either "mexfun" or "m
 
 TECHNICAL DETAILS
 
-- The c++ version can be compiled to work with either double and float types. To change it, you need to modify the settings in ftype.h file and recompile the files. To compile them, you need to run 'compile' script in the main folder.
+- To run the c++ version, you first need to compile it. To do that, you need to run 'compile' script in the main folder. It can be compiled to work with either double and float types. To change it, you need to modify the settings in ftype.h file and recompile the files.
 
 - The "cnnexamples.m" file requires "mnist_uint8.mat" file to be performed. You can get it from 
 [Matlab Central File Exchange](http://www.mathworks.com.au/matlabcentral/fileexchange/38310-deep-learning-toolbox/content/rasmusbergpalm-DeepLearnToolbox-45ef96c/data/mnist_uint8.mat), just download it and save in ./data folder.
