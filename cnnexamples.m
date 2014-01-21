@@ -1,4 +1,3 @@
-
 close all; clear mex;
 
 addpath('./c++/build');
@@ -17,8 +16,8 @@ end;
 kXSize = [28 28];
 kTrainNum = 60000;
 kTestNum = 10000;
-train_x = double(permute(reshape(train_x', [kXSize kTrainNum]), [2 1 3])/255);
-test_x = double(permute(reshape(test_x', [kXSize, kTestNum]), [2 1 3])/255);
+train_x = double(permute(reshape(train_x', [kXSize kTrainNum]), [2 1 3]))/255;
+test_x = double(permute(reshape(test_x', [kXSize, kTestNum]), [2 1 3]))/255;
 train_y = double(train_y);
 test_y = double(test_y);
 kOutputs = size(train_y, 2);
