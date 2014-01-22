@@ -117,7 +117,7 @@ for l = n : -1 : 1
     elseif strcmp(layers{l}.function, 'relu')
       layers{l}.d = layers{l}.d .* (layers{l}.a > 0);          
     end;
-    layers{l}.dw = layers{l}.ai' * layers{l}.d / batchsize;
+    layers{l}.dw = layers{l}.d' * layers{l}.ai / batchsize;
     if strcmp(layers{l}.function, 'SVM') % for SVM
       layers{l}.dw = layers{l}.dw + layers{l}.w / layers{l}.C;
     end;
@@ -125,7 +125,7 @@ for l = n : -1 : 1
     if (strcmp(layers{l-1}.type, 'i') || strcmp(layers{l-1}.type, 'j'))
       continue;
     end;
-    layers{l}.di = layers{l}.d * layers{l}.w'; 
+    layers{l}.di = layers{l}.d * layers{l}.w; 
     if ~strcmp(layers{l-1}.type, 'f')        
       mapsize = layers{l-1}.mapsize;
       d_trans = reshape(layers{l}.di, [batchsize mapsize(2) mapsize(1) layers{l-1}.outputmaps]);

@@ -84,12 +84,12 @@ for l = 1 : n   %  layer
       error('"%s" - unknown function for the layer %d', layers{l}.function, l);
     end;
     assert(isfield(layers{l}, 'length'), 'The "f" type layer must contain the "length" field');      
-    weightsize(2) = layers{l}.length;
+    weightsize(1) = layers{l}.length;
     if ~strcmp(layers{l-1}.type, 'f')
       maplen = prod(layers{l-1}.mapsize);        
-      weightsize(1) = maplen * outputmaps;
+      weightsize(2) = maplen * outputmaps;
     else
-      weightsize(1) = layers{l-1}.length;
+      weightsize(2) = layers{l-1}.length;
     end;
     layers{l}.weightsize = weightsize; 
     layers{l}.w = double((rand(weightsize) - 0.5) * 2 * sqrt(6/sum(weightsize)));
@@ -97,10 +97,10 @@ for l = 1 : n   %  layer
     layers{l}.dwp = double(zeros(weightsize));
     layers{l}.gw = double(ones(weightsize));
 
-    layers{l}.b = double(zeros(1, weightsize(2)));
-    layers{l}.db = double(zeros(1, weightsize(2)));
-    layers{l}.dbp = double(zeros(1, weightsize(2)));
-    layers{l}.gb = double(ones(1, weightsize(2)));      
+    layers{l}.b = double(zeros(1, weightsize(1)));
+    layers{l}.db = double(zeros(1, weightsize(1)));
+    layers{l}.dbp = double(zeros(1, weightsize(1)));
+    layers{l}.gb = double(ones(1, weightsize(1)));      
     mapsize = [0 0];
     outputmaps = 0;      
   else

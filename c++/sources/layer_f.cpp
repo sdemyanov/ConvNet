@@ -65,7 +65,7 @@ void LayerFull::Forward(Layer *prev_layer, bool istrain) {
       prev_layer->activ_mat_ *= (1 - droprate_);      
     }
   }
-  Prod(prev_layer->activ_mat_, false, weights_.get(), false, activ_mat_);
+  Prod(prev_layer->activ_mat_, false, weights_.get(), true, activ_mat_);
   activ_mat_.AddVect(biases_.get(), 2);
   if (function_ == "sigmoid") {
     activ_mat_.Sigmoid();
@@ -91,7 +91,7 @@ void LayerFull::Backward(Layer *prev_layer) {
   } else {
     mexAssert(false, "LayerFull::Forward");
   }
-  Prod(prev_layer->activ_mat_, true, deriv_mat_, false, weights_.der());
+  Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_.der());
   weights_.der() /= batchsize_;
   if (function_ == "SVM") {
     Mat weights_reg = weights_.get();    
@@ -99,7 +99,7 @@ void LayerFull::Backward(Layer *prev_layer) {
   }  
   biases_.der() = Mean(deriv_mat_, 1);
   if (prev_layer->type_ != "i" && prev_layer->type_ != "j") {
-    Prod(deriv_mat_, false, weights_.get(), true, prev_layer->deriv_mat_);
+    Prod(deriv_mat_, false, weights_.get(), false, prev_layer->deriv_mat_);
     if (prev_layer->type_ != "f") {
       prev_layer->deriv_.assign(prev_layer->batchsize_, std::vector<Mat>(prev_layer->outputmaps_));
       InitMaps(prev_layer->deriv_mat_, prev_layer->mapsize_, prev_layer->deriv_);
@@ -133,12 +133,12 @@ void LayerFull::GetWeights(ftype *&weights, ftype *weights_end) const {
 void LayerFull::SetWeights(ftype *&weights, ftype *weights_end) {
   
   std::vector<size_t> weightssize(2);
-  weightssize[0] = length_prev_; weightssize[1] = length_;
+  weightssize[0] = length_; weightssize[1] = length_prev_;
   if (weights == NULL) {
     ftype rand_coef = 2 * sqrt((ftype) 6 / (length_prev_ + length_));  
     weights_.Init(rand_coef, weightssize);
   } else {
-    size_t numel = length_prev_ * length_;
+    size_t numel = length_ * length_prev_;
     mexAssert(weights_end - weights >= numel,
       "In 'LayerFull::SetWeights the vector of weights is too short!");  
     weights_.Init(weights, weightssize);      

@@ -7,12 +7,18 @@ layers{1}.a = x;
 for l = 1 : n   %  for each layer
   
   if strcmp(layers{l}.type, 'i')
-    if (layers{l}.norm > 0 )
+    if (sum(layers{l}.norm) > 0)
       datamean = mean(mean(layers{l}.a, 2), 1);
       layers{l}.a = layers{l}.a - repmat(datamean, [layers{l}.mapsize 1 1]);
       datanorm = sqrt(sum(sum(layers{l}.a.^2, 1), 2));
       datanorm(datanorm < 1e-8) = 1;
-      layers{l}.a = layers{l}.norm * layers{l}.a ./ repmat(datanorm, [layers{l}.mapsize 1 1]);
+      layers{l}.a = layers{l}.a ./ repmat(datanorm, [layers{l}.mapsize 1 1]);
+      if (numel(layers{l}.norm) > 1)        
+        repnorm = repmat(permute(layers{l}.norm(:), [2 3 1 4]), [layers{l}.mapsize 1 batchsize]);
+        layers{l}.a = repnorm .* layers{l}.a;
+      else
+        layers{l}.a = layers{l}.norm * layers{l}.a;
+      end;        
     end;
     if (sum(sum(layers{l}.mean)) > 0)
       layers{l}.a = layers{l}.a - repmat(layers{l}.mean, [1 1 1 batchsize]);
@@ -119,12 +125,12 @@ for l = 1 : n   %  for each layer
     %  concatenate all end layer feature maps into vector
     if ~strcmp(layers{l-1}.type, 'f')          
       a_trans = permute(layers{l-1}.a, [4 2 1 3]);
-      layers{l}.ai = reshape(a_trans, batchsize, layers{l}.weightsize(1));      
+      layers{l}.ai = reshape(a_trans, batchsize, layers{l}.weightsize(2));      
     else
       layers{l}.ai = layers{l-1}.a;
     end;
    
-    layers{l}.a = bsxfun(@plus, layers{l}.ai * layers{l}.w, layers{l}.b);
+    layers{l}.a = bsxfun(@plus, layers{l}.ai * layers{l}.w', layers{l}.b);
     if strcmp(layers{l}.function, 'sigmoid')
       layers{l}.a = sigm(layers{l}.a);
     elseif strcmp(layers{l}.function, 'relu')

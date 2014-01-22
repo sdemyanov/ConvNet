@@ -14,15 +14,15 @@ end;
 %rng(s);
 
 kXSize = [28 28];
-kTrainNum = 60000;
-kTestNum = 10000;
+kTrainNum = size(train_x, 1);
+kTestNum = size(test_x, 1);
 train_x = double(permute(reshape(train_x', [kXSize kTrainNum]), [2 1 3]))/255;
 test_x = double(permute(reshape(test_x', [kXSize, kTestNum]), [2 1 3]))/255;
 train_y = double(train_y);
 test_y = double(test_y);
 kOutputs = size(train_y, 2);
 
-kTrainNum = 5000;
+kTrainNum = 60000;
 train_x = train_x(:, :, 1:kTrainNum);
 train_y = train_y(1:kTrainNum, :);
 
@@ -47,6 +47,8 @@ params.verbose = 2;
 layers = {
     struct('type', 'i', 'mapsize', [28 28], 'outputmaps', 1, ...
            'norm', norm_x, 'mean', mean_x, 'stdev', std_x) % input layer    
+    %struct('type', 'j', 'mapsize', [28 28], 'mirror', [0 0], ...
+    %       'shift', [1 1], 'scale', [1.05, 1.05], 'angle', 1/20, 'default', 0) % jitter layer    
     struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 6, 'function', 'relu') %convolution layer
     struct('type', 's', 'scale', [3 3], 'function', 'mean', 'stride', [2 2]) % subsampling layer
     struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 12, 'function', 'relu', 'padding', [1 1]) %convolution layer
