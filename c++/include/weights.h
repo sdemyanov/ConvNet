@@ -30,7 +30,7 @@ public:
   ~Weights() {};
   void Init(ftype coef, const std::vector<size_t> &newsize);
   void Init(ftype *weights, const std::vector<size_t> &newsize);
-  void Update(const Params &params, bool isafter);
+  void Update(const Params &params, size_t epoch, bool isafter);
   inline void Write(ftype *weights) const { weights_.ToVect(weights); }
   inline Mat& get() { return weights_; }
   inline const Mat& get() const { return weights_; }

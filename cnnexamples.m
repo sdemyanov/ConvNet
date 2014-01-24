@@ -10,9 +10,6 @@ if (~exist(kWorkspaceFolder, 'dir'))
   mkdir(kWorkspaceFolder);
 end;
 
-%load(fullfile(kWorkspaceFolder, 's.mat'), 's');
-%rng(s);
-
 kXSize = [28 28];
 kTrainNum = size(train_x, 1);
 kTestNum = size(test_x, 1);
@@ -34,14 +31,14 @@ mean_x = mean(train_x, 3);
 std_x = sqrt(var(train_x, 0, 3) + kMinVar);
 %std_x = ones(kXSize);
 
-params.alpha = 1;
 params.batchsize = 50;
-params.numepochs = 1;
-params.momentum = 0;  
+params.numepochs = 2;
+params.alpha = [1 0.5];
+params.momentum = [0.5 0.9];
 params.adjustrate = 0;
 params.maxcoef = 10;
 params.balance = 0;
-params.shuffle = 0;
+params.shuffle = 1;
 params.verbose = 2;
 
 layers = {
@@ -53,7 +50,7 @@ layers = {
     struct('type', 's', 'scale', [3 3], 'function', 'mean', 'stride', [2 2]) % subsampling layer
     struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 12, 'function', 'relu', 'padding', [1 1]) %convolution layer
     struct('type', 's', 'scale', [2 2], 'function', 'max') % subsampling layer        
-    struct('type', 'f', 'length', kOutputs) % fully connected layer
+    struct('type', 'f', 'length', kOutputs, 'dropout', 0.2) % fully connected layer
 };
 
 funtype = 'mexfun';

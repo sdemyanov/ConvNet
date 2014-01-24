@@ -12,9 +12,13 @@ end;
 if (~isfield(params, 'alpha'))
   params.alpha = 1;  
 end;
+assert(length(params.alpha) == 1 || length(params.alpha) == params.numepochs, ...
+  'Wrong length of the params.alpha vector');
 if (~isfield(params, 'momentum'))
   params.momentum = 0.5;
 end;
+assert(length(params.momentum) == 1 || length(params.momentum) == params.numepochs, ...
+  'Wrong length of the params.momentum vector');
 if (~isfield(params, 'adjustrate'))
   params.adjustrate = 0;
 end;

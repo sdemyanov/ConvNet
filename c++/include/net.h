@@ -49,7 +49,7 @@ private:
   void CalcDeriv(const Mat &labels_batch, ftype &loss);
   void Forward(Mat &data_batch, Mat &pred, bool istrain);
   void Backward(Mat &labels_batch, ftype &loss);
-  void UpdateWeights(bool isafter);  
+  void UpdateWeights(size_t epoch, bool isafter);  
 };
 
 #endif

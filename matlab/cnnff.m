@@ -14,7 +14,7 @@ for l = 1 : n   %  for each layer
       datanorm(datanorm < 1e-8) = 1;
       layers{l}.a = layers{l}.a ./ repmat(datanorm, [layers{l}.mapsize 1 1]);
       if (numel(layers{l}.norm) > 1)        
-        repnorm = repmat(permute(layers{l}.norm(:), [2 3 1 4]), [layers{l}.mapsize 1 batchsize]);
+        repnorm = repmat(permute(layers{l}.norm(:), [3 4 1 2]), [layers{l}.mapsize 1 batchsize]);
         layers{l}.a = repnorm .* layers{l}.a;
       else
         layers{l}.a = layers{l}.norm * layers{l}.a;
@@ -44,7 +44,7 @@ for l = 1 : n   %  for each layer
       a_prev = zeros([as(1:2) + 2*padding as(3:4)]);
       a_prev(padding(1)+1:padding(1)+as(1), padding(2)+1:padding(2)+as(2), :, :) =  layers{l-1}.a;      
     end;
-    layers{l}.a = repmat(permute(layers{l}.b, [2 3 1 4]), [layers{l}.mapsize 1 batchsize]);
+    layers{l}.a = repmat(permute(layers{l}.b, [3 4 1 2]), [layers{l}.mapsize 1 batchsize]);
     for i = 1 : layers{l}.outputmaps   %  for each output map      
       for j = 1 : layers{l-1}.outputmaps   %  for each input map
         %  convolve with corresponding kernel and add to temp output map
@@ -113,12 +113,12 @@ for l = 1 : n   %  for each layer
 
   elseif strcmp(layers{l}.type, 'f')
     
-    if (layers{l}.droprate > 0) % dropout
+    if (layers{l}.dropout > 0) % dropout
       if (regime == 1) % training      
         dropmat = rand(size(layers{l-1}.a));
-        layers{l-1}.a(dropmat <= layers{l}.droprate) = 0;        
+        layers{l-1}.a(dropmat <= layers{l}.dropout) = 0;        
       else % testing      
-        layers{l-1}.a = layers{l-1}.a * (1 - layers{l}.droprate);        
+        layers{l-1}.a = layers{l-1}.a * (1 - layers{l}.dropout);        
       end;
     end;
     

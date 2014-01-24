@@ -2,14 +2,14 @@ function layers = setweights(layers, weights)
 
 n = numel(layers);
 ind = 0;
-for l = 2 : n   %  layer  
+for l = 1 : n   %  layer  
   if strcmp(layers{l}.type, 'c') % convolutional
     k_trans = permute(layers{l}.k, [2 1 3 4]);
     curlen = length(k_trans(:));
     k_trans(:) = weights(ind+1:ind+curlen);
     layers{l}.k = permute(k_trans, [2 1 3 4]);
     ind = ind + curlen;    
-    curlen = layers{l}.outputmaps;
+    curlen = length(layers{l}.b);
     layers{l}.b(:) = weights(ind+1:ind+curlen);
     ind = ind + curlen;
   elseif strcmp(layers{l}.type, 'f') % fully connected
@@ -23,7 +23,6 @@ for l = 2 : n   %  layer
     ind = ind + curlen;
   end;
 end
-%layers{end}.coef = weights(ind+1:ind+layers{end}.length);
-%ind = ind + layers{end}.length;
+assert(ind == length(weights), 'Weights vector is too long!');
 
 end

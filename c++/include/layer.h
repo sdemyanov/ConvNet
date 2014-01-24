@@ -39,7 +39,7 @@ public:
   virtual void Init(const mxArray *mx_layer, Layer *prev_layer) = 0;
   virtual void Forward(Layer *prev_layer, bool istrain) = 0;
   virtual void Backward(Layer *prev_layer) = 0;
-  virtual void UpdateWeights(const Params &params, bool isafter) = 0;
+  virtual void UpdateWeights(const Params &params, size_t epoch, bool isafter) = 0;
   virtual void GetWeights(ftype *&weights, ftype *weights_end) const = 0;  
   virtual void SetWeights(ftype *&weights, ftype *weights_end) = 0;
   virtual size_t NumWeights() const = 0;

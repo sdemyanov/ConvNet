@@ -22,8 +22,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 Params::Params() {
   batchsize_ = 50;
   numepochs_ = 1;
-  alpha_ = 1;
-  momentum_ = 0.5;
+  alpha_.assign(1, 1);
+  momentum_.assign(1, 0.5);
   adjustrate_ = 0;
   maxcoef_ = 10;
   mincoef_ = 0.1;
@@ -43,12 +43,20 @@ void Params::Init(const mxArray *mx_params) {
     mexAssert(numepochs_ > 0, "Numepochs must be positive");
   }
   if (mexIsField(mx_params, "alpha")) {    
-    alpha_ = mexGetScalar(mexGetField(mx_params, "alpha"));
-    mexAssert(alpha_ > 0, "Alpha must be positive");
+    alpha_ = mexGetVector(mexGetField(mx_params, "alpha"));
+    mexAssert(alpha_.size() == 1 || alpha_.size() == numepochs_,
+      "Wrong length of the alpha vector");
+    for (size_t i = 0; i < alpha_.size(); ++i) {
+      mexAssert(alpha_[i] > 0, "alpha must be positive");
+    }
   }
   if (mexIsField(mx_params, "momentum")) {    
-    momentum_ = mexGetScalar(mexGetField(mx_params, "momentum"));    
-    mexAssert(0 <= momentum_ && momentum_ < 1, "Momentum is out of range [0, 1)");
+    momentum_ = mexGetVector(mexGetField(mx_params, "momentum"));
+    mexAssert(momentum_.size() == 1 || momentum_.size() == numepochs_,
+      "Wrong length of the momentum vector");
+    for (size_t i = 0; i < momentum_.size(); ++i) {
+      mexAssert(0 <= momentum_[i] && momentum_[i] < 1, "Momentum is out of range [0, 1)");
+    }    
   }
   if (mexIsField(mx_params, "adjustrate")) {    
     adjustrate_ = mexGetScalar(mexGetField(mx_params, "adjustrate"));    

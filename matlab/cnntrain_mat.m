@@ -50,10 +50,10 @@ for i = 1 : params.numepochs
     batch_x = train_x(:, :, :, kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)));    
     batch_y = train_y(kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)), :);
     tic;
-    layers = updateweights(layers, params, 0); % preliminary update
+    layers = updateweights(layers, params, i, 0); % preliminary update
     [layers, ~] = cnnff(layers, batch_x, 1);
     [layers, loss] = cnnbp(layers, batch_y);
-    layers = updateweights(layers, params, 1); % final update
+    layers = updateweights(layers, params, i, 1); % final update
     trainerr(i, j) = loss;    
     if (params.verbose == 2)
       disp(['Epoch: ' num2str(i) ', batch: ', num2str(j)]);

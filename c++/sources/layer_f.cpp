@@ -23,7 +23,7 @@ LayerFull::LayerFull() {
   type_ = "f";    
   function_ = "sigmoid";
   outputmaps_ = 0;
-  droprate_ = 0;
+  dropout_ = 0;
   numdim_ = 1;
   batchsize_ = 0;
 }  
@@ -46,23 +46,23 @@ void LayerFull::Init(const mxArray *mx_layer, Layer *prev_layer) {
   } else {    
     mexAssert(function_ == "sigmoid" || function_ == "relu", "Unknown function for the 'f' layer");
   }
-  if (mexIsField(mx_layer, "droprate")) {
-    droprate_ = mexGetScalar(mexGetField(mx_layer, "droprate"));
+  if (mexIsField(mx_layer, "dropout")) {
+    dropout_ = mexGetScalar(mexGetField(mx_layer, "dropout"));
   }
-  mexAssert(0 <= droprate_ && droprate_ < 1, "Droprate must be in the range [0, 1)");  
+  mexAssert(0 <= dropout_ && dropout_ < 1, "Dropout must be in the range [0, 1)");  
 }
 
 void LayerFull::Forward(Layer *prev_layer, bool istrain) {
   
   batchsize_ = prev_layer->batchsize_;
   activ_mat_.resize(batchsize_, length_);
-  if (droprate_ > 0) { // dropout
+  if (dropout_ > 0) { // dropout
     if (istrain) { // training      
       Mat dropmat;
       dropmat.rand(batchsize_, length_prev_);
-      prev_layer->activ_mat_.CondAssign(dropmat, droprate_, false, 0);
+      prev_layer->activ_mat_.CondAssign(dropmat, dropout_, false, 0);
     } else { // testing
-      prev_layer->activ_mat_ *= (1 - droprate_);      
+      prev_layer->activ_mat_ *= (1 - dropout_);      
     }
   }
   Prod(prev_layer->activ_mat_, false, weights_.get(), true, activ_mat_);
@@ -111,9 +111,9 @@ void LayerFull::Backward(Layer *prev_layer) {
   } */
 }
 
-void LayerFull::UpdateWeights(const Params &params, bool isafter) {
-  weights_.Update(params, isafter);
-  biases_.Update(params, isafter);  
+void LayerFull::UpdateWeights(const Params &params, size_t epoch, bool isafter) {
+  weights_.Update(params, epoch, isafter);
+  biases_.Update(params, epoch, isafter);  
 }
 
 void LayerFull::GetWeights(ftype *&weights, ftype *weights_end) const { 

@@ -35,11 +35,23 @@ void Weights::Init(ftype *weights, const std::vector<size_t> &newsize) {
   size_ = newsize;
 }
 
-void Weights::Update(const Params &params, bool isafter) {
+void Weights::Update(const Params &params, size_t epoch, bool isafter) {
 
+  ftype alpha, momentum;
+  if (params.alpha_.size() == 1) {
+    alpha = params.alpha_[0];
+  } else {
+    alpha = params.alpha_[epoch];
+  }
+  if (params.momentum_.size() == 1) {
+    momentum = params.momentum_[0];
+  } else {
+    momentum = params.momentum_[epoch];
+  }
+  
   if (!isafter) {
     weights_der_ = weights_der_prev_;
-    weights_der_ *= params.momentum_;    
+    weights_der_ *= momentum;    
   } else {
     if (params.adjustrate_ > 0) {
       Mat signs = weights_der_prev_;      
@@ -50,8 +62,8 @@ void Weights::Update(const Params &params, bool isafter) {
       weights_learn_coefs_.CondAssign(weights_learn_coefs_, params.mincoef_, false, params.mincoef_);
     }
     weights_der_prev_ = weights_der_;
-    weights_der_ *= (1 - params.momentum_);    
+    weights_der_ *= (1 - momentum);    
   }
-  weights_ -= (weights_der_ *= weights_learn_coefs_) *= params.alpha_;
+  weights_ -= (weights_der_ *= weights_learn_coefs_) *= alpha;
   // direction that decreases the error    
 }

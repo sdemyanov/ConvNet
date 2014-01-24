@@ -30,7 +30,7 @@ public:
   void Init(const mxArray *mx_layer, Layer *prev_layer);
   void Forward(Layer *prev_layer, bool istrain);
   void Backward(Layer *prev_layer) {};
-  void UpdateWeights(const Params &params, bool isafter) {};
+  void UpdateWeights(const Params &params, size_t epoch, bool isafter) {};
   void GetWeights(ftype *&weights, ftype *weights_end) const {};
   void SetWeights(ftype *&weights, ftype *weights_end) {};
   size_t NumWeights() const { return 0; };

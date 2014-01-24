@@ -151,15 +151,15 @@ void LayerConv::Backward(Layer *prev_layer) {
   } */
 }
 
-void LayerConv::UpdateWeights(const Params &params, bool isafter) {
+void LayerConv::UpdateWeights(const Params &params, size_t epoch, bool isafter) {
   mexAssert(kernels_.size() > 0, "In LayerConv::UpdateWeights the kernels are empty");
   size_t prev_outputmaps = kernels_[0].size();
   for (size_t i = 0; i < outputmaps_; ++i) {    
     for (size_t j = 0; j < prev_outputmaps; ++j) {
-      kernels_[i][j].Update(params, isafter);      
+      kernels_[i][j].Update(params, epoch, isafter);      
     }
   }
-  biases_.Update(params, isafter);  
+  biases_.Update(params, epoch, isafter);  
 }
 
 void LayerConv::GetWeights(ftype *&weights, ftype *weights_end) const {  

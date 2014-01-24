@@ -97,10 +97,10 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       iter = iter + batchsize;      
       SubMat(data_, batch_ind, 1, data_batch);      
       SubMat(labels_, batch_ind, 1, labels_batch);      
-      UpdateWeights(false);      
+      UpdateWeights(epoch, false);      
       Forward(data_batch, pred_batch, true);
       Backward(labels_batch, trainerror_(epoch, batch));      
-      UpdateWeights(true);
+      UpdateWeights(epoch, true);
       if (params_.verbose_ == 2) {
         std::string info = std::string("Epoch: ") + std::to_string(epoch+1) +
                            std::string(", batch: ") + std::to_string(batch+1);
@@ -152,9 +152,9 @@ void Net::Backward(Mat &labels_batch, ftype &loss) {
   //mexPrintMsg("Backward pass finished");  
 }
 
-void Net::UpdateWeights(bool isafter) {
+void Net::UpdateWeights(size_t epoch, bool isafter) {
   for (size_t i = 1; i < layers_.size(); ++i) {
-    layers_[i]->UpdateWeights(params_, isafter);
+    layers_[i]->UpdateWeights(params_, epoch, isafter);
   }
 }
 

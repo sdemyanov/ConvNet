@@ -17,7 +17,7 @@ for l = 1 : n   %  layer
     if (~isfield(layers{l}, 'stdev'))
       layers{l}.stdev = zeros([layers{l}.mapsize layers{l}.outputmaps]);
     end;
-    outputmaps = layers{1}.outputmaps;
+    outputmaps = layers{l}.outputmaps;
     mapsize = layers{l}.mapsize; 
   
   elseif strcmp(layers{l}.type, 'j') % scaling
@@ -71,8 +71,8 @@ for l = 1 : n   %  layer
     outputmaps = layers{l}.outputmaps;
 
   elseif strcmp(layers{l}.type, 'f') % fully connected
-    if (~isfield(layers{l}, 'droprate'))
-      layers{l}.droprate = 0; % no dropout
+    if (~isfield(layers{l}, 'dropout'))
+      layers{l}.dropout = 0; % no dropout
     end;
     if (~isfield(layers{l}, 'function'))
       layers{l}.function = 'sigmoid';
