@@ -22,6 +22,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "mat.h"
 
+#if defined (_WIN32)
+  #define NOMINMAX
+  #include <windows.h>
+#elif defined (__linux__)
+  #include <unistd.h>
+#endif
+
+#ifdef __cplusplus 
+  extern "C" bool utIsInterruptPending();
+#else
+  extern bool utIsInterruptPending();
+#endif
+
 bool mexIsStruct(const mxArray *mx_array);
 bool mexIsCell(const mxArray *mx_array);
 bool mexIsField(const mxArray *mx_array, const char *fieldname);

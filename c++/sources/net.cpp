@@ -105,7 +105,7 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
         std::string info = std::string("Epoch: ") + std::to_string(epoch+1) +
                            std::string(", batch: ") + std::to_string(batch+1);
         mexPrintMsg(info);
-      }
+      }      
     } // batch    
     if (params_.verbose_ == 1) {
       std::string info = std::string("Epoch: ") + std::to_string(epoch+1);
@@ -134,6 +134,9 @@ void Net::Forward(Mat &data_batch, Mat &pred, bool istrain) {
   for (size_t i = 1; i < layers_.size(); ++i) {
     //mexPrintMsg("Forward pass for layer", layers_[i]->type_);
     layers_[i]->Forward(layers_[i-1], istrain);
+    if (utIsInterruptPending()) {
+      mexAssert(false, "Ctrl-C Detected. END\n\n");
+    }
   }  
   pred.attach(layers_.back()->activ_mat_);  
   //("Forward pass finished");
