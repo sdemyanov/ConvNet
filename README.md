@@ -1,4 +1,4 @@
-Copyright (C) 2013 - 2014 Sergey Demyanov
+Copyright (C) 2014 Sergey Demyanov
 
 contact: sergey@demyanov.net
 
