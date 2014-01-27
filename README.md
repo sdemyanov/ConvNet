@@ -60,6 +60,13 @@ TECHNICAL DETAILS
 
 - To run the c++ version, you first need to compile it. To do that, you need to run 'compile' script in the main folder. It can be compiled to work with either double and float types. To change it, you need to modify the settings in ftype.h file and recompile the files.
 
+- The code uses c++11 features, so the compiler must understand them. In Windows it was tested with Microsoft SDK 7.1, in Ubuntu with g++ 4.7. Note, that it is possible to use g++ 4.7 only in Matlab R2013b or later. However, it does not understand c++11 by default. To enable c++11 features in Linux, you need to do the following:
+1). Open the file <matlabroot>/bin/mexopts.sh,
+2). Find and change the line "CXXFLAGS='-ansi -D_GNU_SOURCE'" to "CXXFLAGS='-std=c++11 -D_GNU_SOURCE'"
+3). Open Matlab with the superuser rights.
+4). Run "mex -setup", choose the <matlabroot>/bin/mexopts.sh file and say "yes" to overright its local copy.
+Now you can compile the code.
+
 - The "cnnexamples.m" file requires "mnist_uint8.mat" file to be performed. You can get it from 
 [Matlab Central File Exchange](http://www.mathworks.com.au/matlabcentral/fileexchange/38310-deep-learning-toolbox/content/rasmusbergpalm-DeepLearnToolbox-45ef96c/data/mnist_uint8.mat), just download it and save in ./data folder.
 
