@@ -21,7 +21,7 @@ The library contains 3 main functions to call:
 
 - [weights, trainerr] = cnntrain(layers, params, train_x, train_y, funtype, weights_in(optionally))
 Performs neural net training. Returns weights from all layers as a single vector.
-- [pred, err] = cnntest(layers, weights, test_x, test_y, funtype)
+- [err, bad, pred] = cnntest(layers, weights, test_x, test_y, funtype)
 Calculates the test error. Based on cnnclassify, that returns only the predictions.
 - [weights_in] = genweights(layers, funtype);
 Returns randomly generated weights for neural net. If you need to get repeatable results, just pass these weights to the cnntrain or cnntest.
