@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -32,11 +32,12 @@ public:
   void Classify(const mxArray *mx_data, mxArray *&mx_pred);
   void SetWeights(const mxArray *mx_weights);
   void GetWeights(mxArray *&mx_weights) const;
-  void GetTrainError(mxArray *&mx_errors) const;
+  void GetTrainError(mxArray *&mx_errors) const;  
   size_t NumWeights() const;  
+  void Clear();
   
   Net() {};
-  ~Net();  
+  ~Net() { Clear(); }
   
 private:
   std::vector<Layer*> layers_;

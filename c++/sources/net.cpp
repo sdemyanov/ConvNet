@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -135,7 +135,8 @@ void Net::Forward(Mat &data_batch, Mat &pred, bool istrain) {
     //mexPrintMsg("Forward pass for layer", layers_[i]->type_);
     layers_[i]->Forward(layers_[i-1], istrain);
     if (utIsInterruptPending()) {
-      mexAssert(false, "Ctrl-C Detected. END\n\n");
+      Clear();
+      mexAssert(false, "Ctrl-C Detected. END");
     }
   }  
   pred.attach(layers_.back()->activ_mat_);  
@@ -171,17 +172,7 @@ void Net::ReadData(const mxArray *mx_data) {
     "Data's 3rd dimension must be equal to the outputmaps on the input layer");
   mexAssert(data_dim[3] > 0, "Input data array is empty");
   ftype *data = mexGetPointer(mx_data);
-  data_.attach(data, data_dim[3], data_dim[0] * data_dim[1] * data_dim[2]);
-  /*
-  data_.resize(data_dim[3]);
-  size_t numel = data_dim[0] * data_dim[1];  
-  for (size_t i = 0; i < data_dim[3]; ++i) {    
-    data_[i].resize(data_dim[2]);
-    for (size_t j = 0; j < data_dim[2]; ++j) {
-      data_[i][j].attach(data, data_dim[0], data_dim[1]);
-      data += numel;
-    }
-  }*/
+  data_.attach(data, data_dim[3], data_dim[0] * data_dim[1] * data_dim[2]);  
 }
 
 void Net::ReadLabels(const mxArray *mx_labels) {
@@ -220,8 +211,8 @@ void Net::CalcDeriv(const Mat &labels_batch, ftype &loss) {
     Mat lossmat = lastlayer->activ_mat_;
     (((lossmat *= labels_batch) *= -1) += 1).ElemMax(0);        
     lastlayer->deriv_mat_ = lossmat;
-    (lastlayer->deriv_mat_ *= labels_batch) *= -2;
-    // correct loss also contains weightsT * weights, but it is too long to calculate it
+    (lastlayer->deriv_mat_ *= labels_batch) *= -2;    
+    // correct loss also contains weightsT * weights / C, but it is too long to calculate it
     loss = (lossmat *= lossmat).Sum() / batchsize;    
   } else if (lastlayer->function_ == "sigmoid") {
     lastlayer->deriv_mat_ = lastlayer->activ_mat_;
@@ -276,8 +267,13 @@ void Net::GetTrainError(mxArray *&mx_errors) const {
   mx_errors = mexSetMatrix(trainerror_);
 }
 
-Net::~Net() {
+void Net::Clear() {
   for (size_t i = 0; i < layers_.size(); ++i){
     delete layers_[i];
   }
+  layers_.clear();
+  data_.clear();
+  labels_.clear();
+  trainerror_.clear();
+  classcoefs_.clear();
 }
