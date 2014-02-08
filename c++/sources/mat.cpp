@@ -50,9 +50,8 @@ Mat::Mat(size_t size1, size_t size2) {
 Mat::Mat(const Mat &a) {
   //mexPrintMsg("Array copy constructor");
   owner_ = false;
-  if (a.isempty()) {
-    clear(); return;
-  }
+  clear();
+  if (a.data_ == NULL) return;
   //mexPrintMsg("Array copy resize");
   resize(a.size1_, a.size2_);  
   for (size_t i = 0; i < size1_ * size2_ ; ++i) { 

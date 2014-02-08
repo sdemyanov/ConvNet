@@ -48,8 +48,7 @@ for i = 1 : params.numepochs
   end;
   for j = 1 : numbatches
     batch_x = train_x(:, :, :, kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)));    
-    batch_y = train_y(kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)), :);
-    tic;
+    batch_y = train_y(kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)), :);    
     layers = updateweights(layers, params, i, 0); % preliminary update
     [layers, ~] = cnnff(layers, batch_x, 1);
     [layers, loss] = cnnbp(layers, batch_y);
