@@ -15,50 +15,53 @@ for l = 1 : numel(layers)
   
   if strcmp(layers{l}.type, 'c')    
     if (regime == 0)  
-      layers{l}.dk = momentum * layers{l}.dkp;          
+      dk = momentum * layers{l}.dkp;          
     else
-      signs = layers{l}.dk .* layers{l}.dkp;          
+      dk = alpha * layers{l}.dk;
+      signs = dk .* layers{l}.dkp;          
       layers{l}.gk(signs > 0) = layers{l}.gk(signs > 0) + params.adjustrate;
       layers{l}.gk(signs <= 0) = layers{l}.gk(signs <= 0) * (1 - params.adjustrate);
       layers{l}.gk(layers{l}.gk > params.maxcoef) = params.maxcoef;
       layers{l}.gk(layers{l}.gk <= params.mincoef) = params.mincoef;          
-      layers{l}.dkp = layers{l}.dk;          
-      layers{l}.dk = (1 - momentum) * layers{l}.dk;
+      dk = dk .* layers{l}.gk;
+      layers{l}.dkp = dk;      
+      dk = (1 - momentum) * dk;
     end;
-    layers{l}.k = layers{l}.k - alpha * layers{l}.gk .* layers{l}.dk;                      
+    layers{l}.k = layers{l}.k - dk;                      
     
   elseif strcmp(layers{l}.type, 'f')
     if (regime == 0)      
-      layers{l}.dw = momentum * layers{l}.dwp;      
+      dw = momentum * layers{l}.dwp;      
     else
+      dw = alpha * layers{l}.dw;
       signs = layers{l}.dw .* layers{l}.dwp;
       layers{l}.gw(signs > 0) = layers{l}.gw(signs > 0) + params.adjustrate;
       layers{l}.gw(signs <= 0) = layers{l}.gw(signs <= 0) * (1 - params.adjustrate);
       layers{l}.gw(layers{l}.gw > params.maxcoef) = params.maxcoef;
       layers{l}.gw(layers{l}.gw <= params.mincoef) = 1/params.mincoef;  
-      layers{l}.dwp = layers{l}.dw;
-      layers{l}.dw = (1 - momentum) * layers{l}.dw;      
+      dw = dw .* layers{l}.gw;
+      layers{l}.dwp = dw;
+      dw = (1 - momentum) * dw;      
     end;  
-    layers{l}.w = layers{l}.w - alpha * layers{l}.gw .* layers{l}.dw;
-    %constr = 0.4;
-    %layers{l}.w(layers{l}.w > constr) = constr;
-    %layers{l}.w(layers{l}.w < -constr) = -constr;  
+    layers{l}.w = layers{l}.w - dw;    
   end
   
   % for all transforming layers
   if strcmp(layers{l}.type, 'c') || strcmp(layers{l}.type, 'f')
     if (regime == 0)  
-      layers{l}.db = momentum * layers{l}.dbp;      
-    else      
-      signs = layers{l}.db .* layers{l}.dbp;      
+      db = momentum * layers{l}.dbp;      
+    else
+      db = alpha * layers{l}.db;
+      signs = db .* layers{l}.dbp;      
       layers{l}.gb(signs > 0) = layers{l}.gb(signs > 0) + params.adjustrate;
       layers{l}.gb(signs <= 0) = layers{l}.gb(signs <= 0) * (1 - params.adjustrate);
       layers{l}.gb(layers{l}.gb > params.maxcoef) = params.maxcoef;
       layers{l}.gb(layers{l}.gb <= params.mincoef) = 1/params.mincoef;              
-      layers{l}.dbp = layers{l}.db;
-      layers{l}.db = (1 - momentum) * layers{l}.db;      
+      db = db .* layers{l}.gb;
+      layers{l}.dbp = db;
+      db = (1 - momentum) * db;      
     end;        
-    layers{l}.b = layers{l}.b - alpha * layers{l}.gb .* layers{l}.db;
+    layers{l}.b = layers{l}.b - db;
   end;
 end
     

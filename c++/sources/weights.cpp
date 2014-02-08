@@ -50,20 +50,25 @@ void Weights::Update(const Params &params, size_t epoch, bool isafter) {
   }
   
   if (!isafter) {
-    weights_der_ = weights_der_prev_;
-    weights_der_ *= momentum;    
+    if (momentum == 0) return;
+    weights_der_ = weights_der_prev_;    
+    weights_der_ *= momentum; 
   } else {
-    if (params.adjustrate_ > 0) {
+    weights_der_ *= alpha;
+    if (params.adjustrate_ > 0) {      
       Mat signs = weights_der_prev_;      
       signs *= weights_der_;
       weights_learn_coefs_.CondAdd(signs, 0, true, params.adjustrate_);
       weights_learn_coefs_.CondProd(signs, 0, false, 1-params.adjustrate_);
       weights_learn_coefs_.CondAssign(weights_learn_coefs_, params.maxcoef_, true, params.maxcoef_);
-      weights_learn_coefs_.CondAssign(weights_learn_coefs_, params.mincoef_, false, params.mincoef_);
+      weights_learn_coefs_.CondAssign(weights_learn_coefs_, params.mincoef_, false, params.mincoef_);      
+      weights_der_ *= weights_learn_coefs_;      
     }
-    weights_der_prev_ = weights_der_;
-    weights_der_ *= (1 - momentum);    
-  }
-  weights_ -= (weights_der_ *= weights_learn_coefs_) *= alpha;
+    weights_der_prev_ = weights_der_;    
+    if (momentum > 0) {
+      weights_der_ *= (1 - momentum);    
+    }
+  }  
+  weights_ -= weights_der_;
   // direction that decreases the error    
 }
