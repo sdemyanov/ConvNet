@@ -23,10 +23,10 @@ Params::Params() {
   batchsize_ = 50;
   numepochs_ = 1;
   alpha_.assign(1, 1);
-  momentum_.assign(1, 0.5);
+  momentum_.assign(1, 0);
   adjustrate_ = 0;
-  maxcoef_ = 10;
-  mincoef_ = 0.1;
+  maxcoef_ = 1;
+  mincoef_ = 1;
   balance_ = false;
   shuffle_ = true;
   verbose_ = 2;

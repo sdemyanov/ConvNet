@@ -15,7 +15,7 @@ end;
 assert(length(params.alpha) == 1 || length(params.alpha) == params.numepochs, ...
   'Wrong length of the params.alpha vector');
 if (~isfield(params, 'momentum'))
-  params.momentum = 0.5;
+  params.momentum = 0;
 end;
 assert(length(params.momentum) == 1 || length(params.momentum) == params.numepochs, ...
   'Wrong length of the params.momentum vector');
@@ -23,8 +23,8 @@ if (~isfield(params, 'adjustrate'))
   params.adjustrate = 0;
 end;
 if (~isfield(params, 'maxcoef'))
-  params.maxcoef = 10;
-  params.mincoef = 0.1;
+  params.maxcoef = 1;
+  params.mincoef = 1;
 else
   params.mincoef = 1 / params.maxcoef;
 end;
