@@ -47,7 +47,7 @@ params - define the learning process. It is a structure with the following field
 - alpha - defines the learning rate speed. Default is 1, for "SVM" on the last layer should be about 10 times lower. Can aslo be the vector of the length 'numepochs'. Then an individual rate for each epoch will be used.
 - momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0. Can aslo be the vector of the length 'numepochs'. Then an individual momentum for each epoch will be used.
 - adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
-- maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively. Default is 10.
+- maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively. Default is 1.
 - balance - boolean variable. Balances errors according to the class appearance frequencies. Useful for highly unbalanced datasets. Default is 0.
 - shuffle - determines whether the input dataset will be shuffled or not. If you want repeatable results, you need to set it to 0. In this case the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Otherwise, it should be 1. Default is 1.
 - verbose - determines output info during learning. For 0 there is no output, for 1 it prints only number of epochs, for 2 it prints both numbers of epoch and batch. Default is 2.
