@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -22,9 +22,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LayerConv::LayerConv() {
   type_ = "c";
+  function_ = "relu";  
   batchsize_ = 0;  
 }
-  
+
 void LayerConv::Init(const mxArray *mx_layer, Layer *prev_layer) {
   
   mexAssert(prev_layer->type_ != "f", "The 'c' type layer cannot be after 'f' type layer");
@@ -33,10 +34,11 @@ void LayerConv::Init(const mxArray *mx_layer, Layer *prev_layer) {
   mexAssert(mexIsField(mx_layer, "outputmaps"), "The 'c' type layer must contain the 'outputmaps' field");
   ftype outputmaps = mexGetScalar(mexGetField(mx_layer, "outputmaps"));
   mexAssert(1 <= outputmaps, "Outputmaps on the 'i' layer must be greater or equal to 1");
-  outputmaps_ = (size_t) outputmaps;
-  function_ = "sigmoid";  
+  outputmaps_ = (size_t) outputmaps;  
   if (mexIsField(mx_layer, "function")) {
     function_ = mexGetString(mexGetField(mx_layer, "function"));
+    mexAssert(function_ == "soft" || function_ == "sigm" || function_ == "relu", 
+      "Unknown function for the 'c' layer");    
   }
   mexAssert(mexIsField(mx_layer, "kernelsize"), "The 'c' type layer must contain the 'kernelsize' field");
   std::vector<ftype> kernelsize = mexGetVector(mexGetField(mx_layer, "kernelsize"));
@@ -58,97 +60,122 @@ void LayerConv::Init(const mxArray *mx_layer, Layer *prev_layer) {
   mapsize_.resize(numdim_);
   length_ = outputmaps_;
   for (size_t i = 0; i < numdim_; ++i) {
-    mapsize_[i] = prev_layer->mapsize_[i] + 2*padding_[i] - kernelsize_[i] + 1;    
+    mapsize_[i] = prev_layer->mapsize_[i] + 2*padding_[i] - kernelsize_[i] + 1;
     mexAssert(1 <= mapsize_[i], "Mapsize on the 'c' layer must be greater than 1");
     length_ *= mapsize_[i];
   }  
-  std::string errmsg = function_ + " - unknown function for the layer";      
-  mexAssert(function_ == "sigmoid" || function_ == "relu", errmsg);    
 }
     
-void LayerConv::Forward(Layer *prev_layer, bool istrain) {
+void LayerConv::Forward(Layer *prev_layer, int passnum) {
   
   batchsize_ = prev_layer->batchsize_;
   activ_mat_.resize(batchsize_, length_);
-  activ_.assign(batchsize_, std::vector<Mat>(outputmaps_));
-  InitMaps(activ_mat_, mapsize_, activ_);
-  
-  for (size_t k = 0; k < batchsize_; ++k) {  
+  InitMaps(activ_mat_, mapsize_, activ_);  
+  #if USE_MULTITHREAD == 1
+    #pragma omp parallel for
+  #endif
+  for (int k = 0; k < batchsize_; ++k) {  
     for (size_t i = 0; i < outputmaps_; ++i) {
-      activ_[k][i].assign(biases_.get(i));
+      if (passnum == 0 || passnum == 1) {
+        activ_[k][i].assign(biases_.get(i));
+      } else if (passnum == 3) {
+        activ_[k][i].assign(0);
+      }      
       for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {
         Mat act_mat(mapsize_);
         Filter(prev_layer->activ_[k][j], kernels_[i][j].get(), padding_, act_mat);
-        activ_[k][i] += act_mat;        
-      }
-      if (function_ == "sigmoid") {
-        activ_[k][i].Sigmoid();
-      } else if (function_ == "relu") {
-        activ_[k][i].ElemMax(0);
-      } else {
-        mexAssert(false, "LayerConv::Forward");
-      }    
+        activ_[k][i] += act_mat;
+      }      
     }    
   }
-  if (!istrain) prev_layer->activ_mat_.clear();  
   /*
   for (int i = 0; i < 5; ++i) {
     mexPrintMsg("Conv: activ_", activ_[1][1](0, i)); 
-  }*/
-    
+  }*/    
 }
 
 void LayerConv::Backward(Layer *prev_layer) {
 
   prev_layer->deriv_mat_.resize(prev_layer->batchsize_, prev_layer->length_);
-  prev_layer->deriv_.assign(prev_layer->batchsize_, std::vector<Mat>(prev_layer->outputmaps_));
   InitMaps(prev_layer->deriv_mat_, prev_layer->mapsize_, prev_layer->deriv_); 
-
   std::vector<size_t> padding_der(numdim_);
   for (size_t i = 0; i < numdim_; ++i) {
     padding_der[i] = kernelsize_[i] - 1 - padding_[i];
   }
-  biases_.der().assign(0);
-  for (size_t i = 0; i < outputmaps_; ++i) {    
-    for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {    
-      kernels_[i][j].der().assign(0);      
-    }
-  }
-  for (size_t k = 0; k < batchsize_; ++k) {
+  #if USE_MULTITHREAD == 1
+    #pragma omp parallel for
+  #endif
+  for (int k = 0; k < batchsize_; ++k) {
     for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {    
       prev_layer->deriv_[k][j].init(prev_layer->mapsize_, 0);      
     }
-    for (size_t i = 0; i < outputmaps_; ++i) {
-      if (function_ == "sigmoid") {
-        deriv_[k][i].SigmDer(activ_[k][i]);
-      } else if (function_ == "relu") {        
-        deriv_[k][i].CondAssign(activ_[k][i], 0, false, 0);
-      } else {
-        mexAssert(false, "LayerConv::Backward");
-      }
-      biases_.der(i) += deriv_[k][i].Sum();  
-      for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {        
-        if (prev_layer->type_ != "i" && prev_layer->type_ != "j") {
-          Mat der_mat(prev_layer->mapsize_);
-          Filter(deriv_[k][i], kernels_[i][j].get(), padding_der, der_mat);        
-          prev_layer->deriv_[k][j] += der_mat;
-        }
-        Mat ker_mat(kernelsize_);
-        Filter(prev_layer->activ_[k][j], deriv_[k][i], padding_, ker_mat);
-        kernels_[i][j].der() += ker_mat;                  
+    for (size_t i = 0; i < outputmaps_; ++i) {      
+      for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {                        
+        Mat der_mat(prev_layer->mapsize_);
+        Filter(deriv_[k][i], kernels_[i][j].get(), padding_der, der_mat);        
+        prev_layer->deriv_[k][j] += der_mat;
       }      
     }        
-  }
-  biases_.der() /= batchsize_;
+  }  
+}
+
+void LayerConv::CalcWeights(Layer *prev_layer) {  
+  
   for (size_t i = 0; i < outputmaps_; ++i) {
-    for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {        
-      kernels_[i][j].der() /= batchsize_;   
-    }
+    biases_.der(i) = 0;
+    for (size_t k = 0; k < batchsize_; ++k) {
+      biases_.der(i) += deriv_[k][i].Sum();  
+    }    
+    biases_.der(i) /= batchsize_;
+    for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {                
+      kernels_[i][j].der().assign(0);      
+      #if USE_MULTITHREAD == 1
+        #pragma omp parallel for
+      #endif
+      for (int k = 0; k < batchsize_; ++k) {
+        Mat ker_mat(kernelsize_);
+        Filter(prev_layer->activ_[k][j], deriv_[k][i], padding_, ker_mat);        
+        #if USE_MULTITHREAD == 1
+          #pragma omp critical
+        #endif
+        kernels_[i][j].der() += ker_mat;
+      }
+      kernels_[i][j].der() /= batchsize_;
+    }        
+  }  
+}
+
+void LayerConv::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid) {  
+  batchsize_ -= invalid.size();
+  std::vector<size_t> padding_der(numdim_);
+  for (size_t i = 0; i < numdim_; ++i) {
+    padding_der[i] = kernelsize_[i] - 1 - padding_[i];
   }
-  /*
-  for (int i = 0; i < 10; ++i) {
-    mexPrintMsg("Conv: deriv_kern", kernels_[0][0].der()(0, i)); 
-  } */
+  for (size_t i = 0; i < outputmaps_; ++i) {
+    for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {                
+      kernels_[i][j].der2().assign(0);
+      if (batchsize_ == 0) continue;
+      #if USE_MULTITHREAD == 1
+        #pragma omp parallel for
+      #endif
+      for (int k = 0; k < batchsize_; ++k) {
+        int ind = -1;
+        for (int m = 0; m < invalid.size(); ++m) {
+          if (k == invalid[m]) {
+            ind = m; break;
+          }
+        }
+        if (ind >= 0) continue;        
+        Mat ker_mat(kernelsize_);
+        Filter(deriv_[k][i], prev_layer->activ_[k][j], padding_der, ker_mat);
+        #if USE_MULTITHREAD == 1
+          #pragma omp critical
+        #endif
+        kernels_[i][j].der2() += ker_mat;
+      }
+      kernels_[i][j].der2() /= batchsize_;
+    }        
+  }  
 }
 
 void LayerConv::UpdateWeights(const Params &params, size_t epoch, bool isafter) {
@@ -162,27 +189,7 @@ void LayerConv::UpdateWeights(const Params &params, size_t epoch, bool isafter) 
   biases_.Update(params, epoch, isafter);  
 }
 
-void LayerConv::GetWeights(ftype *&weights, ftype *weights_end) const {  
-  //mexAssert(kernels_.size() > 0, "In LayerConv::GetWeights the kernels are empty");
-  size_t numel = 1;
-  for (size_t i = 0; i < numdim_; ++i) {
-    numel *= kernelsize_[i];
-  }  
-  for (size_t i = 0; i < outputmaps_; ++i) {    
-    for (size_t j = 0; j < length_prev_; ++j) {
-      mexAssert(weights_end - weights >= numel,
-        "In 'LayerConv::GetWeights' the vector of weights is too short!");
-      kernels_[i][j].Write(weights);
-      weights += numel;      
-    }    
-  }
-  mexAssert(weights_end - weights >= outputmaps_,
-      "In 'LayerConv::GetWeights' the vector of weights is too short!");
-  biases_.Write(weights);      
-  weights += outputmaps_;  
-}
-
-void LayerConv::SetWeights(ftype *&weights, ftype *weights_end) {
+void LayerConv::SetWeights(ftype *&weights, bool isgen) {
 
   kernels_.resize(outputmaps_);
   for (size_t i = 0; i < outputmaps_; ++i) {    
@@ -196,18 +203,11 @@ void LayerConv::SetWeights(ftype *&weights, ftype *weights_end) {
   size_t fan_out = outputmaps_ * numel;
   ftype rand_coef = 2 * sqrt((ftype) 6 / (fan_in + fan_out));
   
-  //mexPrintMsg("kernelsize_[0]", kernelsize_[0]);
-  //mexPrintMsg("kernelsize_[1]", kernelsize_[1]);
-  //mexPrintMsg("numel", numel);
-  //mexPrintMsg("outputmaps_", outputmaps_);
-  //mexPrintMsg("length_prev_", length_prev_);
   for (size_t i = 0; i < outputmaps_; ++i) {    
     for (size_t j = 0; j < length_prev_; ++j) {
-      if (weights == NULL) {
-        kernels_[i][j].Init(rand_coef, kernelsize_);      
+      if (isgen) {
+        kernels_[i][j].Init(weights, kernelsize_, rand_coef);      
       } else {        
-        mexAssert(weights_end - weights >= numel,
-          "In 'LayerConv::SetWeights' the vector of weights is too short!");
         kernels_[i][j].Init(weights, kernelsize_);
         weights += numel;
       }
@@ -215,11 +215,9 @@ void LayerConv::SetWeights(ftype *&weights, ftype *weights_end) {
   }
   std::vector<size_t> biassize(2);
   biassize[0] = outputmaps_; biassize[1] = 1;  
-  if (weights == NULL) {
-    biases_.Init((ftype) 0, biassize);
+  if (isgen) {
+    biases_.Init(weights, biassize, 0);
   } else {
-    mexAssert(weights_end - weights >= outputmaps_,
-      "In 'LayerConv::SetWeights' the vector of weights is too short!");
     biases_.Init(weights, biassize);
     weights += outputmaps_;
   }

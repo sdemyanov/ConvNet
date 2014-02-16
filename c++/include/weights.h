@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -28,7 +28,7 @@ class Weights {
 public:
   Weights() {};
   ~Weights() {};
-  void Init(ftype coef, const std::vector<size_t> &newsize);
+  void Init(ftype *weights, const std::vector<size_t> &newsize, ftype coef);
   void Init(ftype *weights, const std::vector<size_t> &newsize);
   void Update(const Params &params, size_t epoch, bool isafter);
   inline void Write(ftype *weights) const { weights_.ToVect(weights); }
@@ -37,11 +37,13 @@ public:
   inline const ftype& get(size_t ind) const { return weights_(ind); }
   inline std::vector<size_t> size() const { return size_; }
   inline Mat& der() { return weights_der_; }
+  inline Mat& der2() { return weights_der2_; }
   inline ftype& der(size_t ind) { return weights_der_(ind); }
   
 private:
   Mat weights_;
   Mat weights_der_;
+  Mat weights_der2_;
   Mat weights_der_prev_;
   Mat weights_learn_coefs_; 
   std::vector<size_t> size_;

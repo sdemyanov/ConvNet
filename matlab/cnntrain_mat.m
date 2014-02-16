@@ -1,15 +1,8 @@
-function [weights, trainerr] = cnntrain_mat(varargin)
+function [weights, trainerr] = cnntrain_mat(layers, weights, train_x, train_y, params)
 
-layers = varargin{1};
-params = varargin{2};
-train_x = varargin{3};
-train_y = varargin{4};
-if (nargin > 4)
-  weights = varargin{5};
-end;
+params = setparams(params);
 
 layers = cnnsetup(layers);
-
 assert(length(size(train_y)) == 2, 'The label array must have 2 dimensions'); 
 train_num = size(train_y, 1);
 classes_num = size(train_y, 2);
@@ -22,11 +15,8 @@ end;
 if strcmp(layers{end}.function, 'SVM')
   train_y(train_y == 0) = -1;
 end;
+layers = setweights(layers, weights);
 
-if (nargin > 4)
-  layers = setweights(layers, weights);
-end;
-params = setparams(params);
 assert(length(size(train_x)) == 3 || length(size(train_x)) == 4, ...
        'Wrong dimensionality of input data');
 assert(size(train_x, 1) == layers{1}.mapsize(1) && ...
@@ -48,10 +38,13 @@ for i = 1 : params.numepochs
   end;
   for j = 1 : numbatches
     batch_x = train_x(:, :, :, kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)));    
-    batch_y = train_y(kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)), :);    
+    batch_y = train_y(kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)), :);
     layers = updateweights(layers, params, i, 0); % preliminary update
-    [layers, ~] = cnnff(layers, batch_x, 1);
-    [layers, loss] = cnnbp(layers, batch_y);
+    layers = initact(layers, batch_x);
+    [layers, pred] = forward(layers, 1);
+    [layers, loss] = initder(layers, batch_y);
+    layers = backward(layers);
+    layers = calcweights(layers);
     layers = updateweights(layers, params, i, 1); % final update
     trainerr(i, j) = loss;    
     if (params.verbose == 2)

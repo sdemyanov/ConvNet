@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -24,19 +24,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mex_print.h"
 #include <vector>
 #include <algorithm>
+#include <omp.h>
 
 #define MEM_ORDER HORIZONTAL
 //#define MEM_ORDER VERTICAL
 
-class Mat{
-
-public:  
-  
 #if MEM_ORDER == HORIZONTAL
   #define IND_IJ i * size2_ + j
 #elif MEM_ORDER == VERTICAL
   #define IND_IJ j * size1_ + i
 #endif
+
+class Mat{
+
+public:  
   
   inline ftype& operator () (size_t i, size_t j) { return data_[IND_IJ]; } 
   inline const ftype& operator () (size_t i, size_t j) const { return data_[IND_IJ]; }
@@ -51,20 +52,21 @@ public:
   Mat(const Mat &a);
   Mat(Mat &&a);
   ~Mat();
-  void swap(Mat &a);
   Mat& operator = (const Mat &a);
   Mat& operator = (Mat &&a);
   void clear();
   Mat& attach(ftype *vect, const std::vector<size_t> &newsize);
   Mat& attach(ftype *vect, size_t size1, size_t size2);
-  Mat& attach(const Mat &a);
+  Mat& attach(const Mat &a);  
   Mat& assign(ftype val);
+  Mat& rand();
   void resize(const std::vector<size_t> &newsize);
   void resize(size_t size1, size_t size2);
+  Mat& copy(const Mat &a);
   Mat& init(const std::vector<size_t> &newsize, ftype val);
   Mat& init(size_t size1, size_t size2, ftype val);
-  Mat& rand(const std::vector<size_t> &newsize);
-  Mat& rand(size_t size1, size_t size2);
+  
+    
   void ToVect(ftype *vect) const;
   ftype Sum() const;
   ftype& operator () (size_t ind);
@@ -78,6 +80,8 @@ public:
   Mat& operator *= (ftype a);
   Mat& operator /= (ftype a);  
   Mat& Sign();
+  Mat& SoftMax();
+  Mat& SoftDer(const Mat& a);
   Mat& Sigmoid();
   Mat& SigmDer(const Mat& a);
   Mat& ElemMax(ftype a);
@@ -86,22 +90,26 @@ public:
   Mat& CondProd(const Mat &condmat, ftype threshold, bool incase, ftype a);
   Mat& AddVect(const Mat &vect, size_t dim);
   Mat& MultVect(const Mat &vect, size_t dim);
-  Mat& Normalize(ftype norm);
+  Mat& Normalize(ftype norm, ftype &oldnorm);
   Mat& CalcPercents();
+  Mat& Validate();
                     
   // friend functions
+  friend void Swap(Mat &a, Mat &b);
   friend Mat Sum(const Mat &a, size_t dim);
   friend Mat Mean(const Mat &a, size_t dim);  
   friend Mat Trans(const Mat &a);
-  friend void SubMat(const Mat &a, const std::vector<size_t> &ind, size_t dim, Mat &sumbat);  
+  friend Mat SubMat(const Mat &a, const std::vector<size_t> &ind, size_t dim);  
+  friend void InitMaps(const Mat &a, const std::vector<size_t> &mapsize,
+                       std::vector< std::vector<Mat> > &reshaped);
   
   // layer transformation functions
   friend void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, Mat &c);
+  friend void Filter(const Mat &image, const Mat &filter, 
+                     const std::vector<size_t> padding, Mat &filtered);
   friend void Transform(const Mat &image, const std::vector<ftype> &shift, 
                         const std::vector<ftype> &scale, const std::vector<bool> &mirror,
                         ftype angle, ftype defval, Mat &transformed);         
-  friend void Filter(const Mat &image, const Mat &filter, 
-                     const std::vector<size_t> padding, Mat &filtered);
   friend void MeanScale(const Mat &image, const std::vector<size_t> &scale,
                         const std::vector<size_t> &stride, Mat &scaled);
   friend void MeanScaleDer(const Mat &image, const std::vector<size_t> &scale,
@@ -113,9 +121,7 @@ public:
                           Mat &scaled);
   friend void MaxTrim(const Mat &image, std::vector<size_t> &coords, Mat &trimmed);
   friend void MaxTrimDer(const Mat &image, const std::vector<size_t> &coords,
-                         Mat &restored);
-  friend void InitMaps(const Mat &a, const std::vector<size_t> &mapsize,
-                       std::vector< std::vector<Mat> > &reshaped);
+                         Mat &restored);  
   
 private:
   ftype *data_;

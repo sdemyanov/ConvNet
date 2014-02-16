@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -51,11 +51,15 @@ std::string mexGetString(const mxArray *mx_array);
 ftype* mexGetPointer(const mxArray *mx_array);
 ftype mexGetScalar(const mxArray *mx_array);
 std::vector<ftype> mexGetVector(const mxArray *mx_array);
-void mexGetMatrix(const mxArray *mx_array, Mat &array);
+Mat mexGetMatrix(const mxArray *mx_array);
 
 mxArray* mexNewMatrix(size_t size1, size_t size2);
 mxArray* mexSetScalar(ftype scalar);
 mxArray* mexSetVector(const std::vector<ftype> &vect);
 mxArray* mexSetMatrix(const Mat &mat);
+mxArray* mexSetCellMat(size_t size1, size_t size2);
+void mexSetCell(mxArray* mx_array, size_t ind, mxArray* mx_value);
+
+mxArray* mexDuplicateArray(const mxArray* mx_array);
 
 #endif

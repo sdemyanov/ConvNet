@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -108,12 +108,14 @@ void LayerJitter::Init(const mxArray *mx_layer, Layer *prev_layer) {
   }
 } 
 
-void LayerJitter::Forward(Layer *prev_layer, bool istrain) {
+void LayerJitter::Forward(Layer *prev_layer, int passnum) {
   batchsize_ = prev_layer->batchsize_;
   activ_mat_.resize(batchsize_, length_);
-  activ_.assign(batchsize_, std::vector<Mat>(outputmaps_));
   InitMaps(activ_mat_, mapsize_, activ_);  
-  for (size_t k = 0; k < batchsize_; ++k) {  
+  #if USE_MULTITHREAD == 1
+    #pragma omp parallel for
+  #endif
+  for (int k = 0; k < batchsize_; ++k) {  
     for (size_t i = 0; i < outputmaps_; ++i) {
       std::vector<ftype> shift(numdim_, 0);
       std::vector<ftype> scale(numdim_, 1);
@@ -135,10 +137,14 @@ void LayerJitter::Forward(Layer *prev_layer, bool istrain) {
       }      
       Transform(prev_layer->activ_[k][i], shift, scale, mirror, angle, default_, activ_[k][i]);      
     }    
-  }
-  if (!istrain) prev_layer->activ_mat_.clear();
+  }  
   /*
   for (int i = 0; i < 5; ++i) {
     mexPrintMsg("Jitt: activ_[0][0]", activ_[0][0](0, i)); 
   } */
 }
+
+void LayerJitter::Backward(Layer *prev_layer) {    
+  prev_layer->deriv_mat_ = deriv_mat_;
+}
+

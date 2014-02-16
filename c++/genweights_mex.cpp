@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -25,6 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define NARGOUT 1
 #define OUT_W	pLhs[0] // weights
 
+int print = 0;
+
 void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
 
   mexAssert(nRhs == NARGIN, "Number of input arguments in wrong!");
@@ -32,7 +34,6 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   
   Net net;
   net.InitLayers(IN_L);
-  net.SetWeights(NULL);
-  net.GetWeights(OUT_W);  
+  net.SetWeights(NULL, OUT_W);
   
 }

@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -23,6 +23,7 @@ Params::Params() {
   batchsize_ = 50;
   numepochs_ = 1;
   alpha_.assign(1, 1);
+  beta_.assign(1, 1);
   momentum_.assign(1, 0);
   adjustrate_ = 0;
   maxcoef_ = 1;
@@ -48,6 +49,14 @@ void Params::Init(const mxArray *mx_params) {
       "Wrong length of the alpha vector");
     for (size_t i = 0; i < alpha_.size(); ++i) {
       mexAssert(alpha_[i] > 0, "alpha must be positive");
+    }
+  }
+  if (mexIsField(mx_params, "beta")) {    
+    beta_ = mexGetVector(mexGetField(mx_params, "beta"));
+    mexAssert(beta_.size() == 1 || beta_.size() == numepochs_,
+      "Wrong length of the beta vector");
+    for (size_t i = 0; i < beta_.size(); ++i) {
+      mexAssert(beta_[i] >= 0, "beta must be nonnegative");
     }
   }
   if (mexIsField(mx_params, "momentum")) {    

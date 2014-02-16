@@ -9,6 +9,7 @@ assert(size(test_x, 1) == layers{1}.mapsize(1) && ...
 assert(size(test_x, 3) == layers{1}.outputmaps, ...
        'The number of the input data maps must be as specified');
 
-[~, pred] = cnnff(layers, test_x, 0);
+layers = initact(layers, test_x);
+[~, pred] = forward(layers, 0);
 
 end

@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -79,35 +79,17 @@ Mat::~Mat() {
   //mexPrintMsg("Array destructor end");
 }
 
-void Mat::swap(Mat &a) {
-  ftype *data_tmp = data_;
-  data_ = a.data_;
-  a.data_ = data_tmp;
-  
-  size_t size1_tmp = size1_;
-  size1_ = a.size1_;
-  a.size1_ = size1_tmp;
-  
-  size_t size2_tmp = size2_;
-  size2_ = a.size2_;
-  a.size2_ = size2_tmp; 
-  
-  bool owner_tmp = owner_;
-  owner_ = a.owner_;
-  a.owner_ = owner_tmp;
-}
-
 Mat& Mat::operator = (const Mat &a) {
   //mexPrintMsg("Array const assignment");
-  Mat tmp(a);
-  swap(tmp);
+  Mat tmp(a);  
+  Swap(*this, tmp);  
   //mexPrintMsg("Array const assignment end");
   return *this;  
 }
 
 Mat& Mat::operator = (Mat &&a) {  
   //mexPrintMsg("Array move assignment");
-  swap(a);
+  Swap(*this, a);
   //mexPrintMsg("Array move assignment end");
   return *this;
 }
@@ -152,6 +134,13 @@ Mat& Mat::assign(ftype val) {
   return *this;
 }
 
+Mat& Mat::rand() {
+  for (size_t i = 0; i < size1_ * size2_; ++i) {
+    data_[i] = (ftype) std::rand() / RAND_MAX;
+  }
+  return *this;
+}
+
 void Mat::resize(const std::vector<size_t> &newsize) {
   mexAssert(newsize.size() == 2, "In Mat::resize the size vector length != 2");
   resize(newsize[0], newsize[1]);  
@@ -169,6 +158,15 @@ void Mat::resize(size_t size1, size_t size2) {
   //mexPrintMsg("Array resize end");  
 }
 
+Mat& Mat::copy(const Mat &a) {
+  mexAssert(size1_ == a.size1_ && size2_ == a.size2_,
+    "In Mat::copy the sizes of matrices must coincide");
+  for (size_t i = 0; i < size1_ * size2_; ++i) {
+    data_[i] = a.data_[i];
+  }
+  return *this;
+}
+
 Mat& Mat::init(const std::vector<size_t> &newsize, ftype val) {
   mexAssert(newsize.size() == 2, "In Mat::init the size vector length != 2");
   return init(newsize[0], newsize[1], val);
@@ -180,20 +178,6 @@ Mat& Mat::init(size_t size1, size_t size2, ftype val) {
   return *this;
 }
 
-Mat& Mat::rand(const std::vector<size_t> &newsize) {
-  mexAssert(newsize.size() == 2, "In Mat::rand the size vector length != 2");
-  return rand(newsize[0], newsize[1]);  
-}
-
-Mat& Mat::rand(size_t size1, size_t size2) {
-  resize(size1, size2);
-  for (size_t i = 0; i < size1_ * size2_; ++i) {
-    data_[i] = (ftype) std::rand() / RAND_MAX;
-  }
-  return *this;
-}
-
-  
 void Mat::ToVect(ftype *vect) const {
   for (size_t i = 0; i < size1_ * size2_; ++i) {
     vect[i] = data_[i];
@@ -284,9 +268,9 @@ Mat& Mat::operator /= (ftype a) {
 
 Mat& Mat::Sign() {
   for (size_t i = 0; i < size1_ * size2_ ; ++i) {
-    if (data_[i] > 0) {
+    if (data_[i] > kEps) {
       data_[i] = 1;
-    } else if (data_[i] < 0) {
+    } else if (data_[i] < -kEps) {
       data_[i] = -1;
     } else {
       data_[i] = 0;
@@ -295,9 +279,43 @@ Mat& Mat::Sign() {
   return *this;
 }
 
+Mat& Mat::SoftMax() {
+
+  for (size_t i = 0; i < size1_; ++i) {
+    ftype max_val = data(i, 0);
+    for (size_t j = 1; j < size2_; ++j) {
+      if (data(i, j) > max_val) max_val = data(i, j);
+    }
+    ftype sum_exp = 0;
+    for (size_t j = 0; j < size2_; ++j) {
+      sum_exp += exp(data(i, j) - max_val);
+    }
+    ftype log_sum_exp = log(sum_exp) + max_val;
+    
+    for (size_t j = 0; j < size2_; ++j) {
+      data(i, j) = exp(data(i, j) - log_sum_exp);
+    }
+  }
+  return *this;
+}
+
+Mat& Mat::SoftDer(const Mat& a) {
+  for (size_t i = 0; i < size1_; ++i) {
+    ftype comsum = 0;
+    for (size_t j = 0; j < size2_; ++j) {
+      comsum += data(i, j) * a(i, j);
+    }
+    for (size_t j = 0; j < size2_; ++j) {
+      data(i, j) = a(i, j) * (data(i, j) - comsum);
+    }
+  }
+  return *this;
+}
+
 Mat& Mat::Sigmoid() {
   for (size_t i = 0; i < size1_ * size2_; ++i) {
-    data_[i] = 1 / (1 + exp(-data_[i]));
+    data_[i] = (1 + tanh(data_[i]/2)) / 2;
+    //data_[i] = 1 / (1 + exp(-data_[i]));
   }
   return *this;
 }
@@ -395,16 +413,17 @@ Mat& Mat::MultVect(const Mat &vect, size_t dim) {
   return *this;
 }
 
-Mat& Mat::Normalize(ftype norm) {
+Mat& Mat::Normalize(ftype norm, ftype &oldnorm) {
   (*this) -= Sum() / (size1_ * size2_);
   ftype curnorm = 0;
   for (size_t i = 0; i < size1_ * size2_; ++i) {
     curnorm += data_[i] * data_[i];
   }
   curnorm = sqrt(curnorm);
-  if (curnorm > 1e-8) {
+  if (curnorm > kEps) {
     (*this) *= (norm / curnorm);
   }
+  oldnorm = curnorm;
   return *this;
 }
 
@@ -426,7 +445,32 @@ Mat& Mat::CalcPercents() {
   return *this;
 }
 
+Mat& Mat::Validate() {  
+  for (size_t i = 0; i < size1_ * size2_ ; ++i) {  
+    if (-kEps < data_[i] && data_[i] < kEps) data_[i] = 0;
+  }
+  return *this;
+}
+
 // friend functions
+
+void Swap(Mat &a, Mat &b) {
+  ftype *data_tmp = b.data_;
+  b.data_ = a.data_;
+  a.data_ = data_tmp;
+  
+  size_t size1_tmp = b.size1_;
+  b.size1_ = a.size1_;
+  a.size1_ = size1_tmp;
+  
+  size_t size2_tmp = b.size2_;
+  b.size2_ = a.size2_;
+  a.size2_ = size2_tmp; 
+  
+  bool owner_tmp = b.owner_;
+  b.owner_ = a.owner_;
+  a.owner_ = owner_tmp;  
+}
 
 Mat Sum(const Mat &a, size_t dim) {
   
@@ -473,12 +517,12 @@ Mat Trans(const Mat &a) {
   return c;
 }
 
-void SubMat(const Mat &a, const std::vector<size_t> &ind, size_t dim, Mat &submat) {
+Mat SubMat(const Mat &a, const std::vector<size_t> &ind, size_t dim) {
   
   mexAssert(ind.size() > 0, "In SubMat the index vector is empty");
   size_t minind = *(std::min_element(ind.begin(), ind.end()));
   mexAssert(minind >= 0, "In SubMat one of the indices is less than zero");  
-  
+  Mat submat;
   if (dim == 1) {
     size_t maxind = *(std::max_element(ind.begin(), ind.end()));    
     mexAssert(maxind < a.size1_, "In SubMat one of the indices is larger than the array size");    
@@ -499,7 +543,33 @@ void SubMat(const Mat &a, const std::vector<size_t> &ind, size_t dim, Mat &subma
     }    
   } else {
     mexAssert(false, "In Mat::SubMat the second parameter must be either 1 or 2");
-  }  
+  }
+  return submat;
+}
+
+void InitMaps(const Mat &a, const std::vector<size_t> &mapsize,
+              std::vector< std::vector<Mat> > &matrices) {
+  mexAssert(mapsize.size() == 2, "In Mat::InitMaps the size vector length != 2");
+#if MEM_ORDER == HORIZONTAL
+  // splitting 2nd dimension
+  size_t s1 = a.size1_, s2 = a.size2_;
+#elif MEM_ORDER == VERTICAL
+  // splitting 1st dimension
+  size_t s1 = a.size2_, s2 = a.size1_;
+#endif
+  // splitting 2nd dimension
+  if (matrices.size() != s1) matrices.resize(s1);
+  size_t numel = mapsize[0] * mapsize[1];
+  mexAssert(s2 % numel == 0, "In 'Mat::InitMaps' the matrix sizes do not correspond");
+  size_t outputmaps = s2 / numel;
+  for (size_t k = 0; k < matrices.size(); ++k) {
+    if (matrices[k].size() != outputmaps) matrices[k].resize(outputmaps);
+    size_t ind = 0;
+    for (size_t j = 0; j < outputmaps; ++j) {
+      matrices[k][j].attach(a.data_ + k*s2 + ind, mapsize[0], mapsize[1]);
+      ind += numel;
+    }    
+  }
 }
 
 // layer transformation functions
@@ -507,66 +577,38 @@ void SubMat(const Mat &a, const std::vector<size_t> &ind, size_t dim, Mat &subma
 void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, Mat &c) {
   
   size_t as1, as2, bs1, bs2;
-  Mat aM, bM, cM;
+  Mat al, bl, cl;
   if (!a_tr) { // a
     as1 = a.size1_; as2 = a.size2_;    
-    aM = Trans(a);
+    al = Trans(a);
   } else { // aT
     as1 = a.size2_; as2 = a.size1_;
-    aM = a;//aM = a;
+    al = a;
   }
   if (!b_tr) { //b
     bs1 = b.size1_; bs2 = b.size2_;
-    bM = b;//bM = b;
+    bl = b;
   } else { //bT
     bs1 = b.size2_; bs2 = b.size1_;
-    bM = Trans(b);
+    bl = Trans(b);
   }
   mexAssert(as2 == bs1, "In Prod the sizes of matrices do not correspond");  
-  cM.init(as1, bs2, 0);
-  for (size_t k = 0; k < as2; k++) {
-    for (size_t i = 0; i < as1; i++) {
-      for (size_t j = 0; j < bs2; j++) {
-        cM(i, j) += aM(k, i) * bM(k, j);
+  cl.init(as1, bs2, 0);
+  //#if USE_MULTITHREAD == 1
+  //  #pragma omp parallel for
+  //#endif
+  for (int k = 0; k < as2; k++) {    
+    for (int i = 0; i < as1; i++) {      
+      for (int j = 0; j < bs2; j++) {
+        //#if USE_MULTITHREAD == 1
+        //  #pragma omp atomic
+        //#endif
+        cl(i, j) += al(k, i) * bl(k, j);
       }
     }
   }
-  c = std::move(cM);
+  c = std::move(cl);
 }
-
-void Transform(const Mat &image, const std::vector<ftype> &shift,
-               const std::vector<ftype> &scale, const std::vector<bool> &mirror, 
-               ftype angle, ftype defval, Mat &transformed) {
-  ftype m1 = (ftype) image.size1_ / 2 - 0.5;
-  ftype m2 = (ftype) image.size2_ / 2 - 0.5;  
-  ftype n1 = (ftype) transformed.size1_ / 2 - 0.5;
-  ftype n2 = (ftype) transformed.size2_ / 2 - 0.5;
-  ftype angcos = cos(angle);
-  ftype angsin = sin(angle);
-  for (size_t i = 0; i < transformed.size1_; ++i) {
-    for (size_t j = 0; j < transformed.size2_; ++j) {
-      ftype xi1 = (i - n1) * scale[0];
-      ftype xi2 = (j - n2) * scale[1];
-      ftype x1 = xi1 * angcos - xi2 * angsin + m1 + shift[0];
-      ftype x2 = xi1 * angsin + xi2 * angcos + m2 + shift[1];
-      if (mirror[0]) x1 = image.size1_ - 1 - x1;
-      if (mirror[1]) x2 = image.size2_ - 1 - x2;
-      //mexAssert(0 <= x1 && x1 <= image.size1_-2, "x1 is out of range");
-      //mexAssert(0 <= x2 && x2 <= image.size2_-2, "x2 is out of range");      
-      int xf1 = std::floor(x1);
-      int xf2 = std::floor(x2);
-      if (0 <= xf1 && xf1 + 1 <= image.size1_ - 1 &&
-          0 <= xf2 && xf2 + 1 <= image.size2_ - 1) {        
-        ftype vl = (x1 - xf1) * image(xf1+1, xf2) + (xf1 + 1 - x1) * image(xf1, xf2);
-        ftype vh = (x1 - xf1) * image(xf1+1, xf2+1) + (xf1 + 1 - x1) * image(xf1, xf2+1);
-        transformed(i, j) = (x2 - xf2) * vh + (xf2 + 1 - x2) * vl;
-      } else {
-        transformed(i, j) = defval;
-      } 
-    }
-  }  
-}
-
 
 void Filter(const Mat &image, const Mat &filter, 
             const std::vector<size_t> padding, Mat &filtered) {
@@ -607,8 +649,40 @@ void Filter(const Mat &image, const Mat &filter,
       }
     }
   }
-  filtered = std::move(cache_mat);
-  //cache_mat.ToVect(filtered.data_);
+  filtered = std::move(cache_mat); 
+}
+
+void Transform(const Mat &image, const std::vector<ftype> &shift,
+               const std::vector<ftype> &scale, const std::vector<bool> &mirror, 
+               ftype angle, ftype defval, Mat &transformed) {
+  ftype m1 = (ftype) image.size1_ / 2 - 0.5;
+  ftype m2 = (ftype) image.size2_ / 2 - 0.5;  
+  ftype n1 = (ftype) transformed.size1_ / 2 - 0.5;
+  ftype n2 = (ftype) transformed.size2_ / 2 - 0.5;
+  ftype angcos = cos(angle);
+  ftype angsin = sin(angle);
+  for (size_t i = 0; i < transformed.size1_; ++i) {
+    for (size_t j = 0; j < transformed.size2_; ++j) {
+      ftype xi1 = (i - n1) * scale[0];
+      ftype xi2 = (j - n2) * scale[1];
+      ftype x1 = xi1 * angcos - xi2 * angsin + m1 + shift[0];
+      ftype x2 = xi1 * angsin + xi2 * angcos + m2 + shift[1];
+      if (mirror[0]) x1 = image.size1_ - 1 - x1;
+      if (mirror[1]) x2 = image.size2_ - 1 - x2;
+      //mexAssert(0 <= x1 && x1 <= image.size1_-2, "x1 is out of range");
+      //mexAssert(0 <= x2 && x2 <= image.size2_-2, "x2 is out of range");      
+      int xf1 = std::floor(x1);
+      int xf2 = std::floor(x2);
+      if (0 <= xf1 && xf1 + 1 <= image.size1_ - 1 &&
+          0 <= xf2 && xf2 + 1 <= image.size2_ - 1) {        
+        ftype vl = (x1 - xf1) * image(xf1+1, xf2) + (xf1 + 1 - x1) * image(xf1, xf2);
+        ftype vh = (x1 - xf1) * image(xf1+1, xf2+1) + (xf1 + 1 - x1) * image(xf1, xf2+1);
+        transformed(i, j) = (x2 - xf2) * vh + (xf2 + 1 - x2) * vl;
+      } else {
+        transformed(i, j) = defval;
+      } 
+    }
+  }  
 }
 
 void MeanScale(const Mat &image, const std::vector<size_t> &scale,
@@ -736,56 +810,3 @@ void MaxTrimDer(const Mat &image, const std::vector<size_t> &coords, Mat &restor
     }
   }
 }
-
-void InitMaps(const Mat &a, const std::vector<size_t> &mapsize,
-              std::vector< std::vector<Mat> > &matrices) {
-  mexAssert(mapsize.size() == 2, "In Mat::InitMaps the size vector length != 2");
-#if MEM_ORDER == HORIZONTAL
-  // splitting 2nd dimension
-  size_t s1 = a.size1_, s2 = a.size2_;
-#elif MEM_ORDER == VERTICAL
-  // splitting 1st dimension
-  size_t s1 = a.size2_, s2 = a.size1_;
-#endif
-  // splitting 2nd dimension
-  mexAssert(s1 == matrices.size(), "In 'Mat::InitMaps' the first dimension does not coincide");
-  size_t numel = mapsize[0] * mapsize[1];
-  for (size_t k = 0; k < matrices.size(); ++k) {
-    mexAssert(s2 == numel * matrices[k].size(),
-              "In 'Mat::InitMaps' the second dimension does not coincide");
-    size_t ind = 0;
-    for (size_t j = 0; j < matrices[k].size(); ++j) {
-      matrices[k][j].attach(a.data_ + k*s2 + ind, mapsize[0], mapsize[1]);
-      ind += numel;
-    }    
-  }
-}
-
-/*
-Mat ReshapeFrom(const std::vector< std::vector<Mat> > &squeezed) {
-  // stretches 2, 3 and 4 dimensions size_to the 1st one. The 1st dimension stays the same.
-  size_t batchsize = squeezed.size();
-  mexAssert(batchsize > 0, "In 'Mat::ReshapeFrom' the number of batches is zero");
-  size_t outputmaps = squeezed[0].size();
-  mexAssert(outputmaps > 0, "In 'Mat::ReshapeFrom' the number of output maps is zero");  
-  size_t mapsize[2];
-  mapsize[0] = squeezed[0][0].size1_;
-  mapsize[1] = squeezed[0][0].size2_;
-  size_t numel = mapsize[0] * mapsize[1];
-  Mat reshaped(batchsize, outputmaps * numel);  
-  for (size_t k = 0; k < batchsize; ++k) {
-    size_t ind = 0;
-    for (size_t j = 0; j < outputmaps; ++j) {
-      mexAssert(squeezed[k][j].size1_ == mapsize[0] && 
-                squeezed[k][j].size2_ == mapsize[1],
-     "In 'Mat::ReshapeFrom' the matrix size is not constant");      
-      for (size_t u = 0; u < mapsize[0]; ++u) {
-        for (size_t v = 0; v < mapsize[1]; ++v) {          
-          reshaped(k, ind++) = squeezed[k][j](u, v);          
-        }
-      }
-    }      
-  }
-  return reshaped;
-}
-*/

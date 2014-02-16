@@ -1,4 +1,4 @@
-function pred = cnnclassify(layers, weights, test_x, type)
+function pred = cnnclassify(layers, weights_in, test_x, type)
 
 if (length(size(test_x)) == 3)
   % insert singletone maps index
@@ -14,12 +14,12 @@ if strcmp(type, 'mexfun')
   if (isfield(layers{1}, 'stdev'))
     layers{1}.stdev = permute(layers{1}.stdev, [2 1 3]);
   end;
-  pred = classify_mex(layers, weights, test_x);
+  pred = classify_mex(layers, weights_in, test_x);
   pred = permute(pred, [2 1]);
   %z = logsumexp(pred, 2);
   %pred = exp(bsxfun(@minus, pred, z));  
 elseif strcmp(type, 'matlab')
-  pred = classify_mat(layers, weights, test_x);
+  pred = classify_mat(layers, weights_in, test_x);
   %z = logsumexp(pred, 2);
   %pred = exp(bsxfun(@minus, pred, z));  
 else

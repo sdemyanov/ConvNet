@@ -30,8 +30,8 @@ public:
   void InitParams(const mxArray *mx_params);
   void Train(const mxArray *mx_data, const mxArray *mx_labels);
   void Classify(const mxArray *mx_data, mxArray *&mx_pred);
-  void SetWeights(const mxArray *mx_weights);
-  void GetWeights(mxArray *&mx_weights) const;
+  void SetWeights(const mxArray *mx_weights_in);  
+  void SetWeights(const mxArray *mx_weights_in, mxArray *&mx_weights);  
   void GetTrainError(mxArray *&mx_errors) const;  
   size_t NumWeights() const;  
   void Clear();
@@ -39,17 +39,21 @@ public:
   Net() {};
   ~Net() { Clear(); }
   
-private:
-  std::vector<Layer*> layers_;
+//private:
+  std::vector<Layer*> layers_;  
   Params params_;
   Mat data_, labels_, trainerror_;
-  Mat classcoefs_; // in fact vector
+  Mat classcoefs_; // in fact vector    
 
   void ReadData(const mxArray *mx_data);
-  void ReadLabels(const mxArray *mx_labels);
-  void CalcDeriv(const Mat &labels_batch, ftype &loss);
-  void Forward(Mat &data_batch, Mat &pred, bool istrain);
-  void Backward(Mat &labels_batch, ftype &loss);
+  void ReadLabels(const mxArray *mx_labels);  
+  void InitActiv(const Mat &data_batch);
+  void Forward(Mat &pred, int passnum);  
+  void InitDeriv(const Mat &labels_batch, ftype &loss);
+  void InitDeriv2(ftype &loss);
+  void Backward();
+  void CalcWeights();
+  void CalcWeights2(const std::vector<size_t> &invalid);
   void UpdateWeights(size_t epoch, bool isafter);  
 };
 

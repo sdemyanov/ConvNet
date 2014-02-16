@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -52,7 +52,7 @@ void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
     mexAssert(norm_.size() == outputmaps_, "The length of the norm vector is wrong");
     for (size_t i = 0; i < outputmaps_; ++i) {      
       mexAssert(0 < norm_[i], "Norm on the 'i' layer must be positive");          
-    }
+    }    
   }
   if (mexIsField(mx_layer, "mean")) {
     std::vector<size_t> data_dim = mexGetDimensions(mexGetField(mx_layer, "mean"));
@@ -75,7 +75,7 @@ void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
     }    
   }
   if (mexIsField(mx_layer, "stdev")) {
-    std::vector<size_t> data_dim = mexGetDimensions(mexGetField(mx_layer, "stdev"));    
+    std::vector<size_t> data_dim = mexGetDimensions(mexGetField(mx_layer, "stdev"));
     mexAssert(numdim_ <= data_dim.size() && data_dim.size() <= numdim_ + 1, 
       "Mean matrix on the 'i' layer has wrong the number of dimensions");    
     for (size_t i = 0; i < numdim_; ++i) {    
@@ -100,22 +100,45 @@ void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
   }
 }
 
-void LayerInput::Forward(Layer *prev_layer, bool istrain) {  
+void LayerInput::Forward(Layer *prev_layer, int passnum) {  
   batchsize_ = activ_mat_.size1();
-  activ_.assign(batchsize_, std::vector<Mat>(outputmaps_));
   InitMaps(activ_mat_, mapsize_, activ_);
+  datanorm_.resize(batchsize_, outputmaps_);  
   bool is_norm = (norm_.size() > 0);
   bool is_mean = (mean_.size() > 0);
-  bool is_stdev = (stdev_.size() > 0);
-  for (size_t k = 0; k < batchsize_; ++k) {
-    for (size_t i = 0; i < outputmaps_; ++i) {    
-      if (is_norm) activ_[k][i].Normalize(norm_[i]);
-      if (is_mean) activ_[k][i] -= mean_[i];
+  bool is_stdev = (stdev_.size() > 0);  
+  #if USE_MULTITHREAD == 1
+    #pragma omp parallel for
+  #endif
+  for (int k = 0; k < batchsize_; ++k) {
+    for (size_t i = 0; i < outputmaps_; ++i) {
+      if (is_norm) {
+        if (passnum == 0 || passnum == 1) {
+          activ_[k][i].Normalize(norm_[i], datanorm_(k, i));
+        } else if (passnum == 3) {
+          activ_[k][i] *= (norm_[i] / datanorm_(k, i));
+        }
+      }
+      if (is_mean) {
+        if (passnum == 0 || passnum == 1) {
+          activ_[k][i] -= mean_[i];
+        }
+      }
       if (is_stdev) activ_[k][i] /= stdev_[i];      
     }    
-  }
-  /*
-  for (int i = 0; i < 5; ++i) {
-    mexPrintMsg("Conv: activ_[0][0]", activ_[0][0](0, i)); 
-  }*/  
+  }  
+}
+
+void LayerInput::Backward(Layer *prev_layer) {  
+  bool is_norm = (norm_.size() > 0);  
+  bool is_stdev = (stdev_.size() > 0);
+  #if USE_MULTITHREAD == 1
+    #pragma omp parallel for
+  #endif
+  for (int k = 0; k < batchsize_; ++k) {
+    for (size_t i = 0; i < outputmaps_; ++i) {    
+      if (is_stdev) deriv_[k][i] /= stdev_[i];      
+      if (is_norm) deriv_[k][i] *= (norm_[i] / datanorm_(k, i));
+    }    
+  }  
 }

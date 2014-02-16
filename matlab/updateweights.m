@@ -12,12 +12,17 @@ for l = 1 : numel(layers)
   else
     alpha = params.alpha(epoch);
   end;
+  if (length(params.beta) == 1)
+    beta = params.beta;
+  else
+    beta = params.beta(epoch);
+  end;
   
   if strcmp(layers{l}.type, 'c')    
     if (regime == 0)  
       dk = momentum * layers{l}.dkp;          
     else
-      dk = alpha * layers{l}.dk;
+      dk = alpha * layers{l}.dk + beta * layers{l}.dk2;
       signs = dk .* layers{l}.dkp;          
       layers{l}.gk(signs > 0) = layers{l}.gk(signs > 0) + params.adjustrate;
       layers{l}.gk(signs <= 0) = layers{l}.gk(signs <= 0) * (1 - params.adjustrate);
@@ -28,12 +33,13 @@ for l = 1 : numel(layers)
       dk = (1 - momentum) * dk;
     end;
     layers{l}.k = layers{l}.k - dk;                      
+    layers{l}.k(-layers{l}.eps < layers{l}.k & layers{l}.k < layers{l}.eps) = 0;
     
   elseif strcmp(layers{l}.type, 'f')
     if (regime == 0)      
       dw = momentum * layers{l}.dwp;      
     else
-      dw = alpha * layers{l}.dw;
+      dw = alpha * layers{l}.dw + beta * layers{l}.dw2;
       signs = layers{l}.dw .* layers{l}.dwp;
       layers{l}.gw(signs > 0) = layers{l}.gw(signs > 0) + params.adjustrate;
       layers{l}.gw(signs <= 0) = layers{l}.gw(signs <= 0) * (1 - params.adjustrate);
@@ -44,6 +50,7 @@ for l = 1 : numel(layers)
       dw = (1 - momentum) * dw;      
     end;  
     layers{l}.w = layers{l}.w - dw;    
+    layers{l}.w(-layers{l}.eps < layers{l}.w & layers{l}.w < layers{l}.eps) = 0;
   end
   
   % for all transforming layers
@@ -62,6 +69,7 @@ for l = 1 : numel(layers)
       db = (1 - momentum) * db;      
     end;        
     layers{l}.b = layers{l}.b - db;
+    layers{l}.b(-layers{l}.eps < layers{l}.b & layers{l}.b < layers{l}.eps) = 0;
   end;
 end
     

@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -37,12 +37,16 @@ public:
   Layer() {};
   virtual ~Layer() {};
   virtual void Init(const mxArray *mx_layer, Layer *prev_layer) = 0;
-  virtual void Forward(Layer *prev_layer, bool istrain) = 0;
+  virtual void Forward(Layer *prev_layer, int passnum) = 0;
   virtual void Backward(Layer *prev_layer) = 0;
+  virtual void CalcWeights(Layer *prev_layer) = 0;
+  virtual void CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid) = 0;
   virtual void UpdateWeights(const Params &params, size_t epoch, bool isafter) = 0;
-  virtual void GetWeights(ftype *&weights, ftype *weights_end) const = 0;  
-  virtual void SetWeights(ftype *&weights, ftype *weights_end) = 0;
-  virtual size_t NumWeights() const = 0;
+  virtual void SetWeights(ftype *&weights, bool isgen) = 0;
+  virtual size_t NumWeights() const = 0;  
+
+  void Nonlinear(int passnum);
+  void Validate(bool isactiv);
   
 };
 

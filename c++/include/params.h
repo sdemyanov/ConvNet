@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -28,6 +28,7 @@ public:
   size_t batchsize_;
   size_t numepochs_;
   std::vector<ftype> alpha_;
+  std::vector<ftype> beta_;
   std::vector<ftype> momentum_;
   ftype adjustrate_;
   ftype maxcoef_;

@@ -8,15 +8,6 @@ for l = 1 : n   %  layer
     if (~isfield(layers{l}, 'outputmaps'))
       layers{l}.outputmaps = 1;
     end;
-    if (~isfield(layers{l}, 'norm'))
-      layers{l}.norm = 0;
-    end;
-    if (~isfield(layers{l}, 'mean'))
-      layers{l}.mean = zeros([layers{l}.mapsize layers{l}.outputmaps]);
-    end;
-    if (~isfield(layers{l}, 'stdev'))
-      layers{l}.stdev = zeros([layers{l}.mapsize layers{l}.outputmaps]);
-    end;
     outputmaps = layers{l}.outputmaps;
     mapsize = layers{l}.mapsize; 
   
@@ -27,7 +18,7 @@ for l = 1 : n   %  layer
   elseif strcmp(layers{l}.type, 's') % scaling
     assert(isfield(layers{l}, 'scale'), 'The "s" type layer must contain the "scale" field');
     if (~isfield(layers{l}, 'function'))
-      layers{l}.function = 'max';
+      layers{l}.function = 'mean';
     end;
     if ~strcmp(layers{l}.function, 'max') && ~strcmp(layers{l}.function, 'mean')
       error('"%s" - unknown function for the layer %d', layers{l}.function, l);
@@ -37,18 +28,15 @@ for l = 1 : n   %  layer
     end;
     mapsize = ceil(mapsize ./ layers{l}.stride);
     
-  elseif strcmp(layers{l}.type, 't') % neighborhood of maximum      
-    assert(isfield(layers{l}, 'mapsize'), 'The "t" type layer must contain the "mapsize" field');
-    mapsize = layers{l}.mapsize; 
-
   elseif strcmp(layers{l}.type, 'c') % convolutional
     assert(isfield(layers{l}, 'kernelsize'), 'The "c" type layer must contain the "kernelsize" field');
     assert(isfield(layers{l}, 'outputmaps'), 'The "c" type layer must contain the "outputmaps" field');
     if (~isfield(layers{l}, 'function'))
-      layers{l}.function = 'sigmoid';
+      layers{l}.function = 'relu';
     end;
-    if ~strcmp(layers{l}.function, 'sigmoid') && ...
-       ~strcmp(layers{l}.function, 'relu') % REctified Linear Unit
+    if ~strcmp(layers{l}.function, 'sigm') && ...
+       ~strcmp(layers{l}.function, 'relu') && ...
+       ~strcmp(layers{l}.function, 'soft') % REctified Linear Unit
       error('"%s" - unknown function for the layer %d', layers{l}.function, l);
     end;
     if (~isfield(layers{l}, 'padding'))
@@ -60,11 +48,12 @@ for l = 1 : n   %  layer
     rand_coef = 2 * sqrt(6 / (fan_in + fan_out));
     layers{l}.k = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
     layers{l}.dk = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
+    layers{l}.dk2 = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
     layers{l}.dkp = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
     layers{l}.gk = double(ones([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
     layers{l}.k = (rand([layers{l}.kernelsize outputmaps layers{l}.outputmaps]) - 0.5) * rand_coef;
     layers{l}.b = double(zeros(layers{l}.outputmaps, 1));
-    layers{l}.db = double(zeros(layers{l}.outputmaps, 1));
+    layers{l}.db = double(zeros(layers{l}.outputmaps, 1));    
     layers{l}.dbp = double(zeros(layers{l}.outputmaps, 1));
     layers{l}.gb = double(ones(layers{l}.outputmaps, 1));
     mapsize = mapsize + 2*layers{l}.padding - layers{l}.kernelsize + 1;
@@ -75,12 +64,13 @@ for l = 1 : n   %  layer
       layers{l}.dropout = 0; % no dropout
     end;
     if (~isfield(layers{l}, 'function'))
-      layers{l}.function = 'sigmoid';
+      layers{l}.function = 'relu';
     end;
     if strcmp(layers{l}.function, 'SVM')
       assert(isfield(layers{l}, 'C'), 'The "SVM" layer must contain the "C" field');      
     elseif ~strcmp(layers{l}.function, 'relu') && ...
-           ~strcmp(layers{l}.function, 'sigmoid')
+           ~strcmp(layers{l}.function, 'sigm') && ...
+           ~strcmp(layers{l}.function, 'soft')
       error('"%s" - unknown function for the layer %d', layers{l}.function, l);
     end;
     assert(isfield(layers{l}, 'length'), 'The "f" type layer must contain the "length" field');      
@@ -94,11 +84,12 @@ for l = 1 : n   %  layer
     layers{l}.weightsize = weightsize; 
     layers{l}.w = double((rand(weightsize) - 0.5) * 2 * sqrt(6/sum(weightsize)));
     layers{l}.dw = double(zeros(weightsize));
+    layers{l}.dw2 = double(zeros(weightsize));
     layers{l}.dwp = double(zeros(weightsize));
     layers{l}.gw = double(ones(weightsize));
 
     layers{l}.b = double(zeros(1, weightsize(1)));
-    layers{l}.db = double(zeros(1, weightsize(1)));
+    layers{l}.db = double(zeros(1, weightsize(1)));    
     layers{l}.dbp = double(zeros(1, weightsize(1)));
     layers{l}.gb = double(ones(1, weightsize(1)));      
     mapsize = [0 0];
@@ -106,9 +97,14 @@ for l = 1 : n   %  layer
   else
     error('"%s" - unknown type of the layer %d', layers{l}.type, l);
   end
+  if (~isfield(layers{l}, 'function'))
+    layers{l}.function = 'none';
+  end;
   layers{l}.outputmaps = outputmaps;
-  layers{l}.mapsize = mapsize;
+  layers{l}.mapsize = mapsize; 
+  layers{l}.eps = 1e-8; % double
+  %layers{l}.eps = 1e-4; % single
 end
-assert(strcmp(layers{n}.type, 'f'), 'The last layer must be the type of "f"'); 
+%assert(strcmp(layers{n}.type, 'f'), 'The last layer must be the type of "f"'); 
   
 end

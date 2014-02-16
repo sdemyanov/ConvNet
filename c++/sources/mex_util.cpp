@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -125,14 +125,16 @@ std::vector<ftype> mexGetVector(const mxArray *mx_array) {
   return vect;
 }
 
-void mexGetMatrix(const mxArray *mx_array, Mat &mat) {  
+Mat mexGetMatrix(const mxArray *mx_array) {  
   //mexAssert(mx_array != NULL, "mx_array in 'mexGetMatrix' is NULL");
   std::vector<size_t> dim = mexGetDimensions(mx_array);
   mexAssert(dim.size() == 2, "In 'GetMatrix' argument must be the 2D matrix");  
   mexAssert(mxGetClassID(mx_array) == MEX_CLASS,
     "In 'mexGetMatrix' mx_array is of the wrong type");
   ftype *pdata = (ftype*) mxGetData(mx_array);
-  mat.attach(pdata, dim);  
+  Mat mat(dim[1], dim[0]);
+  mat.attach(pdata, dim);
+  return mat;
 }
 
 mxArray* mexNewMatrix(size_t size1, size_t size2) {
@@ -163,4 +165,18 @@ mxArray* mexSetMatrix(const Mat &mat) {
 	ftype *pdata = (ftype*) mxGetData(mx_array);  
   mat.ToVect(pdata);  
 	return mx_array;  
+}
+
+void mexSetCell(mxArray* mx_array, size_t ind, mxArray* mx_value) {
+  size_t numel = mexGetNumel(mx_array);  
+  mexAssert(ind < numel, "In mexSetCell the index is out of range");
+  mxSetCell(mx_array, ind, mx_value);
+}
+
+mxArray* mexSetCellMat(size_t size1, size_t size2) {
+  return mxCreateCellMatrix(size1, size2);
+}
+
+mxArray* mexDuplicateArray(const mxArray* mx_array) {
+  return mxDuplicateArray(mx_array);
 }

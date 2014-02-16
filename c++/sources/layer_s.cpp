@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LayerScal::LayerScal() {
   type_ = "s";
+  function_ = "mean";   
   batchsize_ = 0;  
 }  
   
@@ -43,8 +44,7 @@ void LayerScal::Init(const mxArray *mx_layer, Layer *prev_layer) {
     stride_[i] = scale_[i];
     mapsize_[i] = ceil((ftype) prev_layer->mapsize_[i] / stride_[i]);    
     length_ *= mapsize_[i];
-  }
-  
+  }  
   if (mexIsField(mx_layer, "stride")) {
     std::vector<ftype> stride = mexGetVector(mexGetField(mx_layer, "stride"));
     mexAssert(stride.size() == numdim_, "Stride vector has the wrong length");
@@ -56,53 +56,49 @@ void LayerScal::Init(const mxArray *mx_layer, Layer *prev_layer) {
       length_ *= mapsize_[i];
     }
   }  
-  function_ = "mean";   
   if (mexIsField(mx_layer, "function")) {
     function_ = mexGetString(mexGetField(mx_layer, "function"));
+    mexAssert(function_ == "max" || function_ == "mean", 
+      "Unknown function for the 's' layer");
   }
-  std::string errmsg = function_ + " - unknown function for the layer";    
-  mexAssert(function_ == "max" || function_ == "mean", errmsg);
-  
 }
     
-void LayerScal::Forward(Layer *prev_layer, bool istrain) {  
+void LayerScal::Forward(Layer *prev_layer, int passnum) {  
 
   batchsize_ = prev_layer->batchsize_;
   activ_mat_.resize(batchsize_, length_);
-  activ_.assign(batchsize_, std::vector<Mat>(outputmaps_));
   InitMaps(activ_mat_, mapsize_, activ_);  
-  for (size_t k = 0; k < batchsize_; ++k) {      
+  #if USE_MULTITHREAD == 1
+    #pragma omp parallel for
+  #endif
+  for (int k = 0; k < batchsize_; ++k) {      
     for (size_t i = 0; i < outputmaps_; ++i) {
       if (function_ == "mean") {
         MeanScale(prev_layer->activ_[k][i], scale_, stride_, activ_[k][i]);
       } else if (function_ == "max") {
         MaxScale(prev_layer->activ_[k][i], scale_, stride_, activ_[k][i]);
-      } else {
-        mexAssert(false, "LayerScal::Forward");
       }      
     }    
-  }
-  if (!istrain) prev_layer->activ_mat_.clear();  
+  }  
   /*
   for (int i = 0; i < 5; ++i) {
     mexPrintMsg("Scal: activ_[0][0]", activ_[0][0](0, i)); 
   } */
 }
 
-void LayerScal::Backward(Layer *prev_layer) {  
-  if (prev_layer->type_ == "i" || prev_layer->type_ == "j") return;
+void LayerScal::Backward(Layer *prev_layer) {    
   prev_layer->deriv_mat_.resize(prev_layer->batchsize_, prev_layer->length_);
-  prev_layer->deriv_.assign(prev_layer->batchsize_, std::vector<Mat>(prev_layer->outputmaps_));
   InitMaps(prev_layer->deriv_mat_, prev_layer->mapsize_, prev_layer->deriv_);  
-  for (size_t k = 0; k < batchsize_; ++k) {
+  #if USE_MULTITHREAD == 1
+    #pragma omp parallel for
+  #endif
+  for (int k = 0; k < batchsize_; ++k) {
     for (size_t i = 0; i < outputmaps_; ++i) {
       if (function_ == "mean") {
         MeanScaleDer(deriv_[k][i], scale_, stride_, prev_layer->deriv_[k][i]);
       } else if (function_ == "max") {
         MaxScaleDer(deriv_[k][i], activ_[k][i], prev_layer->activ_[k][i], 
                     scale_, stride_, prev_layer->deriv_[k][i]);
-      } else {
-        mexAssert(false, "LayerScal::Forward");
       }      
     }
   }  

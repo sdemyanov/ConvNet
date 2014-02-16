@@ -42,6 +42,9 @@ if (nargin == 3)
 end;
 
 SA = size(A);  % Get the size (and number of dimensions) of input.
+if (length(SA) < length(sc))
+  SA = [SA ones(1, length(sc) - length(SA))];
+end;
 
 if length(SA) ~= length(sc)
    error('Length of size vector must equal ndims(A).  See help.')

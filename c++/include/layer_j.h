@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -29,11 +29,12 @@ public:
   LayerJitter();
   ~LayerJitter() {};  
   void Init(const mxArray *mx_layer, Layer *prev_layer);
-  void Forward(Layer *prev_layer, bool istrain);
-  void Backward(Layer *prev_layer) {};
+  void Forward(Layer *prev_layer, int passnum);
+  void Backward(Layer *prev_layer);
+  void CalcWeights(Layer *prev_layer) {};
+  void CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid) {};
   void UpdateWeights(const Params &params, size_t epoch, bool isafter) {};
-  void GetWeights(ftype *&weights, ftype *weights_end) const {};
-  void SetWeights(ftype *&weights, ftype *weights_end) {};
+  void SetWeights(ftype *&weights, bool isgen) {};
   size_t NumWeights() const { return 0; };
 
 private:

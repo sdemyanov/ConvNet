@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -19,42 +19,46 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "weights.h"
 
-void Weights::Init(ftype coef, const std::vector<size_t> &newsize) {
-  (weights_.rand(newsize) -= 0.5) *= coef;
-  weights_der_.init(newsize, 0);
-  weights_der_prev_.init(newsize, 0);
-  weights_learn_coefs_.init(newsize, 1);
-  size_ = newsize;
+void Weights::Init(ftype *weights, const std::vector<size_t> &newsize, ftype coef) {
+  Init(weights, newsize);
+  (weights_.rand() -= 0.5) *= coef;  
 }
 
 void Weights::Init(ftype *weights, const std::vector<size_t> &newsize) {
-  weights_.attach(weights, newsize);  
-  weights_der_.init(newsize, 0);
-  weights_der_prev_.init(newsize, 0);
-  weights_learn_coefs_.init(newsize, 1);
   size_ = newsize;
+  weights_.attach(weights, size_);  
+  weights_der_.init(size_, 0);
+  weights_der2_.init(size_, 0);
+  weights_der_prev_.init(size_, 0);
+  weights_learn_coefs_.init(size_, 1);  
 }
 
 void Weights::Update(const Params &params, size_t epoch, bool isafter) {
 
-  ftype alpha, momentum;
+  ftype alpha, beta, momentum;
   if (params.alpha_.size() == 1) {
     alpha = params.alpha_[0];
   } else {
     alpha = params.alpha_[epoch];
+  }
+  if (params.beta_.size() == 1) {
+    beta = params.beta_[0];
+  } else {
+    beta = params.beta_[epoch];
   }
   if (params.momentum_.size() == 1) {
     momentum = params.momentum_[0];
   } else {
     momentum = params.momentum_[epoch];
   }
-  
   if (!isafter) {
     if (momentum == 0) return;
     weights_der_ = weights_der_prev_;    
     weights_der_ *= momentum; 
   } else {
     weights_der_ *= alpha;
+    weights_der2_ *= beta;
+    weights_der_ += weights_der2_;    
     if (params.adjustrate_ > 0) {      
       Mat signs = weights_der_prev_;      
       signs *= weights_der_;
@@ -70,5 +74,6 @@ void Weights::Update(const Params &params, size_t epoch, bool isafter) {
     }
   }  
   weights_ -= weights_der_;
-  // direction that decreases the error    
+  weights_.Validate();
+  // direction that decreases the error
 }

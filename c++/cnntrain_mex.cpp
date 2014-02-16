@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -19,31 +19,31 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "net.h"
 
-#define NARGIN_MIN 4
-#define NARGIN_MAX 5
+#define NARGIN 5
 #define IN_L pRhs[0] // layers
-#define IN_P pRhs[1] // params
+#define IN_W pRhs[1] // weights
 #define IN_X pRhs[2] // data
 #define IN_Y pRhs[3] // labels
-#define IN_W pRhs[4] // weights
-
+#define IN_P pRhs[4] // params
 
 #define NARGOUT 2
 #define OUT_W	pLhs[0] // weights
 #define OUT_E pLhs[1] // train errors on each batch
 
+extern bool kIgnoreIJ;
+
+int print = 0;
+
 void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
 
-  mexAssert(NARGIN_MIN <= nRhs && nRhs <= NARGIN_MAX, "Number of input arguments in wrong!");
+  mexAssert(nRhs == NARGIN, "Number of input arguments in wrong!");
   mexAssert(nLhs == NARGOUT, "Number of output arguments is wrong!" );
+  kIgnoreIJ = true;
   
   Net net;
   net.InitLayers(IN_L);
-  if (nRhs == 5) net.SetWeights(IN_W);
-  else net.SetWeights(NULL);
+  net.SetWeights(IN_W, OUT_W);
   net.InitParams(IN_P);
-  net.Train(IN_X, IN_Y);
-  net.GetWeights(OUT_W);
+  net.Train(IN_X, IN_Y);  
   net.GetTrainError(OUT_E);
-  
 }

@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -42,11 +42,10 @@ void LayerTrim::Init(const mxArray *mx_layer, Layer *prev_layer) {
   }  
 }
     
-void LayerTrim::Forward(Layer *prev_layer, bool istrain) {
+void LayerTrim::Forward(Layer *prev_layer, int passnum) {
   
   batchsize_ = prev_layer->batchsize_;
   activ_mat_.resize(batchsize_, length_);
-  activ_.assign(batchsize_, std::vector<Mat>(outputmaps_));
   InitMaps(activ_mat_, mapsize_, activ_);  
   coords_.resize(batchsize_);
   for (size_t k = 0; k < batchsize_; ++k) {
@@ -55,14 +54,11 @@ void LayerTrim::Forward(Layer *prev_layer, bool istrain) {
       coords_[k][i].resize(2);
       MaxTrim(prev_layer->activ_[k][i], coords_[k][i], activ_[k][i]);      
     }    
-  }
-  if (!istrain) prev_layer->activ_mat_.clear();
+  }  
 }
 
-void LayerTrim::Backward(Layer *prev_layer) {
-  if (prev_layer->type_ == "i" || prev_layer->type_ == "j") return;
+void LayerTrim::Backward(Layer *prev_layer) {  
   prev_layer->deriv_mat_.resize(prev_layer->batchsize_, prev_layer->length_);
-  prev_layer->deriv_.assign(prev_layer->batchsize_, std::vector<Mat>(prev_layer->outputmaps_));
   InitMaps(prev_layer->deriv_mat_, prev_layer->mapsize_, prev_layer->deriv_); 
   for (size_t k = 0; k < batchsize_; ++k) {
     for (size_t i = 0; i < outputmaps_; ++i) {

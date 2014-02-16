@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2013 Sergey Demyanov. 
+Copyright (C) 2014 Sergey Demyanov. 
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -21,9 +21,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define _FTYPE_H_
 
 //typedef float ftype;
+//const ftype kEps = 1e-4;
 //#define MEX_CLASS mxSINGLE_CLASS
 
 typedef double ftype;
+const ftype kEps = 1e-8;
 #define MEX_CLASS mxDOUBLE_CLASS
+
+#define USE_MULTITHREAD 1
+#if USE_MULTITHREAD == 1
+  #include <omp.h>
+#endif
 
 #endif
