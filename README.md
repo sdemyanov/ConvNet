@@ -19,12 +19,13 @@ The library was written for Matlab and its functions can be called only from Mat
 
 The library contains 3 main functions to call:
 
-- [weights, trainerr] = cnntrain(layers, params, train_x, train_y, funtype, weights_in(optionally))
+- [weights_in] = genweights(layers, funtype);
+Returns randomly generated initial weights for the net. Has to be called for the before the training.
+- [weights, trainerr] = cnntrain(layers, weights, train_x, train_y, params, funtype);  
 Performs neural net training. Returns weights from all layers as a single vector.
 - [err, bad, pred] = cnntest(layers, weights, test_x, test_y, funtype)
 Calculates the test error. Based on cnnclassify, that returns only the predictions.
-- [weights_in] = genweights(layers, funtype);
-Returns randomly generated weights for neural net. If you need to get repeatable results, just pass these weights to the cnntrain or cnntest.
+
 
 Parameters:
 
@@ -36,7 +37,7 @@ layers - the structure of CNN. Sets up as cell array, with each element represen
 - f - fully connected layer. Must contain the "length" field that defines the number of its outputs. Must be the last one. For the last layer the length must coincide with the number of classes. May also contain the "dropout" field, that determines the probabilty of dropping the input(!) elements. Should not be too large, otherwise it drops everything.
 
 All layers except "i" may contain the "function" field, that defines their action. For:
-- c and f - it defines the non-linear function. It can be either "sigm" or "relu", for sigmoids and rectified linear units respectively. The default value is "sigm".
+- c and f - it defines the non-linear transformation function. It can be "soft", "sigm" or "relu", for softmax, sigmoid and rectified linear unit respectively. The default value is "relu".
 - f - it can also be "SVM", that calculates the SVM error function.
 See [this article](www.cs.toronto.edu/~tang/papers/dlsvm.pdf) for the details. Has been tested only for the final layer.
 - s - it defines the pooling procedure, that can be either "mean" or "max". The default value is "mean". 
@@ -58,7 +59,9 @@ funtype - defines the actual function that is used. Can be either "mexfun" or "m
 
 TECHNICAL DETAILS
 
-- To run the c++ version, you first need to compile it. To do that, you need to run 'compile' script in the main folder. It can be compiled to work with either double and float types. To change it, you need to modify the settings in ftype.h file and recompile the files.
+- To run the c++ version, you first need to compile it. To do that, you need to run 'compile' script in the main folder. It can be compiled to work with either double and float types. To change it, you need to modify the settings in ftype.h file and recompile the files. 
+- You can also specify if you want c++ version to be multi-thread or not by changing the value of macros USE_MULTITHREAD in the same file. By default it is, however if you run several Matlabs in parallel, I would recommend to use the single-thread version.
+- For stability purposes all values that are less then a threshold are considered as 0. You can change the threshold in ftype.h and cnnsetup.m, however you need to understand why you do this.
 
 - The code uses c++11 features, so the compiler must understand them. In Windows it was tested with Microsoft SDK 7.1, in Ubuntu with g++ 4.7. Note, that it is possible to use g++ 4.7 only in Matlab R2013b or later. However, it does not understand c++11 by default. To enable c++11 features in Linux, you need to do the following:
 1). Open the file <matlabroot>/bin/mexopts.sh,
