@@ -38,14 +38,14 @@ layers - the structure of CNN. Sets up as cell array, with each element represen
 
 All layers except "i" may contain the "function" field, that defines their action. For:
 - c and f - it defines the non-linear transformation function. It can be "soft", "sigm" or "relu", for softmax, sigmoid and rectified linear unit respectively. The default value is "relu".
-- f - it can also be "SVM", that calculates the SVM error function.
+- f - it can also be "SVM", that calculates the SVM error function. For "SVM" the derivatives are not restricted to be in (0, 1), so the learning rate should be about 10 - 100 times smaller than usual.
 See [this article](www.cs.toronto.edu/~tang/papers/dlsvm.pdf) for the details. Has been tested only for the final layer.
 - s - it defines the pooling procedure, that can be either "mean" or "max". The default value is "mean". 
 
 params - define the learning process. It is a structure with the following fields. If some of them are absent, the value by default is taken.
 - batchsize - defines the size of batches. Default is 50.
 - numepochs - the number of repeats the training procedure with different batch splits. Default is 1.
-- alpha - defines the learning rate speed. Default is 1, for "SVM" on the last layer should be about 10 times lower. Can aslo be the vector of the length 'numepochs'. Then an individual rate for each epoch will be used.
+- alpha - defines the learning rate speed. Default is 1. Can aslo be the vector of the length 'numepochs'. Then an individual rate for each epoch will be used.
 - momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0. Can aslo be the vector of the length 'numepochs'. Then an individual momentum for each epoch will be used.
 - adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
 - maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively. Default is 1.
