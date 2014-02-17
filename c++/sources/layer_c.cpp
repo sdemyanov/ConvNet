@@ -88,6 +88,7 @@ void LayerConv::Forward(Layer *prev_layer, int passnum) {
       }      
     }    
   }
+  activ_mat_.Validate();  
   /*
   for (int i = 0; i < 5; ++i) {
     mexPrintMsg("Conv: activ_", activ_[1][1](0, i)); 
@@ -117,6 +118,7 @@ void LayerConv::Backward(Layer *prev_layer) {
       }      
     }        
   }  
+  deriv_mat_.Validate();  
 }
 
 void LayerConv::CalcWeights(Layer *prev_layer) {  
@@ -141,8 +143,10 @@ void LayerConv::CalcWeights(Layer *prev_layer) {
         kernels_[i][j].der() += ker_mat;
       }
       kernels_[i][j].der() /= batchsize_;
+      kernels_[i][j].der().Validate();
     }        
-  }  
+  }
+  biases_.der().Validate();  
 }
 
 void LayerConv::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid) {  
@@ -174,8 +178,9 @@ void LayerConv::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &inval
         kernels_[i][j].der2() += ker_mat;
       }
       kernels_[i][j].der2() /= batchsize_;
+      kernels_[i][j].der2().Validate();
     }        
-  }  
+  }    
 }
 
 void LayerConv::UpdateWeights(const Params &params, size_t epoch, bool isafter) {

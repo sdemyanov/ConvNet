@@ -19,13 +19,17 @@ for l = 1 : n
         layers{l}.dk(:, :, j, i) = filtn(a_prev(:, :, j, :), layers{l}.d(:, :, i, :), 'valid') / batchsize;                
       end        
     end;
+    layers{l}.db(-layers{l}.eps < layers{l}.db & layers{l}.db < layers{l}.eps) = 0;
+    layers{l}.dk(-layers{l}.eps < layers{l}.dk & layers{l}.dk < layers{l}.eps) = 0;
 
   elseif strcmp(layers{l}.type, 'f')
+    layers{l}.db = mean(layers{l}.d, 1);
     layers{l}.dw = layers{l}.d' * layers{l}.ai / batchsize;
     if strcmp(layers{l}.function, 'SVM')
       layers{l}.dw = layers{l}.dw + layers{l}.w / layers{l}.C;
-    end;
-    layers{l}.db = mean(layers{l}.d, 1);    
+    end;    
+    layers{l}.db(-layers{l}.eps < layers{l}.db & layers{l}.db < layers{l}.eps) = 0;
+    layers{l}.dw(-layers{l}.eps < layers{l}.dw & layers{l}.dw < layers{l}.eps) = 0;
   end;
 end
     

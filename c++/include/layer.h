@@ -45,8 +45,7 @@ public:
   virtual void SetWeights(ftype *&weights, bool isgen) = 0;
   virtual size_t NumWeights() const = 0;  
 
-  void Nonlinear(int passnum);
-  void Validate(bool isactiv);
+  void Nonlinear(int passnum);  
   
 };
 

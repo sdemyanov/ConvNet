@@ -1,4 +1,4 @@
-function layers = cnnsetup(layers)
+function layers = cnnsetup(layers, isgen)
     
 assert(strcmp(layers{1}.type, 'i'), 'The first layer must be the type of "i"');
 n = numel(layers);
@@ -51,7 +51,11 @@ for l = 1 : n   %  layer
     layers{l}.dk2 = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
     layers{l}.dkp = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
     layers{l}.gk = double(ones([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
-    layers{l}.k = (rand([layers{l}.kernelsize outputmaps layers{l}.outputmaps]) - 0.5) * rand_coef;
+    if (isgen)
+      layers{l}.k = (rand([layers{l}.kernelsize outputmaps layers{l}.outputmaps]) - 0.5) * rand_coef;
+    else
+      layers{l}.k = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
+    end;
     layers{l}.b = double(zeros(layers{l}.outputmaps, 1));
     layers{l}.db = double(zeros(layers{l}.outputmaps, 1));    
     layers{l}.dbp = double(zeros(layers{l}.outputmaps, 1));
@@ -82,7 +86,11 @@ for l = 1 : n   %  layer
       weightsize(2) = layers{l-1}.length;
     end;
     layers{l}.weightsize = weightsize; 
-    layers{l}.w = double((rand(weightsize) - 0.5) * 2 * sqrt(6/sum(weightsize)));
+    if (isgen)
+      layers{l}.w = double((rand(weightsize) - 0.5) * 2 * sqrt(6/sum(weightsize)));
+    else
+      layers{l}.w = double(zeros(weightsize));
+    end;
     layers{l}.dw = double(zeros(weightsize));
     layers{l}.dw2 = double(zeros(weightsize));
     layers{l}.dwp = double(zeros(weightsize));

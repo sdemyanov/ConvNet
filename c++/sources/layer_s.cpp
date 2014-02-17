@@ -79,7 +79,8 @@ void LayerScal::Forward(Layer *prev_layer, int passnum) {
         MaxScale(prev_layer->activ_[k][i], scale_, stride_, activ_[k][i]);
       }      
     }    
-  }  
+  }
+  activ_mat_.Validate();
   /*
   for (int i = 0; i < 5; ++i) {
     mexPrintMsg("Scal: activ_[0][0]", activ_[0][0](0, i)); 
@@ -101,5 +102,6 @@ void LayerScal::Backward(Layer *prev_layer) {
                     scale_, stride_, prev_layer->deriv_[k][i]);
       }      
     }
-  }  
+  }
+  prev_layer->deriv_mat_.Validate();
 }

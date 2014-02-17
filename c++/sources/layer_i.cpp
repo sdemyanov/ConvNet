@@ -126,7 +126,8 @@ void LayerInput::Forward(Layer *prev_layer, int passnum) {
       }
       if (is_stdev) activ_[k][i] /= stdev_[i];      
     }    
-  }  
+  }
+  activ_mat_.Validate();  
 }
 
 void LayerInput::Backward(Layer *prev_layer) {  
@@ -140,5 +141,6 @@ void LayerInput::Backward(Layer *prev_layer) {
       if (is_stdev) deriv_[k][i] /= stdev_[i];      
       if (is_norm) deriv_[k][i] *= (norm_[i] / datanorm_(k, i));
     }    
-  }  
+  }
+  deriv_mat_.Validate();  
 }

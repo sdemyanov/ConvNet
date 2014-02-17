@@ -54,7 +54,8 @@ void LayerTrim::Forward(Layer *prev_layer, int passnum) {
       coords_[k][i].resize(2);
       MaxTrim(prev_layer->activ_[k][i], coords_[k][i], activ_[k][i]);      
     }    
-  }  
+  }
+  activ_mat_.Validate();
 }
 
 void LayerTrim::Backward(Layer *prev_layer) {  
@@ -66,4 +67,5 @@ void LayerTrim::Backward(Layer *prev_layer) {
       MaxTrimDer(deriv_[k][i], coords_[k][i], prev_layer->deriv_[k][i]);            
     }
   }
+  prev_layer->deriv_mat_.Validate();
 }

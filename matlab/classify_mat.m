@@ -1,6 +1,6 @@
 function pred = classify_mat(layers, weights, test_x)
 
-layers = cnnsetup(layers);
+layers = cnnsetup(layers, 0);
 layers = setweights(layers, weights);
 
 assert(size(test_x, 1) == layers{1}.mapsize(1) && ...

@@ -29,6 +29,7 @@ void Layer::Nonlinear(int passnum) {
       activ_mat_.ElemMax(0);
     } else if (function_ == "SVM") {    
     }
+    activ_mat_.Validate();
   } else if (passnum == 2) { // backward
     if (function_ == "soft") {
       deriv_mat_.SoftDer(activ_mat_);
@@ -38,6 +39,7 @@ void Layer::Nonlinear(int passnum) {
       deriv_mat_.CondAssign(activ_mat_, 0, false, 0);
     } else if (function_ == "SVM") {    
     }      
+    deriv_mat_.Validate();  
   } else if (passnum == 3) { // third pass
     if (function_ == "soft") {
       activ_mat_.SoftDer(deriv_mat_);
@@ -46,11 +48,7 @@ void Layer::Nonlinear(int passnum) {
     } else if (function_ == "relu") {
       activ_mat_.CondAssign(deriv_mat_, 0, false, 0);
     } else if (function_ == "SVM") {    
-    } 
+    }
+    activ_mat_.Validate();
   }  
-}
-
-void Layer::Validate(bool isactiv) {
-  if (isactiv) activ_mat_.Validate();
-  else deriv_mat_.Validate();  
 }

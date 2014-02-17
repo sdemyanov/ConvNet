@@ -2,7 +2,7 @@ function [weights, trainerr] = cnntrain_mat(layers, weights, train_x, train_y, p
 
 params = setparams(params);
 
-layers = cnnsetup(layers);
+layers = cnnsetup(layers, 0);
 assert(length(size(train_y)) == 2, 'The label array must have 2 dimensions'); 
 train_num = size(train_y, 1);
 classes_num = size(train_y, 2);
@@ -37,6 +37,7 @@ for i = 1 : params.numepochs
     kk = randperm(train_num);
   end;
   for j = 1 : numbatches
+    
     batch_x = train_x(:, :, :, kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)));    
     batch_y = train_y(kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)), :);
     layers = updateweights(layers, params, i, 0); % preliminary update

@@ -69,7 +69,8 @@ void LayerFull::Forward(Layer *prev_layer, int passnum) {
   Prod(prev_layer->activ_mat_, false, weights_.get(), true, activ_mat_);
   if (passnum == 0 || passnum == 1) {
     activ_mat_.AddVect(biases_.get(), 2);    
-  }    
+  }
+  activ_mat_.Validate();
   /*
   for (int i = 0; i < 5; ++i) {
     mexPrintMsg("Full: activ_[0]", activ_mat_(0, i)); 
@@ -81,16 +82,19 @@ void LayerFull::Backward(Layer *prev_layer) {
   if (prev_layer->type_ != "f") {
     InitMaps(prev_layer->deriv_mat_, prev_layer->mapsize_, prev_layer->deriv_);
   }
+  prev_layer->deriv_mat_.Validate();  
 }
 
 void LayerFull::CalcWeights(Layer *prev_layer) {
+  biases_.der() = Mean(deriv_mat_, 1);  
   Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_.der());
   weights_.der() /= batchsize_;
   if (function_ == "SVM") {
     Mat weights_reg = weights_.get();    
     weights_.der() += (weights_reg /= c_);
   }  
-  biases_.der() = Mean(deriv_mat_, 1);  
+  biases_.der().Validate();
+  weights_.der().Validate();
   /*
   for (int i = 0; i < 10; ++i) {
     mexPrintMsg("Full: deriv_weig", weights_.der()(0, i)); 
@@ -121,6 +125,7 @@ void LayerFull::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &inval
     Prod(activ_mat, true, deriv_mat_prev, false, weights_.der2());
     weights_.der2() /= batchsize_;  
   }
+  weights_.der2().Validate();
 }
 
 void LayerFull::UpdateWeights(const Params &params, size_t epoch, bool isafter) {

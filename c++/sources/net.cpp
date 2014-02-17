@@ -134,25 +134,22 @@ void Net::Classify(const mxArray *mx_data, mxArray *&mx_pred) {
 void Net::InitActiv(const Mat &data) {
   mexAssert(layers_.size() >= 2 , "The net is not initialized");
   layers_[0]->activ_mat_.attach(data);
-  layers_[0]->Validate(true);
+  layers_[0]->activ_mat_.Validate();
 }
 
 void Net::Forward(Mat &pred, int passnum) {
   //mexPrintMsg("Start forward pass...");  
   //mexPrintMsg("Forward pass for layer", layers_[0]->type_);  
-  layers_[0]->Forward(NULL, passnum);
-  layers_[0]->Validate(true);
+  layers_[0]->Forward(NULL, passnum);  
   for (size_t i = 1; i < layers_.size(); ++i) {
     Mat activ_mat_prev;
     if (layers_[i]->type_ == "c" || layers_[i]->type_ == "f") {
       if (passnum == 3) activ_mat_prev = layers_[i]->activ_mat_;
     }
-    layers_[i]->Forward(layers_[i-1], passnum);
-    layers_[i]->Validate(true);
+    layers_[i]->Forward(layers_[i-1], passnum);    
     if (layers_[i]->type_ == "c" || layers_[i]->type_ == "f") {
       if (passnum == 3) Swap(activ_mat_prev, layers_[i]->deriv_mat_);
-      layers_[i]->Nonlinear(passnum);
-      layers_[i]->Validate(true);
+      layers_[i]->Nonlinear(passnum);      
       if (passnum == 3) Swap(activ_mat_prev, layers_[i]->deriv_mat_);
     }    
     if (passnum == 0) layers_[i-1]->activ_mat_.clear();    
@@ -191,7 +188,7 @@ void Net::InitDeriv(const Mat &labels_batch, ftype &loss) {
     loss = (lossmat *= lastlayer->deriv_mat_).Sum() / (2 * batchsize);
   }
   lastlayer->deriv_mat_.MultVect(classcoefs_, 2);
-  lastlayer->Validate(false);
+  lastlayer->deriv_mat_.Validate();
 }
 
 void Net::InitDeriv2(ftype &loss) {
@@ -219,7 +216,7 @@ void Net::InitDeriv2(ftype &loss) {
     (activ_mat -= (deriv_mat *= loss)) /= selfprod;
   }
   firstlayer->activ_mat_ = std::move(activ_mat);  
-  firstlayer->Validate(true);
+  firstlayer->activ_mat_.Validate();
 }
 
 void Net::Backward() {
@@ -229,17 +226,14 @@ void Net::Backward() {
   for (i = layers_.size() - 1; i > 0; --i) {
     //mexPrintMsg("Backward pass for layer", layers_[i]->type_);    
     if (layers_[i]->type_ == "c" || layers_[i]->type_ == "f") {
-      layers_[i]->Nonlinear(2);
-      layers_[i]->Validate(false);
+      layers_[i]->Nonlinear(2);      
     }
     if (kIgnoreIJ && (layers_[i-1]->type_ == "i" || layers_[i-1]->type_ == "j")) break;
     layers_[i]->Backward(layers_[i-1]);    
-    layers_[i-1]->Validate(false);
   }
   if (i == 0) {
     //mexPrintMsg("Backward pass for layer", layers_[0]->type_);  
-    layers_[0]->Backward(NULL);
-    layers_[0]->Validate(false);
+    layers_[0]->Backward(NULL);    
   }
   //mexPrintMsg("Backward pass finished");  
 }

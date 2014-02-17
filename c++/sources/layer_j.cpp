@@ -137,7 +137,8 @@ void LayerJitter::Forward(Layer *prev_layer, int passnum) {
       }      
       Transform(prev_layer->activ_[k][i], shift, scale, mirror, angle, default_, activ_[k][i]);      
     }    
-  }  
+  }
+  activ_mat_.Validate();  
   /*
   for (int i = 0; i < 5; ++i) {
     mexPrintMsg("Jitt: activ_[0][0]", activ_[0][0](0, i)); 
