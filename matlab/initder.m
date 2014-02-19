@@ -10,7 +10,7 @@ elseif (strcmp(layers{n}.function, 'SVM')) % for SVM
   loss = sum(sum(max(1 - layers{n}.a .* y, 0).^2)) / batchsize;
   % + 1/2 * sum(sum(last_layer.w * last_layer.w')) / last_layer.C - too long
 else
-  error('The last layer function must be either "sigm" or "SVM"');
+  error('The last layer function must be "soft", "sigm" or "SVM"');
 end;
 layers{n}.d(-layers{n}.eps < layers{n}.d & layers{n}.d < layers{n}.eps) = 0;
 
