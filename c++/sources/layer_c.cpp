@@ -106,6 +106,7 @@ void LayerConv::Backward(Layer *prev_layer) {
   #if USE_MULTITHREAD == 1
     #pragma omp parallel for
   #endif
+  
   for (int k = 0; k < batchsize_; ++k) {
     for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {    
       prev_layer->deriv_[k][j].init(prev_layer->mapsize_, 0);      
@@ -118,7 +119,7 @@ void LayerConv::Backward(Layer *prev_layer) {
       }      
     }        
   }  
-  deriv_mat_.Validate();  
+  prev_layer->deriv_mat_.Validate();  
 }
 
 void LayerConv::CalcWeights(Layer *prev_layer) {  
@@ -149,8 +150,9 @@ void LayerConv::CalcWeights(Layer *prev_layer) {
   biases_.der().Validate();  
 }
 
-void LayerConv::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid) {  
-  batchsize_ -= invalid.size();
+void LayerConv::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid) {
+  size_t batchsize = batchsize_;
+  batchsize -= invalid.size();
   std::vector<size_t> padding_der(numdim_);
   for (size_t i = 0; i < numdim_; ++i) {
     padding_der[i] = kernelsize_[i] - 1 - padding_[i];
@@ -158,18 +160,17 @@ void LayerConv::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &inval
   for (size_t i = 0; i < outputmaps_; ++i) {
     for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {                
       kernels_[i][j].der2().assign(0);
-      if (batchsize_ == 0) continue;
+      if (batchsize == 0) continue;
       #if USE_MULTITHREAD == 1
         #pragma omp parallel for
       #endif
       for (int k = 0; k < batchsize_; ++k) {
-        int ind = -1;
-        for (int m = 0; m < invalid.size(); ++m) {
-          if (k == invalid[m]) {
-            ind = m; break;
-          }
-        }
-        if (ind >= 0) continue;        
+        int ind = 0;
+        while (ind < invalid.size()) {
+          if (invalid[ind] == k) break;
+          ind++;
+        }        
+        if (ind < invalid.size()) continue;        
         Mat ker_mat(kernelsize_);
         Filter(deriv_[k][i], prev_layer->activ_[k][j], padding_der, ker_mat);
         #if USE_MULTITHREAD == 1
@@ -177,24 +178,14 @@ void LayerConv::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &inval
         #endif
         kernels_[i][j].der2() += ker_mat;
       }
-      kernels_[i][j].der2() /= batchsize_;
-      kernels_[i][j].der2().Validate();
+      kernels_[i][j].der2() /= batchsize;
+      kernels_[i][j].der2().Validate();      
     }        
-  }    
-}
-
-void LayerConv::UpdateWeights(const Params &params, size_t epoch, bool isafter) {
-  mexAssert(kernels_.size() > 0, "In LayerConv::UpdateWeights the kernels are empty");
-  size_t prev_outputmaps = kernels_[0].size();
-  for (size_t i = 0; i < outputmaps_; ++i) {    
-    for (size_t j = 0; j < prev_outputmaps; ++j) {
-      kernels_[i][j].Update(params, epoch, isafter);      
-    }
   }
-  biases_.Update(params, epoch, isafter);  
+  biases_.der2().assign(0);  
 }
 
-void LayerConv::SetWeights(ftype *&weights, bool isgen) {
+void LayerConv::InitWeights(Weights &weights, size_t &offset, bool isgen) {
 
   kernels_.resize(outputmaps_);
   for (size_t i = 0; i < outputmaps_; ++i) {    
@@ -210,21 +201,19 @@ void LayerConv::SetWeights(ftype *&weights, bool isgen) {
   
   for (size_t i = 0; i < outputmaps_; ++i) {    
     for (size_t j = 0; j < length_prev_; ++j) {
+      kernels_[i][j].Attach(weights, kernelsize_, offset);      
+      offset += numel;
       if (isgen) {
-        kernels_[i][j].Init(weights, kernelsize_, rand_coef);      
-      } else {        
-        kernels_[i][j].Init(weights, kernelsize_);
-        weights += numel;
+        (kernels_[i][j].get().rand() -= 0.5) *= rand_coef;        
       }
     }
   }
   std::vector<size_t> biassize(2);
-  biassize[0] = outputmaps_; biassize[1] = 1;  
+  biassize[0] = outputmaps_; biassize[1] = 1;
+  biases_.Attach(weights, biassize, offset);
+  offset += outputmaps_;  
   if (isgen) {
-    biases_.Init(weights, biassize, 0);
-  } else {
-    biases_.Init(weights, biassize);
-    weights += outputmaps_;
+    biases_.get().assign(0);
   }
 }  
 

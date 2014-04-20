@@ -41,8 +41,7 @@ public:
   virtual void Backward(Layer *prev_layer) = 0;
   virtual void CalcWeights(Layer *prev_layer) = 0;
   virtual void CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid) = 0;
-  virtual void UpdateWeights(const Params &params, size_t epoch, bool isafter) = 0;
-  virtual void SetWeights(ftype *&weights, bool isgen) = 0;
+  virtual void InitWeights(Weights &weights, size_t &offset, bool isgen) = 0;
   virtual size_t NumWeights() const = 0;  
 
   void Nonlinear(int passnum);  

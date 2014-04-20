@@ -58,6 +58,7 @@ for l = 1 : n   %  layer
     end;
     layers{l}.b = double(zeros(layers{l}.outputmaps, 1));
     layers{l}.db = double(zeros(layers{l}.outputmaps, 1));    
+    layers{l}.db2 = double(zeros(layers{l}.outputmaps, 1));    
     layers{l}.dbp = double(zeros(layers{l}.outputmaps, 1));
     layers{l}.gb = double(ones(layers{l}.outputmaps, 1));
     mapsize = mapsize + 2*layers{l}.padding - layers{l}.kernelsize + 1;
@@ -98,6 +99,7 @@ for l = 1 : n   %  layer
 
     layers{l}.b = double(zeros(1, weightsize(1)));
     layers{l}.db = double(zeros(1, weightsize(1)));    
+    layers{l}.db2 = double(zeros(1, weightsize(1)));    
     layers{l}.dbp = double(zeros(1, weightsize(1)));
     layers{l}.gb = double(ones(1, weightsize(1)));      
     mapsize = [0 0];

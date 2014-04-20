@@ -31,19 +31,23 @@ for l = 1 : n   %  for each layer
         end;
       end    
     end
+    layers{l}.dk2(-layers{l}.eps < layers{l}.dk2 & layers{l}.dk2 < layers{l}.eps) = 0;
+    layers{l}.db2(:) = 0;
     
   elseif strcmp(layers{l}.type, 'f')
     if (batchsize == 0)
       layers{l}.dw2 = zeros(size(layers{l}.w));      
       continue;
     end;
-    a_cur = layers{l}.a;
-    d_prev = layers{l}.di;
+    d_cur = layers{l}.d;
+    a_prev = layers{l}.ai;
     if (~isempty(invalid))
-      a_cur(invalid, :) = [];
-      d_prev(invalid, :) = [];      
+      d_cur(invalid, :) = [];
+      a_prev(invalid, :) = [];      
     end;    
-    layers{l}.dw2 = a_cur' * d_prev / batchsize;    
+    layers{l}.dw2 = d_cur' * a_prev / batchsize;
+    layers{l}.dw2(-layers{l}.eps < layers{l}.dw2 & layers{l}.dw2 < layers{l}.eps) = 0;
+    layers{l}.db2(:) = 0;
   end      
 end
         

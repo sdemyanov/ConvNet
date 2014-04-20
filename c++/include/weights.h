@@ -28,8 +28,8 @@ class Weights {
 public:
   Weights() {};
   ~Weights() {};
-  void Init(ftype *weights, const std::vector<size_t> &newsize, ftype coef);
-  void Init(ftype *weights, const std::vector<size_t> &newsize);
+  void Init(ftype *weights, size_t num_weights);
+  void Attach(Weights &weights, const std::vector<size_t> &newsize, size_t offset);  
   void Update(const Params &params, size_t epoch, bool isafter);
   inline void Write(ftype *weights) const { weights_.ToVect(weights); }
   inline Mat& get() { return weights_; }

@@ -111,6 +111,13 @@ Mat& Mat::attach(ftype *vect, const std::vector<size_t> &newsize) {
   return attach(vect, newsize[0], newsize[1]);  
 }
 
+Mat& Mat::attach(const Mat &a, const std::vector<size_t> &newsize, size_t offset) {
+  mexAssert(newsize.size() == 2, "In Mat::attach the size vector length != 2");
+  mexAssert(newsize[0] * newsize[1] + offset <= a.size1_ * a.size2_, 
+    "In Mat::attach the sizes are incorrect");
+  return attach(a.data_ + offset, newsize[0], newsize[1]);  
+}
+
 Mat& Mat::attach(ftype *vect, size_t size1, size_t size2) {
   clear();
   data_ = vect;
@@ -156,6 +163,14 @@ void Mat::resize(size_t size1, size_t size2) {
   size1_ = size1;
   size2_ = size2;  
   //mexPrintMsg("Array resize end");  
+}
+
+Mat& Mat::reshape(size_t size1, size_t size2) {
+  mexAssert(size1_ * size2_ == size1 * size2,
+    "In Mat::reshape the sizes do not correspond");
+  size1_ = size1;
+  size2_ = size2;
+  return *this;
 }
 
 Mat& Mat::copy(const Mat &a) {

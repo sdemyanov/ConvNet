@@ -28,7 +28,7 @@ typedef double ftype;
 const ftype kEps = 1e-8;
 #define MEX_CLASS mxDOUBLE_CLASS
 
-#define USE_MULTITHREAD 1
+#define USE_MULTITHREAD 0
 #if USE_MULTITHREAD == 1
   #include <omp.h>
 #endif

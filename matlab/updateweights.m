@@ -1,28 +1,66 @@
 function layers = updateweights(layers, params, epoch, regime)
 
-for l = 1 : numel(layers)
+if (length(params.momentum) == 1)
+  momentum = params.momentum;
+else
+  momentum = params.momentum(epoch);
+end;
+if (length(params.alpha) == 1)
+  alpha = params.alpha;
+else
+  alpha = params.alpha(epoch);
+end;
+if (length(params.beta) == 1)
+  beta = params.beta;
+else
+  beta = params.beta(epoch);
+end;
   
-  if (length(params.momentum) == 1)
-    momentum = params.momentum;
-  else
-    momentum = params.momentum(epoch);
+if (regime == 1 && beta > 0)
+  selfprod = 0;
+  weightsprod = 0;
+  sum2 = 0;
+  for l = 1 : numel(layers)
+    if strcmp(layers{l}.type, 'c')
+      selfprod = selfprod + sum(sum(sum(sum(layers{l}.dk .* layers{l}.dk))));
+      selfprod = selfprod + sum(layers{l}.db .* layers{l}.db);
+      weightsprod = weightsprod + sum(sum(sum(sum(layers{l}.dk .* layers{l}.dk2))));
+      sum2 = sum2 + sum(sum(sum(sum(layers{l}.dk2))));
+    elseif strcmp(layers{l}.type, 'f')
+      selfprod = selfprod + sum(sum(layers{l}.dw .* layers{l}.dw));
+      selfprod = selfprod + sum(layers{l}.db .* layers{l}.db);
+      weightsprod = weightsprod + sum(sum(layers{l}.dw .* layers{l}.dw2));
+      sum2 = sum2 + sum(sum(layers{l}.dw2));
+    end;
   end;
-  if (length(params.alpha) == 1)
-    alpha = params.alpha;
-  else
-    alpha = params.alpha(epoch);
-  end;
-  if (length(params.beta) == 1)
-    beta = params.beta;
-  else
-    beta = params.beta(epoch);
-  end;
+  for l = 1 : numel(layers)    
+    if strcmp(layers{l}.type, 'c')
+      if (selfprod >= layers{l}.eps)
+        layers{l}.dk2 = layers{l}.dk2 - layers{l}.dk * weightsprod / selfprod;
+        layers{l}.db2 = -layers{l}.db * weightsprod / selfprod;
+      else
+        layers{l}.dk2(:) = 0;
+        layers{l}.db2 = zeros(size(layers{l}.db));
+      end;      
+    elseif strcmp(layers{l}.type, 'f')
+      if (selfprod >= layers{l}.eps)
+        layers{l}.dw2 = layers{l}.dw2 - layers{l}.dw * weightsprod / selfprod;
+        layers{l}.db2 = -layers{l}.db * weightsprod / selfprod;
+      else
+        layers{l}.dw2(:) = 0;
+        layers{l}.db2 = zeros(size(layers{l}.db));
+      end;
+    end;
+  end;  
+end;
+
+for l = 1 : numel(layers)
   
   if strcmp(layers{l}.type, 'c')    
     if (regime == 0)  
       dk = momentum * layers{l}.dkp;          
-    else
-      dk = alpha * layers{l}.dk + beta * layers{l}.dk2;
+    else      
+      dk = alpha * layers{l}.dk + beta * layers{l}.dk2;      
       signs = dk .* layers{l}.dkp;          
       layers{l}.gk(signs > 0) = layers{l}.gk(signs > 0) + params.adjustrate;
       layers{l}.gk(signs <= 0) = layers{l}.gk(signs <= 0) * (1 - params.adjustrate);
@@ -39,7 +77,7 @@ for l = 1 : numel(layers)
     if (regime == 0)      
       dw = momentum * layers{l}.dwp;      
     else
-      dw = alpha * layers{l}.dw + beta * layers{l}.dw2;
+      dw = alpha * layers{l}.dw + beta * layers{l}.dw2;      
       signs = layers{l}.dw .* layers{l}.dwp;
       layers{l}.gw(signs > 0) = layers{l}.gw(signs > 0) + params.adjustrate;
       layers{l}.gw(signs <= 0) = layers{l}.gw(signs <= 0) * (1 - params.adjustrate);
@@ -58,7 +96,7 @@ for l = 1 : numel(layers)
     if (regime == 0)  
       db = momentum * layers{l}.dbp;      
     else
-      db = alpha * layers{l}.db;
+      db = alpha * layers{l}.db + beta * layers{l}.db2;      
       signs = db .* layers{l}.dbp;      
       layers{l}.gb(signs > 0) = layers{l}.gb(signs > 0) + params.adjustrate;
       layers{l}.gb(signs <= 0) = layers{l}.gb(signs <= 0) * (1 - params.adjustrate);

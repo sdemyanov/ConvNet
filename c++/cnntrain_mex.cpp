@@ -42,7 +42,7 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   
   Net net;
   net.InitLayers(IN_L);
-  net.SetWeights(IN_W, OUT_W);
+  net.InitWeights(IN_W, OUT_W);
   net.InitParams(IN_P);
   net.Train(IN_X, IN_Y);  
   net.GetTrainError(OUT_E);

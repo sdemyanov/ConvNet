@@ -197,33 +197,65 @@ void Net::InitDeriv2(ftype &loss) {
   Mat activ_mat(pixels_num, 2);
   activ_mat.assign(0);    
   loss = 0;
-  Mat deriv_mat = firstlayer->deriv_mat_;
-  /*
-  if (print == 1) {
-    for (int i = 0; i < 5; ++i) {
-      mexPrintMsg("deriv_mat_", firstlayer->deriv_mat_(0, i)); 
-    }
-    print = 0;
-  }*/  
+  Mat deriv_mat = firstlayer->deriv_mat_;      
   Mat deriv_sq = deriv_mat;
   ftype selfprod = (deriv_sq *= deriv_mat).Sum();
-  if (selfprod >= kEps) {    
-    Mat products = Mean(firstlayer->deriv_mat_, 1);  
-    Mat prod_sq = products;
-    loss += sqrt((prod_sq *= products).Sum() / selfprod);
-    products /= (pixels_num * loss);
-    activ_mat.AddVect(products, 2);
-    (activ_mat -= (deriv_mat *= loss)) /= selfprod;
+  if (selfprod >= kEps) {
+    ftype norm_shift = sqrt((ftype) pixels_num);
+    Mat products_shift = Sum(firstlayer->deriv_mat_, 1) /= norm_shift;
+    Mat products_shift_norm = products_shift;
+    activ_mat.AddVect(products_shift_norm /= norm_shift, 2);
+    Mat products_shift_sq = products_shift;
+    loss += (products_shift_sq *= products_shift_sq).Sum();
+    
+    Mat vectors_scale = firstlayer->activ_mat_;
+    vectors_scale.AddVect(Mean(vectors_scale, 1) *= -1, 2); // to make them orthogonal to shift vectors
+    Mat vectors_scale_sq = vectors_scale;
+    Mat norm_scale_sq = Sum(vectors_scale_sq *= vectors_scale, 1);
+    Mat norm_scale = norm_scale_sq;
+    norm_scale(0) = sqrt(norm_scale(0));
+    norm_scale(1) = sqrt(norm_scale(1));
+    Mat vectors_scale_prod = vectors_scale;
+    Mat products_scale = Sum(vectors_scale_prod *= firstlayer->deriv_mat_, 1) /= norm_scale;
+    Mat products_scale_norm = products_scale;
+    Mat vectors_scale_norm = vectors_scale;
+    vectors_scale_norm.MultVect(products_scale_norm /= norm_scale, 2);        
+    activ_mat += vectors_scale_norm;
+    Mat products_scale_sq = products_scale;
+    loss += (products_scale_sq *= products_scale_sq).Sum();
+    
+    std::vector<size_t> swap_ind(2);
+    swap_ind[0] = 1; swap_ind[1] = 0;
+    Mat vectors_rot = SubMat(firstlayer->activ_mat_, swap_ind, 2);
+    for (size_t i = 0; i < pixels_num; ++i) {
+      vectors_rot(i, 1) *= -1;
+    }
+    vectors_rot.AddVect(Mean(vectors_rot, 1) *= -1, 2); // to make it orthogonal to shift vectors
+    Mat vectors_rot_scale = vectors_rot;
+    Mat rot_scale_prod = Sum(vectors_rot_scale *= vectors_scale, 1) /= norm_scale_sq;
+    Mat vectors_rot_proj = vectors_scale;
+    vectors_rot -= vectors_rot_proj.MultVect(rot_scale_prod, 2); // to make it orthogonal to scale vectors
+    Mat vectors_rot_sq = vectors_rot;
+    ftype norm_rot = sqrt((vectors_rot_sq *= vectors_rot).Sum());    
+    Mat dot_prod = firstlayer->deriv_mat_;
+    ftype products_rot = (dot_prod *= vectors_rot).Sum() / norm_rot;
+    vectors_rot *= (products_rot / norm_rot);    
+    activ_mat += vectors_rot;
+    loss += products_rot * products_rot;  
+    
+    loss = sqrt(loss / selfprod);
+    ((activ_mat /= loss) -= (deriv_mat *= loss)) /= selfprod;
   }
   firstlayer->activ_mat_ = std::move(activ_mat);  
   firstlayer->activ_mat_.Validate();
+  print = 0;
 }
 
 void Net::Backward() {
   
   //mexPrintMsg("Start backward pass...");  
   size_t i;
-  for (i = layers_.size() - 1; i > 0; --i) {
+  for (i = layers_.size() - 1; i > 0; --i) {    
     //mexPrintMsg("Backward pass for layer", layers_[i]->type_);    
     if (layers_[i]->type_ == "c" || layers_[i]->type_ == "f") {
       layers_[i]->Nonlinear(2);      
@@ -255,15 +287,13 @@ void Net::CalcWeights2(const std::vector<size_t> &invalid) {
   layers_[0]->CalcWeights2(NULL, invalid);
   for (size_t i = 1; i < layers_.size(); ++i) {
     //mexPrintMsg("CalcWeights2 pass for layer", layers_[i]->type_);    
-    layers_[i]->CalcWeights2(layers_[i-1], invalid);
-  }
+    layers_[i]->CalcWeights2(layers_[i-1], invalid);    
+  }  
   //mexPrintMsg("CalcWeights2 pass finished");  
 }
 
 void Net::UpdateWeights(size_t epoch, bool isafter) {
-  for (size_t i = 0; i < layers_.size(); ++i) {
-    layers_[i]->UpdateWeights(params_, epoch, isafter);
-  }
+  weights_.Update(params_, epoch, isafter);  
 }
 
 void Net::ReadData(const mxArray *mx_data) {
@@ -309,30 +339,32 @@ size_t Net::NumWeights() const {
   return num_weights;
 }
 
-void Net::SetWeights(const mxArray *mx_weights_in) { // testing
+void Net::InitWeights(const mxArray *mx_weights_in) { // testing
   size_t num_weights = NumWeights();
   mexAssert(num_weights == mexGetNumel(mx_weights_in), 
-    "In SetWeights the vector of weights has the wrong length!");
-  ftype *weights = mexGetPointer(mx_weights_in);   
+    "In InitWeights the vector of weights has the wrong length!");
+  weights_.Init(mexGetPointer(mx_weights_in), num_weights);
+  size_t offset = 0;
   for (size_t i = 1; i < layers_.size(); ++i) {
-    layers_[i]->SetWeights(weights, false);
+    layers_[i]->InitWeights(weights_, offset, false);
   }
 }
 
-void Net::SetWeights(const mxArray *mx_weights_in, mxArray *&mx_weights) {
+void Net::InitWeights(const mxArray *mx_weights_in, mxArray *&mx_weights) {
   size_t num_weights = NumWeights();
   bool isgen = false;
   if (mx_weights_in != NULL) { // training
     mexAssert(num_weights == mexGetNumel(mx_weights_in), 
-      "In SetWeights the vector of weights has the wrong length!");
+      "In InitWeights the vector of weights has the wrong length!");
     mx_weights = mexDuplicateArray(mx_weights_in);    
   } else { // genweights
     mx_weights = mexNewMatrix(1, num_weights);    
     isgen = true;
   }
-  ftype *weights = mexGetPointer(mx_weights);   
-  for (size_t i = 1; i < layers_.size(); ++i) {
-    layers_[i]->SetWeights(weights, isgen);
+  weights_.Init(mexGetPointer(mx_weights), num_weights);
+  size_t offset = 0;
+  for (size_t i = 0; i < layers_.size(); ++i) {
+    layers_[i]->InitWeights(weights_, offset, isgen);
   }  
 }
 
@@ -348,5 +380,5 @@ void Net::Clear() {
   data_.clear();
   labels_.clear();
   trainerror_.clear();
-  classcoefs_.clear();
+  classcoefs_.clear(); 
 }

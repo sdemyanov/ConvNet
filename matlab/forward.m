@@ -38,7 +38,7 @@ for l = 1 : n   %  for each layer
       a = layers{l}.a;
       layers{l}.a = zeros([layers{l}.mapsize layers{l}.outputmaps batchsize]);      
     end;
-    as = size(layers{l-1}.a);
+    as = size(layers{l-1}.a); as(end+1:4) = 1;
     a_prev = layers{l-1}.a;
     if (layers{l}.padding(1) > 0 || layers{l}.padding(2) > 0)
       padding = layers{l}.padding;

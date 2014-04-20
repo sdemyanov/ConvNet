@@ -19,22 +19,28 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "weights.h"
 
-void Weights::Init(ftype *weights, const std::vector<size_t> &newsize, ftype coef) {
-  Init(weights, newsize);
-  (weights_.rand() -= 0.5) *= coef;  
+void Weights::Init(ftype *weights, size_t num_weights) {
+  size_.resize(2);
+  size_[0] = 1;
+  size_[1] = num_weights;
+  weights_.attach(weights, 1, num_weights);  
+  weights_der_.init(1, num_weights, 0);
+  weights_der2_.init(1, num_weights, 0);
+  weights_der_prev_.init(1, num_weights, 0);
+  weights_learn_coefs_.init(1, num_weights, 1);  
 }
 
-void Weights::Init(ftype *weights, const std::vector<size_t> &newsize) {
+void Weights::Attach(Weights &weights, const std::vector<size_t> &newsize, size_t offset) {
   size_ = newsize;
-  weights_.attach(weights, size_);  
-  weights_der_.init(size_, 0);
-  weights_der2_.init(size_, 0);
-  weights_der_prev_.init(size_, 0);
-  weights_learn_coefs_.init(size_, 1);  
+  weights_.attach(weights.weights_, newsize, offset);
+  weights_der_.attach(weights.weights_der_, newsize, offset);
+  weights_der2_.attach(weights.weights_der2_, newsize, offset);
+  weights_der_prev_.attach(weights.weights_der_prev_, newsize, offset);
+  weights_learn_coefs_.attach(weights.weights_learn_coefs_, newsize, offset);    
 }
 
 void Weights::Update(const Params &params, size_t epoch, bool isafter) {
-
+  
   ftype alpha, beta, momentum;
   if (params.alpha_.size() == 1) {
     alpha = params.alpha_[0];
@@ -53,12 +59,26 @@ void Weights::Update(const Params &params, size_t epoch, bool isafter) {
   }
   if (!isafter) {
     if (momentum == 0) return;
-    weights_der_ = weights_der_prev_;    
+    weights_der_.copy(weights_der_prev_);    
     weights_der_ *= momentum; 
   } else {
     weights_der_ *= alpha;
-    weights_der2_ *= beta;
-    weights_der_ += weights_der2_;    
+    if (beta > 0) {
+      // calculate the projection of w2 orthogonal to w      
+      Mat weights_der = weights_der_;
+      ftype selfprod = (weights_der *= weights_der_).Sum();
+      ftype sum2 = weights_der2_.Sum();
+      if (selfprod >= kEps) {
+        weights_der = weights_der_;
+        ftype weightsprod = (weights_der *= weights_der2_).Sum();    
+        weights_der = weights_der_;
+        weights_der2_ -= (weights_der *= (weightsprod / selfprod));
+      } else {
+        weights_der2_.assign(0);
+      }
+      weights_der2_ *= beta;
+      weights_der_ += weights_der2_;      
+    }
     if (params.adjustrate_ > 0) {      
       Mat signs = weights_der_prev_;      
       signs *= weights_der_;
@@ -68,7 +88,7 @@ void Weights::Update(const Params &params, size_t epoch, bool isafter) {
       weights_learn_coefs_.CondAssign(weights_learn_coefs_, params.mincoef_, false, params.mincoef_);      
       weights_der_ *= weights_learn_coefs_;      
     }
-    weights_der_prev_ = weights_der_;    
+    weights_der_prev_.copy(weights_der_);    
     if (momentum > 0) {
       weights_der_ *= (1 - momentum);    
     }

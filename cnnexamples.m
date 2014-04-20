@@ -5,27 +5,22 @@ clear;
 addpath('./c++/build');
 addpath('./matlab');
 addpath('./data');
-load mnist_uint8;
+load mnist;
 
-kXSize = [28 28];
-train_x = double(permute(reshape(train_x', [kXSize size(train_x, 1)]), [2 1 3]))/255;
-test_x = double(permute(reshape(test_x', [kXSize, size(test_x, 1)]), [2 1 3]))/255;
-train_y = double(train_y);
-test_y = double(test_y);
-
+kXSize = [size(TrainX, 1) size(TrainX, 2)];
 kWorkspaceFolder = './workspace';
 if (~exist(kWorkspaceFolder, 'dir'))
   mkdir(kWorkspaceFolder);
 end;
 
-kTrainNum = 60000;
-kOutputs = size(train_y, 2);
-train_x = train_x(:, :, 1:kTrainNum);
-train_y = double(train_y(1:kTrainNum, :));
+kTrainNum = 5000;
+kOutputs = size(TrainY, 2);
+train_x = TrainX(:, :, 1:kTrainNum);
+train_y = TrainY(1:kTrainNum, :);
 
 kTestNum = 10000;
-test_x = test_x(:, :, 1:kTestNum);
-test_y = double(test_y(1:kTestNum, :));
+test_x = TestX(:, :, 1:kTestNum);
+test_y = TestY(1:kTestNum, :);
 
 mean_s = mean(mean(train_x, 1), 2);
 train_x_unbiased = train_x - repmat(mean_s, [kXSize 1]);
@@ -38,7 +33,7 @@ params.batchsize = 50;
 params.numepochs = 2;
 params.alpha = [1 0.9];
 params.momentum = [0.5 0.9];  
-params.shuffle = 0;
+params.shuffle = 1;
 params.verbose = 2;
 
 layers = {

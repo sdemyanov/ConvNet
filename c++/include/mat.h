@@ -56,16 +56,18 @@ public:
   Mat& operator = (Mat &&a);
   void clear();
   Mat& attach(ftype *vect, const std::vector<size_t> &newsize);
-  Mat& attach(ftype *vect, size_t size1, size_t size2);
-  Mat& attach(const Mat &a);  
+  Mat& attach(const Mat &a, const std::vector<size_t> &newsize, size_t offset);
+  Mat& attach(ftype *vect, size_t size1, size_t size2);  
+  Mat& attach(const Mat &a);
+  
   Mat& assign(ftype val);
   Mat& rand();
   void resize(const std::vector<size_t> &newsize);
   void resize(size_t size1, size_t size2);
+  Mat& reshape(size_t size1, size_t size2);
   Mat& copy(const Mat &a);
   Mat& init(const std::vector<size_t> &newsize, ftype val);
   Mat& init(size_t size1, size_t size2, ftype val);
-  
     
   void ToVect(ftype *vect) const;
   ftype Sum() const;

@@ -48,7 +48,7 @@ void Params::Init(const mxArray *mx_params) {
     mexAssert(alpha_.size() == 1 || alpha_.size() == numepochs_,
       "Wrong length of the alpha vector");
     for (size_t i = 0; i < alpha_.size(); ++i) {
-      mexAssert(alpha_[i] > 0, "alpha must be positive");
+      mexAssert(alpha_[i] >= 0, "alpha must be nonnegative");
     }
   }
   if (mexIsField(mx_params, "beta")) {    

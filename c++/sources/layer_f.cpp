@@ -86,9 +86,10 @@ void LayerFull::Backward(Layer *prev_layer) {
 }
 
 void LayerFull::CalcWeights(Layer *prev_layer) {
-  biases_.der() = Mean(deriv_mat_, 1);  
-  Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_.der());
-  weights_.der() /= batchsize_;
+  biases_.der().copy(Mean(deriv_mat_, 1));
+  Mat weights_der;
+  Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_der);
+  (weights_.der().copy(weights_der)) /= batchsize_;
   if (function_ == "SVM") {
     Mat weights_reg = weights_.get();    
     weights_.der() += (weights_reg /= c_);
@@ -103,8 +104,9 @@ void LayerFull::CalcWeights(Layer *prev_layer) {
 
 void LayerFull::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid) {
   if (invalid.size() == 0) {
-    Prod(activ_mat_, true, prev_layer->deriv_mat_, false, weights_.der2());
-    weights_.der2() /= batchsize_;  
+    Mat weights_der2;
+    Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_der2);
+    (weights_.der2().copy(weights_der2)) /= batchsize_;      
   } else {
     if (invalid.size() == batchsize_) {
       weights_.der2().assign(0);
@@ -118,46 +120,37 @@ void LayerFull::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &inval
       } else {
         valid[i - invind] = i;
       }
-    }
+    }    
     batchsize_ -= invalid.size();
-    Mat activ_mat = SubMat(activ_mat_, valid, 1);
-    Mat deriv_mat_prev = SubMat(prev_layer->deriv_mat_, valid, 1);    
-    Prod(activ_mat, true, deriv_mat_prev, false, weights_.der2());
-    weights_.der2() /= batchsize_;  
+    Mat deriv_mat = SubMat(deriv_mat_, valid, 1);
+    Mat activ_mat_prev = SubMat(prev_layer->activ_mat_, valid, 1);    
+    Mat weights_der2;
+    Prod(deriv_mat, true, activ_mat_prev, false, weights_der2);
+    (weights_.der2().copy(weights_der2)) /= batchsize_;  
   }
   weights_.der2().Validate();
+  biases_.der2().assign(0);
 }
 
-void LayerFull::UpdateWeights(const Params &params, size_t epoch, bool isafter) {
-  weights_.Update(params, epoch, isafter);
-  biases_.Update(params, epoch, isafter);  
-}
-
-void LayerFull::SetWeights(ftype *&weights, bool isgen) {
+void LayerFull::InitWeights(Weights &weights, size_t &offset, bool isgen) {
   
   std::vector<size_t> weightssize(2);
   weightssize[0] = length_; weightssize[1] = length_prev_;
+  weights_.Attach(weights, weightssize, offset);
+  offset += length_ * length_prev_;  
   if (isgen) {
     ftype rand_coef = 2 * sqrt((ftype) 6 / (length_prev_ + length_));  
-    weights_.Init(weights, weightssize, rand_coef);
-  } else {
-    size_t numel = length_ * length_prev_;
-    weights_.Init(weights, weightssize);      
-    weights += numel;
-  }
-  
+    (weights_.get().rand() -= 0.5) *= rand_coef;  
+  }  
   std::vector<size_t> biassize(2);
   biassize[0] = 1; biassize[1] = length_;    
+  biases_.Attach(weights, biassize, offset);
+  offset += length_;
   if (isgen) {
-    biases_.Init(weights, biassize, 0);
-  } else {
-    biases_.Init(weights, biassize);
-    weights += length_;
+    biases_.get().assign(0);
   }
-
   //mexPrintMsg("length_prev_", length_prev_);
-  //mexPrintMsg("length_", length_);
-  
+  //mexPrintMsg("length_", length_);  
 }
 
 size_t LayerFull::NumWeights() const {

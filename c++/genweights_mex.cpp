@@ -34,6 +34,6 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   
   Net net;
   net.InitLayers(IN_L);
-  net.SetWeights(NULL, OUT_W);
+  net.InitWeights(NULL, OUT_W);
   
 }
