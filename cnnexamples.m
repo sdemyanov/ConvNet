@@ -22,12 +22,16 @@ kTestNum = 10000;
 test_x = TestX(:, :, 1:kTestNum);
 test_y = TestY(1:kTestNum, :);
 
-mean_s = mean(mean(train_x, 1), 2);
-train_x_unbiased = train_x - repmat(mean_s, [kXSize 1]);
-norm_x = 2*mean(squeeze(sqrt(sum(sum(train_x_unbiased.^2)))));
+train_x_norm = train_x;
+mean_s = mean(mean(train_x_norm, 1), 2);
+train_x_norm = train_x_norm - repmat(mean_s, [kXSize 1]);
+datanorm = sqrt(sum(sum(train_x_norm.^2, 1), 2));
+norm_x = 2*mean(squeeze(datanorm));
+datanorm(datanorm < 1e-8) = 1;
+train_x_norm = train_x_norm ./ repmat(datanorm, [kXSize 1]) * norm_x;
 kMinVar = 1;
-mean_x = mean(train_x, 3);
-std_x = sqrt(var(train_x, 0, 3) + kMinVar);
+mean_x = mean(train_x_norm, 3);
+std_x = sqrt(var(train_x_norm, 0, 3) + kMinVar);
 
 params.batchsize = 50;
 params.numepochs = 2;
