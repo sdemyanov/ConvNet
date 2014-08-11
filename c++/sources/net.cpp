@@ -86,7 +86,6 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
   size_t train_num = labels_.size1();
   size_t numbatches = (size_t) ceil((ftype) train_num/params_.batchsize_);
   trainerror_.resize(params_.numepochs_, numbatches);
-  Mat data_batch, labels_batch, pred_batch;
   for (size_t epoch = 0; epoch < params_.numepochs_; ++epoch) {    
     std::vector<size_t> randind(train_num);
     for (size_t i = 0; i < train_num; ++i) {
@@ -100,10 +99,11 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       size_t batchsize = std::min(params_.batchsize_, (size_t)(randind.end() - iter));
       std::vector<size_t> batch_ind = std::vector<size_t>(iter, iter + batchsize);
       iter = iter + batchsize;      
-      data_batch = SubMat(data_, batch_ind, 1);      
-      labels_batch = SubMat(labels_, batch_ind, 1);      
+      Mat data_batch = SubMat(data_, batch_ind, 1);      
+      Mat labels_batch = SubMat(labels_, batch_ind, 1);      
       UpdateWeights(epoch, false);      
       InitActiv(data_batch);
+      Mat pred_batch;
       Forward(pred_batch, 1);      
       InitDeriv(labels_batch, trainerror_(epoch, batch));
       Backward();

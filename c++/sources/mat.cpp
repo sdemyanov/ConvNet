@@ -627,7 +627,8 @@ void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, const Mat &m, Mat &c
   Mat al, bl, cl;
   if (!a_tr) { // a
     as1 = a.size1_; as2 = a.size2_;    
-    al = Trans(a);
+    Mat atr = Trans(a);
+    Swap(al, atr);
   } else { // aT
     as1 = a.size2_; as2 = a.size1_;
     al = a;
@@ -637,13 +638,14 @@ void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, const Mat &m, Mat &c
     bl = b;  
   } else { //bT
     bs1 = b.size2_; bs2 = b.size1_;
-    bl = Trans(b);  
+    Mat btr = Trans(b);
+    Swap(bl, btr);  
   }
   if (!m.isempty()) {
     mexAssert(m.size1_ == a.size1_, "In Prod the size1 of mask is wrong");  
     mexAssert(m.size2_ == a.size2_ * bs2, "In Prod the size2 of mask is wrong");    
   }  
-  mexAssert(as2 == bs1, "In Prod the sizes of matrices do not correspond"); 
+  mexAssert(as2 == bs1, "In Prod the sizes of matrices do not correspond");
   
   cl.init(as1, bs2, 0);
   if (m.isempty()) {
