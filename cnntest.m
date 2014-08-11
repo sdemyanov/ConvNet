@@ -7,4 +7,7 @@ pred = cnnclassify(layers, weights, x, type);
 bad = find(pred_ind ~= y_ind);
 err = length(bad) / size(pred_ind, 1);
 
+%bad = [];
+%err = sum((pred - y).^2) / 2;
+
 end

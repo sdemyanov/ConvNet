@@ -20,7 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "layer_f.h"
 
 LayerFull::LayerFull() {
-  type_ = "f";    
+  type_ = "f"; 
+  is_weights_ = true;
   function_ = "relu";
   outputmaps_ = 0;
   dropout_ = 0;
@@ -59,17 +60,29 @@ void LayerFull::Forward(Layer *prev_layer, int passnum) {
   activ_mat_.resize(batchsize_, length_);
   if (dropout_ > 0) { // dropout
     if (passnum == 1) { // training      
-      Mat dropmat(batchsize_, length_prev_);
-      dropmat.rand();
-      prev_layer->activ_mat_.CondAssign(dropmat, dropout_, false, 0);
+      dropmat_.resize(batchsize_, length_prev_ * length_);
+      dropmat_.rand();
+      dropmat_.CondAssign(dropmat_, dropout_, false, 0);
+      dropmat_.CondAssign(dropmat_, 0, true, 1);
+      Prod(prev_layer->activ_mat_, false, weights_.get(), true, dropmat_, activ_mat_);
+      
+      dropmat_bias_.resize(batchsize_, length_);
+      dropmat_bias_.rand();
+      dropmat_bias_.CondAssign(dropmat_bias_, dropout_, false, 0);
+      dropmat_bias_.CondAssign(dropmat_bias_, 0, true, 1);      
+      activ_mat_.AddVect(biases_.get(), dropmat_bias_, 1);      
+      
     } else if (passnum == 0) { // testing
-      prev_layer->activ_mat_ *= (1 - dropout_);      
+      prev_layer->activ_mat_ *= (1 - dropout_);
+      Prod(prev_layer->activ_mat_, false, weights_.get(), true, activ_mat_);
+      Mat biases = biases_.get();
+      biases *= (1 - dropout_);
+      activ_mat_.AddVect(biases, 1);      
     }
+  } else {
+    Prod(prev_layer->activ_mat_, false, weights_.get(), true, activ_mat_);
+    activ_mat_.AddVect(biases_.get(), 1);                
   }  
-  Prod(prev_layer->activ_mat_, false, weights_.get(), true, activ_mat_);
-  if (passnum == 0 || passnum == 1) {
-    activ_mat_.AddVect(biases_.get(), 2);    
-  }
   activ_mat_.Validate();
   /*
   for (int i = 0; i < 5; ++i) {
@@ -77,8 +90,12 @@ void LayerFull::Forward(Layer *prev_layer, int passnum) {
   } */
 }
 
-void LayerFull::Backward(Layer *prev_layer) {  
-  Prod(deriv_mat_, false, weights_.get(), false, prev_layer->deriv_mat_);
+void LayerFull::Backward(Layer *prev_layer) {
+  if (dropout_ > 0) {
+    Prod(deriv_mat_, false, weights_.get(), false, dropmat_, prev_layer->deriv_mat_);
+  } else {
+    Prod(deriv_mat_, false, weights_.get(), false, prev_layer->deriv_mat_);
+  }
   if (prev_layer->type_ != "f") {
     InitMaps(prev_layer->deriv_mat_, prev_layer->mapsize_, prev_layer->deriv_);
   }
@@ -86,10 +103,26 @@ void LayerFull::Backward(Layer *prev_layer) {
 }
 
 void LayerFull::CalcWeights(Layer *prev_layer) {
-  biases_.der().copy(Mean(deriv_mat_, 1));
+
   Mat weights_der;
-  Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_der);
-  (weights_.der().copy(weights_der)) /= batchsize_;
+  if (dropout_ > 0) {
+    Mat dividers = Sum(dropmat_, 1);
+    dividers.reshape(length_, length_prev_);
+    dividers.CondAssign(dividers, 0, false, 1); // to avoid division by zero
+    Prod(deriv_mat_, true, prev_layer->activ_mat_, false, dropmat_, weights_der);
+    (weights_.der() = weights_der) /= dividers;    
+    
+    biases_.der() = Sum(deriv_mat_, 1);
+    Mat dividers_bias = Sum(dropmat_bias_, 1);
+    dividers_bias.CondAssign(dividers_bias, 0, false, 1);
+    biases_.der() /= dividers_bias;
+    
+  } else {
+    Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_der);
+    (weights_.der() = weights_der) /= batchsize_;    
+    biases_.der() = Mean(deriv_mat_, 1);    
+  }
+  
   if (function_ == "SVM") {
     Mat weights_reg = weights_.get();    
     weights_.der() += (weights_reg /= c_);
@@ -100,36 +133,6 @@ void LayerFull::CalcWeights(Layer *prev_layer) {
   for (int i = 0; i < 10; ++i) {
     mexPrintMsg("Full: deriv_weig", weights_.der()(0, i)); 
   } */
-}
-
-void LayerFull::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid) {
-  if (invalid.size() == 0) {
-    Mat weights_der2;
-    Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_der2);
-    (weights_.der2().copy(weights_der2)) /= batchsize_;      
-  } else {
-    if (invalid.size() == batchsize_) {
-      weights_.der2().assign(0);
-      return;
-    }
-    std::vector<size_t> valid(batchsize_ - invalid.size());
-    size_t invind = 0;
-    for (size_t i = 0; i < batchsize_; ++i) {
-      if (i == invalid[invind]) {
-        invind++;
-      } else {
-        valid[i - invind] = i;
-      }
-    }    
-    batchsize_ -= invalid.size();
-    Mat deriv_mat = SubMat(deriv_mat_, valid, 1);
-    Mat activ_mat_prev = SubMat(prev_layer->activ_mat_, valid, 1);    
-    Mat weights_der2;
-    Prod(deriv_mat, true, activ_mat_prev, false, weights_der2);
-    (weights_.der2().copy(weights_der2)) /= batchsize_;  
-  }
-  weights_.der2().Validate();
-  biases_.der2().assign(0);
 }
 
 void LayerFull::InitWeights(Weights &weights, size_t &offset, bool isgen) {
@@ -151,6 +154,11 @@ void LayerFull::InitWeights(Weights &weights, size_t &offset, bool isgen) {
   }
   //mexPrintMsg("length_prev_", length_prev_);
   //mexPrintMsg("length_", length_);  
+}
+
+void LayerFull::UpdateWeights(const Params &params, size_t epoch, bool isafter) {
+  weights_.Update(params, epoch, isafter);
+  biases_.Update(params, epoch, isafter);
 }
 
 size_t LayerFull::NumWeights() const {

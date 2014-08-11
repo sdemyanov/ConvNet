@@ -20,18 +20,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "net.h"
 #include "layer_i.h"
 #include "layer_j.h"
+#include "layer_n.h"
 #include "layer_c.h"
 #include "layer_s.h"
 #include "layer_t.h"
 #include "layer_f.h"
 #include <ctime>
 
-bool kIgnoreIJ = false;
-
 void Net::InitLayers(const mxArray *mx_layers) {
   
   //mexPrintMsg("Start layers initialization...");
-  std::srand((unsigned) std::time(0));  
   size_t layers_num = mexGetNumel(mx_layers);  
   mexAssert(layers_num >= 2, "The net must contain at least 2 layers");
   const mxArray *mx_layer = mexGetCell(mx_layers, 0);  
@@ -46,7 +44,9 @@ void Net::InitLayers(const mxArray *mx_layers) {
     mx_layer = mexGetCell(mx_layers, i);  
     layer_type = mexGetString(mexGetField(mx_layer, "type"));
     if (layer_type == "j") {
-      layers_[i] = new LayerJitter();
+      layers_[i] = new LayerJitt();
+    } else if (layer_type == "n") {      
+      layers_[i] = new LayerNorm();
     } else if (layer_type == "c") {      
       layers_[i] = new LayerConv();
     } else if (layer_type == "s") {
@@ -81,6 +81,8 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
   ReadData(mx_data);
   ReadLabels(mx_labels);
   
+  std::srand(params_.seed_);  
+  
   size_t train_num = labels_.size1();
   size_t numbatches = (size_t) ceil((ftype) train_num/params_.batchsize_);
   trainerror_.resize(params_.numepochs_, numbatches);
@@ -102,11 +104,11 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       labels_batch = SubMat(labels_, batch_ind, 1);      
       UpdateWeights(epoch, false);      
       InitActiv(data_batch);
-      Forward(pred_batch, 1);
+      Forward(pred_batch, 1);      
       InitDeriv(labels_batch, trainerror_(epoch, batch));
       Backward();
-      CalcWeights();
-      UpdateWeights(epoch, true);      
+      CalcWeights();      
+      UpdateWeights(epoch, true); 
       if (params_.verbose_ == 2) {
         std::string info = std::string("Epoch: ") + std::to_string(epoch+1) +
                            std::string(", batch: ") + std::to_string(batch+1);
@@ -142,15 +144,11 @@ void Net::Forward(Mat &pred, int passnum) {
   //mexPrintMsg("Forward pass for layer", layers_[0]->type_);  
   layers_[0]->Forward(NULL, passnum);  
   for (size_t i = 1; i < layers_.size(); ++i) {
+    //mexPrintMsg("Forward pass for layer", layers_[]->type_);  
     Mat activ_mat_prev;
-    if (layers_[i]->type_ == "c" || layers_[i]->type_ == "f") {
-      if (passnum == 3) activ_mat_prev = layers_[i]->activ_mat_;
-    }
     layers_[i]->Forward(layers_[i-1], passnum);    
     if (layers_[i]->type_ == "c" || layers_[i]->type_ == "f") {
-      if (passnum == 3) Swap(activ_mat_prev, layers_[i]->deriv_mat_);
-      layers_[i]->Nonlinear(passnum);      
-      if (passnum == 3) Swap(activ_mat_prev, layers_[i]->deriv_mat_);
+      layers_[i]->Nonlinear(passnum);            
     }    
     if (passnum == 0) layers_[i-1]->activ_mat_.clear();    
     if (utIsInterruptPending()) {
@@ -159,11 +157,29 @@ void Net::Forward(Mat &pred, int passnum) {
     }
     /*
     for (int j = 0; j < 5; ++j) {
-      mexPrintMsg("activ_mat_", layers_[i]->activ_mat_(0, j)); 
-    }*/
+      //mexPrintMsg("activ_mat_", layers_[i]->activ_mat_(0, j)); 
+    }*/    
   }  
   pred.attach(layers_.back()->activ_mat_);  
   //("Forward pass finished");
+}
+
+void Net::Backward() {
+  
+  //mexPrintMsg("Start backward pass...");  
+  size_t i;
+  for (i = layers_.size() - 1; i > 0; --i) {    
+    //mexPrintMsg("Backward pass for layer", layers_[i]->type_);    
+    if (layers_[i]->type_ == "c" || layers_[i]->type_ == "f") {
+      layers_[i]->Nonlinear(2);      
+    }
+    layers_[i]->Backward(layers_[i-1]);    
+  }
+  if (i == 0) {
+    //mexPrintMsg("Backward pass for layer", layers_[0]->type_);  
+    layers_[0]->Backward(NULL);    
+  }
+  //mexPrintMsg("Backward pass finished");  
 }
 
 void Net::InitDeriv(const Mat &labels_batch, ftype &loss) {  
@@ -187,87 +203,8 @@ void Net::InitDeriv(const Mat &labels_batch, ftype &loss) {
     Mat lossmat = lastlayer->deriv_mat_;
     loss = (lossmat *= lastlayer->deriv_mat_).Sum() / (2 * batchsize);
   }
-  lastlayer->deriv_mat_.MultVect(classcoefs_, 2);
-  lastlayer->deriv_mat_.Validate();
-}
-
-void Net::InitDeriv2(ftype &loss) {
-  Layer *firstlayer = layers_[0];
-  size_t pixels_num = firstlayer->deriv_mat_.size1();
-  Mat activ_mat(pixels_num, 2);
-  activ_mat.assign(0);    
-  loss = 0;
-  Mat deriv_mat = firstlayer->deriv_mat_;      
-  Mat deriv_sq = deriv_mat;
-  ftype selfprod = (deriv_sq *= deriv_mat).Sum();
-  if (selfprod >= kEps) {
-    ftype norm_shift = sqrt((ftype) pixels_num);
-    Mat products_shift = Sum(firstlayer->deriv_mat_, 1) /= norm_shift;
-    Mat products_shift_norm = products_shift;
-    activ_mat.AddVect(products_shift_norm /= norm_shift, 2);
-    Mat products_shift_sq = products_shift;
-    loss += (products_shift_sq *= products_shift_sq).Sum();
-    
-    Mat vectors_scale = firstlayer->activ_mat_;
-    vectors_scale.AddVect(Mean(vectors_scale, 1) *= -1, 2); // to make them orthogonal to shift vectors
-    Mat vectors_scale_sq = vectors_scale;
-    Mat norm_scale_sq = Sum(vectors_scale_sq *= vectors_scale, 1);
-    Mat norm_scale = norm_scale_sq;
-    norm_scale(0) = sqrt(norm_scale(0));
-    norm_scale(1) = sqrt(norm_scale(1));
-    Mat vectors_scale_prod = vectors_scale;
-    Mat products_scale = Sum(vectors_scale_prod *= firstlayer->deriv_mat_, 1) /= norm_scale;
-    Mat products_scale_norm = products_scale;
-    Mat vectors_scale_norm = vectors_scale;
-    vectors_scale_norm.MultVect(products_scale_norm /= norm_scale, 2);        
-    activ_mat += vectors_scale_norm;
-    Mat products_scale_sq = products_scale;
-    loss += (products_scale_sq *= products_scale_sq).Sum();
-    
-    std::vector<size_t> swap_ind(2);
-    swap_ind[0] = 1; swap_ind[1] = 0;
-    Mat vectors_rot = SubMat(firstlayer->activ_mat_, swap_ind, 2);
-    for (size_t i = 0; i < pixels_num; ++i) {
-      vectors_rot(i, 1) *= -1;
-    }
-    vectors_rot.AddVect(Mean(vectors_rot, 1) *= -1, 2); // to make it orthogonal to shift vectors
-    Mat vectors_rot_scale = vectors_rot;
-    Mat rot_scale_prod = Sum(vectors_rot_scale *= vectors_scale, 1) /= norm_scale_sq;
-    Mat vectors_rot_proj = vectors_scale;
-    vectors_rot -= vectors_rot_proj.MultVect(rot_scale_prod, 2); // to make it orthogonal to scale vectors
-    Mat vectors_rot_sq = vectors_rot;
-    ftype norm_rot = sqrt((vectors_rot_sq *= vectors_rot).Sum());    
-    Mat dot_prod = firstlayer->deriv_mat_;
-    ftype products_rot = (dot_prod *= vectors_rot).Sum() / norm_rot;
-    vectors_rot *= (products_rot / norm_rot);    
-    activ_mat += vectors_rot;
-    loss += products_rot * products_rot;  
-    
-    loss = sqrt(loss / selfprod);
-    ((activ_mat /= loss) -= (deriv_mat *= loss)) /= selfprod;
-  }
-  firstlayer->activ_mat_ = std::move(activ_mat);  
-  firstlayer->activ_mat_.Validate();
-  print = 0;
-}
-
-void Net::Backward() {
-  
-  //mexPrintMsg("Start backward pass...");  
-  size_t i;
-  for (i = layers_.size() - 1; i > 0; --i) {    
-    //mexPrintMsg("Backward pass for layer", layers_[i]->type_);    
-    if (layers_[i]->type_ == "c" || layers_[i]->type_ == "f") {
-      layers_[i]->Nonlinear(2);      
-    }
-    if (kIgnoreIJ && (layers_[i-1]->type_ == "i" || layers_[i-1]->type_ == "j")) break;
-    layers_[i]->Backward(layers_[i-1]);    
-  }
-  if (i == 0) {
-    //mexPrintMsg("Backward pass for layer", layers_[0]->type_);  
-    layers_[0]->Backward(NULL);    
-  }
-  //mexPrintMsg("Backward pass finished");  
+  lastlayer->deriv_mat_.MultVect(classcoefs_, 1);
+  lastlayer->deriv_mat_.Validate(); 
 }
 
 void Net::CalcWeights() {  
@@ -279,17 +216,6 @@ void Net::CalcWeights() {
     layers_[i]->CalcWeights(layers_[i-1]);
   }
   //mexPrintMsg("CalcWeights pass finished");  
-}
-
-void Net::CalcWeights2(const std::vector<size_t> &invalid) {  
-  //mexPrintMsg("Start CalcWeights2 pass...");  
-  //mexPrintMsg("CalcWeights2 pass for layer", layers_[0]->type_);
-  layers_[0]->CalcWeights2(NULL, invalid);
-  for (size_t i = 1; i < layers_.size(); ++i) {
-    //mexPrintMsg("CalcWeights2 pass for layer", layers_[i]->type_);    
-    layers_[i]->CalcWeights2(layers_[i-1], invalid);    
-  }  
-  //mexPrintMsg("CalcWeights2 pass finished");  
 }
 
 void Net::UpdateWeights(size_t epoch, bool isafter) {
@@ -312,8 +238,8 @@ void Net::ReadData(const mxArray *mx_data) {
 void Net::ReadLabels(const mxArray *mx_labels) {
   std::vector<size_t> labels_dim = mexGetDimensions(mx_labels);  
   mexAssert(labels_dim.size() == 2, "The label array must have 2 dimensions");
-  //mexPrintMsg("labels_dim.", labels_dim[0]);
-  //mexPrintMsg("data_.size()", data_.size());  
+  ////mexPrintMsg("labels_dim.", labels_dim[0]);
+  ////mexPrintMsg("data_.size()", data_.size());  
   size_t classes_num = labels_dim[1];
   mexAssert(classes_num == layers_.back()->length_,
     "Labels and last layer must have equal number of classes");  
@@ -368,8 +294,8 @@ void Net::InitWeights(const mxArray *mx_weights_in, mxArray *&mx_weights) {
   }  
 }
 
-void Net::GetTrainError(mxArray *&mx_errors) const {  
-  mx_errors = mexSetMatrix(trainerror_);
+void Net::GetTrainErrors(mxArray *&mx_errors) const {  
+  mx_errors = mexSetMatrix(trainerror_);  
 }
 
 void Net::Clear() {

@@ -33,14 +33,16 @@ public:
   void Forward(Layer *prev_layer, int passnum);
   void Backward(Layer *prev_layer);
   void CalcWeights(Layer *prev_layer);
-  void CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid);
   void InitWeights(Weights &weights, size_t &offset, bool isgen);
+  void UpdateWeights(const Params &params, size_t epoch, bool isafter);
   size_t NumWeights() const;
   
 private:
   Weights weights_;
   Weights biases_;
-  ftype dropout_;    
+  ftype dropout_;
+  Mat dropmat_;
+  Mat dropmat_bias_;
   ftype c_; // coefficient for SVM
   
 };

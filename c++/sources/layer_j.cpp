@@ -19,17 +19,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "layer_j.h"
 
-LayerJitter::LayerJitter() {
+LayerJitt::LayerJitt() {
   type_ = "j";
+  is_weights_ = false;
   batchsize_ = 0;
 }  
   
-void LayerJitter::Init(const mxArray *mx_layer, Layer *prev_layer) {
+void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
   
-  mexAssert(prev_layer->type_ == "i", "The 'j' type layer must be after the input one");
+  //mexAssert(prev_layer->type_ == "i", "The 'j' type layer must be after the input one");
   numdim_ = prev_layer->numdim_;
   outputmaps_ = prev_layer->outputmaps_;
-  length_prev_ = prev_layer->outputmaps_;
+  length_prev_ = prev_layer->length_prev_;
   mexAssert(mexIsField(mx_layer, "mapsize"), "The 'j' type layer must contain the 'mapsize' field");
   std::vector<ftype> mapsize = mexGetVector(mexGetField(mx_layer, "mapsize"));  
   mexAssert(mapsize.size() == numdim_, "Length of jitter mapsize vector and maps dimensionality must coincide");
@@ -108,7 +109,7 @@ void LayerJitter::Init(const mxArray *mx_layer, Layer *prev_layer) {
   }
 } 
 
-void LayerJitter::Forward(Layer *prev_layer, int passnum) {
+void LayerJitt::Forward(Layer *prev_layer, int passnum) {
   batchsize_ = prev_layer->batchsize_;
   activ_mat_.resize(batchsize_, length_);
   InitMaps(activ_mat_, mapsize_, activ_);  
@@ -145,7 +146,7 @@ void LayerJitter::Forward(Layer *prev_layer, int passnum) {
   } */
 }
 
-void LayerJitter::Backward(Layer *prev_layer) {    
+void LayerJitt::Backward(Layer *prev_layer) {    
   prev_layer->deriv_mat_ = deriv_mat_;
 }
 

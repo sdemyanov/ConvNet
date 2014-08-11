@@ -29,6 +29,12 @@ for l = n : -1 : 1
         layers{l}.d = layers{l}.d * layers{l}.norm;
       end;      
     end;    
+    
+  elseif strcmp(layers{l}.type, 'n')    
+    layers{l-1}.d = layers{l}.d;
+    if (layers{l}.is_dev == 1)
+      layers{l-1}.d = layers{l-1}.d .* repmat(layers{l}.w(:, :, :, 2), [1 1 1 batchsize]);
+    end;
 
   elseif strcmp(layers{l}.type, 'c')
     d_cur = layers{l}.d;    
@@ -61,10 +67,12 @@ for l = n : -1 : 1
       if (~isequal(sc, st))
         prevval = stretch(layers{l-1}.a, sc, st);
         maxmat = (prevval == curval);
+        maxmat = uniq(maxmat, sc);
         curder = curder .* maxmat;
         layers{l-1}.d = shrink(curder, sc, st);
       else
         maxmat = (layers{l-1}.a == curval);
+        maxmat = uniq(maxmat, sc);
         layers{l-1}.d = curder .* maxmat;
       end;
     elseif strcmp(layers{l}.function, 'mean')
@@ -92,7 +100,11 @@ for l = n : -1 : 1
     end;      
 
   elseif strcmp(layers{l}.type, 'f')
-    layers{l}.di = layers{l}.d * layers{l}.w; 
+    if (layers{l}.dropout > 0) % dropout
+      layers{l}.di = maskprod(layers{l}.d, 0, layers{l}.w, 0, layers{l}.dropmat);
+    else
+      layers{l}.di = layers{l}.d * layers{l}.w; 
+    end;
     if ~strcmp(layers{l-1}.type, 'f')        
       mapsize = layers{l-1}.mapsize;
       d_trans = reshape(layers{l}.di, [batchsize mapsize(2) mapsize(1) layers{l-1}.outputmaps]);

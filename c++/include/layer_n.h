@@ -17,29 +17,31 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _PARAMS_H_
-#define _PARAMS_H_
+#ifndef _LAYER_N_H_
+#define _LAYER_N_H_
 
-#include "mex_util.h"
+#include "layer.h"
 
-class Params {
-
-public:
-  size_t batchsize_;
-  size_t numepochs_;
-  std::vector<ftype> alpha_;
-  std::vector<ftype> momentum_;
-  ftype adjustrate_;
-  ftype maxcoef_;
-  ftype mincoef_;
-  bool balance_;
-  bool shuffle_;
-  size_t verbose_;
-  size_t seed_;
-
-  Params();
+class LayerNorm : public Layer {
   
-  void Init(const mxArray *params);
+public:
+  LayerNorm();
+  ~LayerNorm() {};  
+  void Init(const mxArray *mx_layer, Layer *prev_layer);
+  void Forward(Layer *prev_layer, int passnum);
+  void Backward(Layer *prev_layer);
+  void CalcWeights(Layer *prev_layer);
+  void InitWeights(Weights &weights, size_t &offset, bool isgen);
+  void UpdateWeights(const Params &params, size_t epoch, bool isafter);
+  size_t NumWeights() const;
+  
+private:
+  std::vector<Mat> mean_in_;
+  std::vector<Mat> stdev_in_;
+  std::vector<Weights> mean_;
+  std::vector<Weights> stdev_;
+  Mat filter_;
+  bool is_dev_;
   
 };
 

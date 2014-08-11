@@ -29,9 +29,12 @@ class Layer {
   
 public:
   Mat activ_mat_, deriv_mat_; // activations, derivatives
-  std::vector< std::vector<Mat> > activ_, deriv_;  // same, but with easier access  
+  std::vector< std::vector<Mat> > activ_, deriv_;  // same, but split on the maps if necessary
   std::vector<size_t> mapsize_;
   size_t numdim_, outputmaps_, batchsize_, length_, length_prev_;  
+  // length_ - total number of values on the layer in one sample
+  // length_prev_ - meaning depends on the layer
+  bool is_weights_;  
   std::string type_, function_;  
   
   Layer() {};
@@ -39,9 +42,9 @@ public:
   virtual void Init(const mxArray *mx_layer, Layer *prev_layer) = 0;
   virtual void Forward(Layer *prev_layer, int passnum) = 0;
   virtual void Backward(Layer *prev_layer) = 0;
-  virtual void CalcWeights(Layer *prev_layer) = 0;
-  virtual void CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid) = 0;
   virtual void InitWeights(Weights &weights, size_t &offset, bool isgen) = 0;
+  virtual void CalcWeights(Layer *prev_layer) = 0;
+  virtual void UpdateWeights(const Params &params, size_t epoch, bool isafter) = 0;
   virtual size_t NumWeights() const = 0;  
 
   void Nonlinear(int passnum);  

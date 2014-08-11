@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mex_print.h"
 #include <vector>
 #include <algorithm>
-#include <omp.h>
+#include <cmath>
 
 #define MEM_ORDER HORIZONTAL
 //#define MEM_ORDER VERTICAL
@@ -53,7 +53,6 @@ public:
   Mat(Mat &&a);
   ~Mat();
   Mat& operator = (const Mat &a);
-  Mat& operator = (Mat &&a);
   void clear();
   Mat& attach(ftype *vect, const std::vector<size_t> &newsize);
   Mat& attach(const Mat &a, const std::vector<size_t> &newsize, size_t offset);
@@ -65,7 +64,6 @@ public:
   void resize(const std::vector<size_t> &newsize);
   void resize(size_t size1, size_t size2);
   Mat& reshape(size_t size1, size_t size2);
-  Mat& copy(const Mat &a);
   Mat& init(const std::vector<size_t> &newsize, ftype val);
   Mat& init(size_t size1, size_t size2, ftype val);
     
@@ -82,6 +80,7 @@ public:
   Mat& operator *= (ftype a);
   Mat& operator /= (ftype a);  
   Mat& Sign();
+  Mat& Sqrt();
   Mat& SoftMax();
   Mat& SoftDer(const Mat& a);
   Mat& Sigmoid();
@@ -91,6 +90,7 @@ public:
   Mat& CondAdd(const Mat &condmat, ftype threshold, bool incase, ftype a);
   Mat& CondProd(const Mat &condmat, ftype threshold, bool incase, ftype a);
   Mat& AddVect(const Mat &vect, size_t dim);
+  Mat& AddVect(const Mat &vect, const Mat &m, size_t dim);
   Mat& MultVect(const Mat &vect, size_t dim);
   Mat& Normalize(ftype norm, ftype &oldnorm);
   Mat& CalcPercents();
@@ -107,6 +107,7 @@ public:
   
   // layer transformation functions
   friend void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, Mat &c);
+  friend void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, const Mat &m, Mat &c);
   friend void Filter(const Mat &image, const Mat &filter, 
                      const std::vector<size_t> padding, Mat &filtered);
   friend void Transform(const Mat &image, const std::vector<ftype> &shift, 
@@ -116,11 +117,11 @@ public:
                         const std::vector<size_t> &stride, Mat &scaled);
   friend void MeanScaleDer(const Mat &image, const std::vector<size_t> &scale,
                            const std::vector<size_t> &stride, Mat &scaled);  
-  friend void MaxScale(const Mat &image, const std::vector<size_t> &scale,
-                       const std::vector<size_t> &stride, Mat &scaled);
-  friend void MaxScaleDer(const Mat &image, const Mat &val, const Mat &prev_val,
-                          const std::vector<size_t> &scale, const std::vector<size_t> &stride,
-                          Mat &scaled);
+  friend void MaxMat(const Mat &image, const std::vector<size_t> &scale,
+                     const std::vector<size_t> &stride, Mat &maxmat);  
+  friend void MaxScale(const Mat &image, const Mat &maxmat, Mat &scaled);
+  friend void MaxScaleDer(const Mat&scaled, const Mat &maxmat, Mat &restored);
+  
   friend void MaxTrim(const Mat &image, std::vector<size_t> &coords, Mat &trimmed);
   friend void MaxTrimDer(const Mat &image, const std::vector<size_t> &coords,
                          Mat &restored);  

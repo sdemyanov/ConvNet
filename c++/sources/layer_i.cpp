@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LayerInput::LayerInput() {
   type_ = "i";
+  is_weights_ = false;
   numdim_ = 2;
   batchsize_ = 0;
   length_prev_ = 0;
@@ -113,16 +114,10 @@ void LayerInput::Forward(Layer *prev_layer, int passnum) {
   for (int k = 0; k < batchsize_; ++k) {
     for (size_t i = 0; i < outputmaps_; ++i) {
       if (is_norm) {
-        if (passnum == 0 || passnum == 1) {
-          activ_[k][i].Normalize(norm_[i], datanorm_(k, i));
-        } else if (passnum == 3) {
-          activ_[k][i] *= (norm_[i] / datanorm_(k, i));
-        }
+        activ_[k][i].Normalize(norm_[i], datanorm_(k, i));        
       }
       if (is_mean) {
-        if (passnum == 0 || passnum == 1) {
-          activ_[k][i] -= mean_[i];
-        }
+        activ_[k][i] -= mean_[i];        
       }
       if (is_stdev) activ_[k][i] /= stdev_[i];      
     }    

@@ -22,8 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 Params::Params() {
   batchsize_ = 50;
   numepochs_ = 1;
-  alpha_.assign(1, 1);
-  beta_.assign(1, 1);
+  alpha_.assign(1, 1);  
   momentum_.assign(1, 0);
   adjustrate_ = 0;
   maxcoef_ = 1;
@@ -31,6 +30,7 @@ Params::Params() {
   balance_ = false;
   shuffle_ = true;
   verbose_ = 2;
+  seed_ = 0;
 }
   
 void Params::Init(const mxArray *mx_params) {
@@ -49,14 +49,6 @@ void Params::Init(const mxArray *mx_params) {
       "Wrong length of the alpha vector");
     for (size_t i = 0; i < alpha_.size(); ++i) {
       mexAssert(alpha_[i] >= 0, "alpha must be nonnegative");
-    }
-  }
-  if (mexIsField(mx_params, "beta")) {    
-    beta_ = mexGetVector(mexGetField(mx_params, "beta"));
-    mexAssert(beta_.size() == 1 || beta_.size() == numepochs_,
-      "Wrong length of the beta vector");
-    for (size_t i = 0; i < beta_.size(); ++i) {
-      mexAssert(beta_[i] >= 0, "beta must be nonnegative");
     }
   }
   if (mexIsField(mx_params, "momentum")) {    
@@ -84,5 +76,8 @@ void Params::Init(const mxArray *mx_params) {
   }
   if (mexIsField(mx_params, "verbose")) {    
     verbose_ = (size_t) mexGetScalar(mexGetField(mx_params, "verbose"));    
+  }
+  if (mexIsField(mx_params, "seed")) {    
+    seed_ = (size_t) mexGetScalar(mexGetField(mx_params, "seed"));    
   }
 }

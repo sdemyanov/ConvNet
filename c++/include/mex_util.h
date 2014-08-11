@@ -38,6 +38,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 bool mexIsStruct(const mxArray *mx_array);
 bool mexIsCell(const mxArray *mx_array);
 bool mexIsField(const mxArray *mx_array, const char *fieldname);
+bool mexIsString(const mxArray *mx_array);
 
 const mxArray* mexGetCell(const mxArray *mx_array, size_t ind);
 const mxArray* mexGetField(const mxArray *mx_array, const char *fieldname);

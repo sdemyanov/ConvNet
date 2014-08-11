@@ -81,17 +81,16 @@ Mat::~Mat() {
 
 Mat& Mat::operator = (const Mat &a) {
   //mexPrintMsg("Array const assignment");
-  Mat tmp(a);  
-  Swap(*this, tmp);  
+  if (size1_ == a.size1_ && size2_ == a.size2_) {
+    for (size_t i = 0; i < size1_ * size2_; ++i) {
+      data_[i] = a.data_[i];
+    }
+  } else {
+    Mat tmp = a;  
+    Swap(*this, tmp);  
+  }
   //mexPrintMsg("Array const assignment end");
   return *this;  
-}
-
-Mat& Mat::operator = (Mat &&a) {  
-  //mexPrintMsg("Array move assignment");
-  Swap(*this, a);
-  //mexPrintMsg("Array move assignment end");
-  return *this;
 }
 
 void Mat::clear() {
@@ -170,15 +169,6 @@ Mat& Mat::reshape(size_t size1, size_t size2) {
     "In Mat::reshape the sizes do not correspond");
   size1_ = size1;
   size2_ = size2;
-  return *this;
-}
-
-Mat& Mat::copy(const Mat &a) {
-  mexAssert(size1_ == a.size1_ && size2_ == a.size2_,
-    "In Mat::copy the sizes of matrices must coincide");
-  for (size_t i = 0; i < size1_ * size2_; ++i) {
-    data_[i] = a.data_[i];
-  }
   return *this;
 }
 
@@ -294,6 +284,14 @@ Mat& Mat::Sign() {
   return *this;
 }
 
+Mat& Mat::Sqrt() {
+  for (size_t i = 0; i < size1_ * size2_ ; ++i) {
+    data_[i] = sqrt(data_[i]);
+  }
+  return *this;
+}
+
+
 Mat& Mat::SoftMax() {
 
   for (size_t i = 0; i < size1_; ++i) {
@@ -336,7 +334,7 @@ Mat& Mat::Sigmoid() {
 }
 
 Mat& Mat::SigmDer(const Mat& a) {
-  mexAssert(size1_ == a.size1() && size2_ == a.size2(), 
+  mexAssert(size1_ == a.size1_ && size2_ == a.size2_, 
     "In 'Mat::SigmDer' the matrices are of the different size");
   for (size_t i = 0; i < size1_ * size2_; ++i) {
     data_[i] *= a.data_[i] * (1 - a.data_[i]);
@@ -379,22 +377,53 @@ Mat& Mat::CondProd(const Mat &condmat, ftype threshold, bool incase, ftype a) {
 }
 
 Mat& Mat::AddVect(const Mat &vect, size_t dim) {  
+  Mat m;
+  return this->AddVect(vect, m, dim);
+}
+
+Mat& Mat::AddVect(const Mat &vect, const Mat &m, size_t dim) {  
+
+  if (!m.isempty()) {
+    mexAssert(size1_ == m.size1_ && size2_ == m.size2_,
+              "In 'Mat::AddVect' the size of mask matrix is incorrect"); 
+  }
+
   if (dim == 1) {
-    mexAssert(vect.size2_ == 1, "In 'Mat::AddVect' the second dimension must be 1"); 
-    mexAssert(size1_ == vect.size1_,
-      "In 'Mat::AddVect' the second dimension of matrix and length of vector are of the different size");
-    for (size_t i = 0; i < size1_; ++i) {
-      for (size_t j = 0; j < size2_; ++j) {
-        data(i, j) += vect(i, 0);
-      }
-    }   
-  } else if (dim == 2) {
     mexAssert(vect.size1_ == 1, "In 'Mat::AddVect' the first dimension must be 1"); 
     mexAssert(size2_ == vect.size2_,
+      "In 'Mat::AddVect' the second dimension of matrix and length of vector are of the different size");
+    if (m.isempty()) {
+      for (size_t i = 0; i < size1_; ++i) {
+        for (size_t j = 0; j < size2_; ++j) {
+          data(i, j) += vect(0, j);
+        }
+      }
+    } else {
+      for (size_t i = 0; i < size1_; ++i) {
+        for (size_t j = 0; j < size2_; ++j) {
+          if (m(i, j) > 0) {
+            data(i, j) += vect(0, j);
+          }
+        }
+      }
+    }    
+  } else if (dim == 2) {
+    mexAssert(vect.size2_ == 1, "In 'Mat::AddVect' the second dimension must be 1"); 
+    mexAssert(size1_ == vect.size1_,
       "In 'Mat::AddVect' the first dimension of matrix and length of vector are of the different size");
-    for (size_t i = 0; i < size1_; ++i) {
-      for (size_t j = 0; j < size2_; ++j) {
-        data(i, j) += vect(0, j);
+    if (m.isempty()) {
+      for (size_t i = 0; i < size1_; ++i) {
+        for (size_t j = 0; j < size2_; ++j) {
+          data(i, j) += vect(i, 0);
+        }
+      }
+    } else {
+      for (size_t i = 0; i < size1_; ++i) {
+        for (size_t j = 0; j < size2_; ++j) {
+          if (m(i, j) > 0) {
+            data(i, j) += vect(i, 0);
+          }
+        }
       }
     }
   } else {
@@ -405,25 +434,25 @@ Mat& Mat::AddVect(const Mat &vect, size_t dim) {
 
 Mat& Mat::MultVect(const Mat &vect, size_t dim) {  
   if (dim == 1) {
-    mexAssert(vect.size2_ == 1, "In 'Mat::AddVect' the second dimension must be 1"); 
-    mexAssert(size1_ == vect.size1_,
-      "In 'Mat::AddVect' the second dimension of matrix and length of vector are of the different size");
-    for (size_t i = 0; i < size1_; ++i) {
-      for (size_t j = 0; j < size2_; ++j) {
-        data(i, j) *= vect(i, 0);
-      }
-    }   
-  } else if (dim == 2) {
-    mexAssert(vect.size1_ == 1, "In 'Mat::AddVect' the first dimension must be 1"); 
+    mexAssert(vect.size1_ == 1, "In 'Mat::MultVect' the first dimension must be 1"); 
     mexAssert(size2_ == vect.size2_,
-      "In 'Mat::AddVect' the first dimension of matrix and length of vector are of the different size");
+      "In 'Mat::MultVect' the second dimension of matrix and length of vector are of the different size");
     for (size_t i = 0; i < size1_; ++i) {
       for (size_t j = 0; j < size2_; ++j) {
         data(i, j) *= vect(0, j);
       }
     }
+  } else if (dim == 2) {
+    mexAssert(vect.size2_ == 1, "In 'Mat::MultVect' the second dimension must be 1"); 
+    mexAssert(size1_ == vect.size1_,
+      "In 'Mat::MultVect' the first dimension of matrix and length of vector are of the different size");
+    for (size_t i = 0; i < size1_; ++i) {
+      for (size_t j = 0; j < size2_; ++j) {
+        data(i, j) *= vect(i, 0);
+      }
+    }
   } else {
-    mexAssert(false, "In Mat::AddVect the dimension parameter must be either 1 or 2");
+    mexAssert(false, "In Mat::MultVect the dimension parameter must be either 1 or 2");
   }
   return *this;
 }
@@ -535,8 +564,6 @@ Mat Trans(const Mat &a) {
 Mat SubMat(const Mat &a, const std::vector<size_t> &ind, size_t dim) {
   
   mexAssert(ind.size() > 0, "In SubMat the index vector is empty");
-  size_t minind = *(std::min_element(ind.begin(), ind.end()));
-  mexAssert(minind >= 0, "In SubMat one of the indices is less than zero");  
   Mat submat;
   if (dim == 1) {
     size_t maxind = *(std::max_element(ind.begin(), ind.end()));    
@@ -589,7 +616,12 @@ void InitMaps(const Mat &a, const std::vector<size_t> &mapsize,
 
 // layer transformation functions
 
-void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, Mat &c) {
+void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, Mat &c) {  
+  Mat m; // empty mask matrix;
+  Prod(a, a_tr, b, b_tr, m, c);
+}
+
+void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, const Mat &m, Mat &c) {
   
   size_t as1, as2, bs1, bs2;
   Mat al, bl, cl;
@@ -602,27 +634,58 @@ void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, Mat &c) {
   }
   if (!b_tr) { //b
     bs1 = b.size1_; bs2 = b.size2_;
-    bl = b;
+    bl = b;  
   } else { //bT
     bs1 = b.size2_; bs2 = b.size1_;
-    bl = Trans(b);
+    bl = Trans(b);  
   }
-  mexAssert(as2 == bs1, "In Prod the sizes of matrices do not correspond");  
+  if (!m.isempty()) {
+    mexAssert(m.size1_ == a.size1_, "In Prod the size1 of mask is wrong");  
+    mexAssert(m.size2_ == a.size2_ * bs2, "In Prod the size2 of mask is wrong");    
+  }  
+  mexAssert(as2 == bs1, "In Prod the sizes of matrices do not correspond"); 
+  
   cl.init(as1, bs2, 0);
-  //#if USE_MULTITHREAD == 1
-  //  #pragma omp parallel for
-  //#endif
-  for (int k = 0; k < as2; k++) {    
-    for (int i = 0; i < as1; i++) {      
-      for (int j = 0; j < bs2; j++) {
-        //#if USE_MULTITHREAD == 1
-        //  #pragma omp atomic
-        //#endif
-        cl(i, j) += al(k, i) * bl(k, j);
+  if (m.isempty()) {
+    //#if USE_MULTITHREAD == 1
+    //  #pragma omp parallel for
+    //#endif
+    for (int k = 0; k < bs1; ++k) {    
+      for (int i = 0; i < as1; ++i) {      
+        for (int j = 0; j < bs2; ++j) {
+          //#if USE_MULTITHREAD == 1
+          //  #pragma omp atomic
+          //#endif
+          cl(i, j) += al(k, i) * bl(k, j);
+        }
+      }
+    }
+  } else {
+    for (int k = 0; k < bs1; ++k) {    
+      for (int i = 0; i < as1; ++i) {      
+        for (int j = 0; j < bs2; ++j) {
+          if (!a_tr && !b_tr) { // backward
+            if (m(i, k * bs2 + j) > 0) {                  
+              cl(i, j) += al(k, i) * bl(k, j);
+            }            
+          } else if (!a_tr && b_tr) { // forward
+            if (m(i, j * bs1 + k) > 0) {              
+              cl(i, j) += al(k, i) * bl(k, j);
+            }
+          } else if (a_tr && !b_tr) { // calcweights
+            if (m(k, i * bs2 + j) > 0) {                  
+              cl(i, j) += al(k, i) * bl(k, j);
+            }
+          } else if (a_tr && b_tr) {
+            if (m(k, j * bs1 + i) > 0) {                  
+              cl(i, j) += al(k, i) * bl(k, j);
+            }
+          }          
+        }
       }
     }
   }
-  c = std::move(cl);
+  Swap(c, cl);  
 }
 
 void Filter(const Mat &image, const Mat &filter, 
@@ -740,6 +803,7 @@ void MeanScaleDer(const Mat &image, const std::vector<size_t> &scale,
   }
 }
 
+/*
 void MaxScale(const Mat &image, const std::vector<size_t> &scale,
               const std::vector<size_t> &stride, Mat &scaled) {
   mexAssert(scaled.size1_ == ceil((ftype) image.size1_ / stride[0]) &&
@@ -759,27 +823,49 @@ void MaxScale(const Mat &image, const std::vector<size_t> &scale,
       }      
     }
   }  
-}
+}*/
 
-void MaxScaleDer(const Mat&image, const Mat &val, const Mat &prev_val,
-                 const std::vector<size_t> &scale, const std::vector<size_t> &stride,
-                 Mat &scaled) {
-  mexAssert(image.size1_ == ceil((ftype) scaled.size1_ / stride[0]) && 
-            image.size2_ == ceil((ftype) scaled.size2_ / stride[1]),
-            "In 'MaxScaleDer' the parameters do not correspond each other");  
-  scaled.assign(0);
-  for (size_t i = 0; i < image.size1_; ++i) {
-    for (size_t j = 0; j < image.size2_; ++j) {
-      size_t maxu = std::min(scale[0], scaled.size1_-i*stride[0]);
-      size_t maxv = std::min(scale[1], scaled.size2_-j*stride[1]);      
+void MaxMat(const Mat &image, const std::vector<size_t> &scale,
+            const std::vector<size_t> &stride, Mat &maxmat) {
+  size_t size1 = ceil((ftype) image.size1_ / stride[0]);
+  size_t size2 = ceil((ftype) image.size2_ / stride[1]);  
+  maxmat.resize(size1 * size2, 4);
+  
+  for (size_t i = 0; i < size1; ++i) {
+    for (size_t j = 0; j < size2; ++j) {
+      size_t maxu = std::min(scale[0], image.size1_-i*stride[0]);
+      size_t maxv = std::min(scale[1], image.size2_-j*stride[1]);
+      ftype maxval = image(i*stride[0], j*stride[1]) - 1;      
       for (size_t u = 0; u < maxu; ++u) {
         for (size_t v = 0; v < maxv; ++v) {          
-          if (prev_val(i*stride[0]+u, j*stride[1]+v) == val(i, j)) {
-            scaled(i*stride[0]+u, j*stride[1]+v) += image(i, j);
+          if (maxval < image(i*stride[0]+u, j*stride[1]+v)) {
+            maxval = image(i*stride[0]+u, j*stride[1]+v);
+            maxmat(i * size2 + j, 0) = i;
+            maxmat(i * size2 + j, 1) = j;
+            maxmat(i * size2 + j, 2) = i*stride[0]+u;
+            maxmat(i * size2 + j, 3) = j*stride[1]+v;
           }
         }
       }      
     }
+  }  
+}
+
+void MaxScale(const Mat &image, const Mat &maxmat, Mat &scaled) {
+  
+  mexAssert(scaled.size1_ * scaled.size2_ == maxmat.size1_,
+            "In 'MaxScale' sizes of matrices do not correspond");  
+  for (size_t i = 0; i < maxmat.size1_; ++i) {
+    scaled(maxmat(i, 0), maxmat(i, 1)) = image(maxmat(i, 2), maxmat(i, 3));
+  }  
+}
+
+void MaxScaleDer(const Mat&scaled, const Mat &maxmat, Mat &restored) {
+  mexAssert(scaled.size1_ * scaled.size2_ == maxmat.size1_,
+            "In 'MaxScaleDer' sizes of matrices do not correspond");  
+  restored.assign(0);
+  for (size_t i = 0; i < maxmat.size1_; ++i) {
+    restored(maxmat(i, 2), maxmat(i, 3)) += scaled(maxmat(i, 0), maxmat(i, 1));
   }
 }
                  

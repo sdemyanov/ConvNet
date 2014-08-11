@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LayerConv::LayerConv() {
   type_ = "c";
+  is_weights_ = true;
   function_ = "relu";  
   batchsize_ = 0;  
 }
@@ -76,11 +77,7 @@ void LayerConv::Forward(Layer *prev_layer, int passnum) {
   #endif
   for (int k = 0; k < batchsize_; ++k) {  
     for (size_t i = 0; i < outputmaps_; ++i) {
-      if (passnum == 0 || passnum == 1) {
-        activ_[k][i].assign(biases_.get(i));
-      } else if (passnum == 3) {
-        activ_[k][i].assign(0);
-      }      
+      activ_[k][i].assign(biases_.get(i));
       for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {
         Mat act_mat(mapsize_);
         Filter(prev_layer->activ_[k][j], kernels_[i][j].get(), padding_, act_mat);
@@ -150,41 +147,6 @@ void LayerConv::CalcWeights(Layer *prev_layer) {
   biases_.der().Validate();  
 }
 
-void LayerConv::CalcWeights2(Layer *prev_layer, const std::vector<size_t> &invalid) {
-  size_t batchsize = batchsize_;
-  batchsize -= invalid.size();
-  std::vector<size_t> padding_der(numdim_);
-  for (size_t i = 0; i < numdim_; ++i) {
-    padding_der[i] = kernelsize_[i] - 1 - padding_[i];
-  }
-  for (size_t i = 0; i < outputmaps_; ++i) {
-    for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {                
-      kernels_[i][j].der2().assign(0);
-      if (batchsize == 0) continue;
-      #if USE_MULTITHREAD == 1
-        #pragma omp parallel for
-      #endif
-      for (int k = 0; k < batchsize_; ++k) {
-        int ind = 0;
-        while (ind < invalid.size()) {
-          if (invalid[ind] == k) break;
-          ind++;
-        }        
-        if (ind < invalid.size()) continue;        
-        Mat ker_mat(kernelsize_);
-        Filter(deriv_[k][i], prev_layer->activ_[k][j], padding_der, ker_mat);
-        #if USE_MULTITHREAD == 1
-          #pragma omp critical
-        #endif
-        kernels_[i][j].der2() += ker_mat;
-      }
-      kernels_[i][j].der2() /= batchsize;
-      kernels_[i][j].der2().Validate();      
-    }        
-  }
-  biases_.der2().assign(0);  
-}
-
 void LayerConv::InitWeights(Weights &weights, size_t &offset, bool isgen) {
 
   kernels_.resize(outputmaps_);
@@ -216,6 +178,15 @@ void LayerConv::InitWeights(Weights &weights, size_t &offset, bool isgen) {
     biases_.get().assign(0);
   }
 }  
+
+void LayerConv::UpdateWeights(const Params &params, size_t epoch, bool isafter) {
+  for (size_t i = 0; i < outputmaps_; ++i) {    
+    for (size_t j = 0; j < length_prev_; ++j) {  
+      kernels_[i][j].Update(params, epoch, isafter);
+    }
+  }
+  biases_.Update(params, epoch, isafter);
+}
 
 size_t LayerConv::NumWeights() const {
   size_t num_weights = length_prev_;

@@ -19,8 +19,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "net.h"
 
-#define NARGIN 1
+#define NARGIN 2
 #define IN_L pRhs[0] // layers
+#define IN_S pRhs[1] // randseed
 
 #define NARGOUT 1
 #define OUT_W	pLhs[0] // weights
@@ -32,8 +33,11 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   mexAssert(nRhs == NARGIN, "Number of input arguments in wrong!");
   mexAssert(nLhs == NARGOUT, "Number of output arguments is wrong!" );
   
+  size_t seed = (size_t) mexGetScalar(IN_S);
+  std::srand(seed);
+  
   Net net;
-  net.InitLayers(IN_L);
+  net.InitLayers(IN_L);  
   net.InitWeights(NULL, OUT_W);
   
 }

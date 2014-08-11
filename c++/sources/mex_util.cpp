@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mex_util.h"
 
 bool mexIsStruct(const mxArray *mx_array) {	
-  mexAssert(mx_array != NULL && !mxIsEmpty(mx_array), "In 'mexIsCell' the array is NULL or empty");
+  mexAssert(mx_array != NULL && !mxIsEmpty(mx_array), "In 'mexIsStruct' the array is NULL or empty");
   return mxIsStruct(mx_array);
 }
 
@@ -35,10 +35,15 @@ bool mexIsField(const mxArray *mx_array, const char *fieldname) {
 	return (mx_field != NULL);  
 }
 
+bool mexIsString(const mxArray *mx_array) {
+  mexAssert(mx_array != NULL && !mxIsEmpty(mx_array), "In 'mexIsString' the array is NULL or empty");
+  return mxIsChar(mx_array);
+}
+
 const mxArray* mexGetCell(const mxArray *mx_array, size_t ind) {  
   mexAssert(mexIsCell(mx_array), "In 'mexGetCell' the array in not a cell array");
   size_t numel = mexGetNumel(mx_array);
-  mexAssert(0 <= ind && ind < numel, "In 'mexGetCell' index is out of array");
+  mexAssert(ind < numel, "In 'mexGetCell' index is out of array");
   return mxGetCell(mx_array, ind);  
 }
 
@@ -78,10 +83,9 @@ size_t mexGetNumel(const mxArray *mx_array) {
 }
 
 std::string mexGetString(const mxArray *mx_array) {
-  mexAssert(mx_array != NULL, "mx_array in 'mexGetString' is NULL");
   const size_t kMaxFieldLength = 100;
   char s[kMaxFieldLength];
-  mexAssert(mxIsChar(mx_array), "In 'mexGetSting' mx_array in not a string!");  
+  mexAssert(mexIsString(mx_array), "In 'mexGetSting' mx_array in not a string!");  
   mexAssert(!mxGetString(mx_array, s, kMaxFieldLength), "Error when reading string field");
   std::string str(s);
   return str;
@@ -104,6 +108,7 @@ ftype mexGetScalar(const mxArray *mx_array) {
     double *pdata = (double*) mxGetData(mx_array);
     return (ftype) pdata[0];    
   }
+  return 0;
 }  
 
 std::vector<ftype> mexGetVector(const mxArray *mx_array) {  

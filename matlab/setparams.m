@@ -12,9 +12,6 @@ end;
 if (~isfield(params, 'alpha'))
   params.alpha = 1;  
 end;
-if (~isfield(params, 'beta'))
-  params.beta = 0;  
-end;
 if (~isfield(params, 'momentum'))
   params.momentum = 0;
 end;
@@ -32,6 +29,9 @@ if (~isfield(params, 'shuffle'))
 end;
 if (~isfield(params, 'verbose'))
   params.verbose = 2;
+end;
+if (~isfield(params, 'seed'))
+  params.seed = 0;
 end;
 
 end

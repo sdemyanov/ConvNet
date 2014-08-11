@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LayerTrim::LayerTrim() {
   type_ = "t";    
+  is_weights_ = false;
   batchsize_ = 0;  
 }  
   
@@ -29,7 +30,7 @@ void LayerTrim::Init(const mxArray *mx_layer, Layer *prev_layer) {
   mexAssert(prev_layer->type_ != "f", "The 't' type layer cannot be after 'f' type layer");
   numdim_ = prev_layer->numdim_;
   outputmaps_ = prev_layer->outputmaps_;  
-  length_prev_ = prev_layer->outputmaps_;
+  length_prev_ = prev_layer->length_prev_;
   mexAssert(mexIsField(mx_layer, "mapsize"), "The 't' type layer must contain the 'mapsize' field");
   std::vector<ftype> mapsize = mexGetVector(mexGetField(mx_layer, "mapsize"));  
   mexAssert(mapsize.size() == numdim_, "Length of the trim vector and maps dimensionality must coincide");

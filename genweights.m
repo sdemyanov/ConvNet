@@ -1,15 +1,17 @@
-function weights = genweights(layers, type)
+function weights = genweights(layers, seed, type)
 
 if strcmp(type, 'mexfun')
-  if (isfield(layers{1}, 'mean'))
-    layers{1}.mean = permute(layers{1}.mean, [2 1 3]);
+  for i = 1 : numel(layers)
+    if (isfield(layers{i}, 'mean'))
+      layers{i}.mean = permute(layers{i}.mean, [2 1 3]);
+    end;
+    if (isfield(layers{i}, 'stdev'))
+      layers{i}.stdev = permute(layers{i}.stdev, [2 1 3]);
+    end;  
   end;
-  if (isfield(layers{1}, 'stdev'))
-    layers{1}.stdev = permute(layers{1}.stdev, [2 1 3]);
-  end;  
-  weights = genweights_mex(layers);
+  weights = genweights_mex(layers, seed);
 elseif strcmp(type, 'matlab')
-  weights = genweights_mat(layers);
+  weights = genweights_mat(layers, seed);
 else
   error('"%s" - wrong type, must be either "mexfun" or "matlab"', type);
 end;

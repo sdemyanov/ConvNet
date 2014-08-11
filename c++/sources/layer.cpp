@@ -40,15 +40,5 @@ void Layer::Nonlinear(int passnum) {
     } else if (function_ == "SVM") {    
     }      
     deriv_mat_.Validate();  
-  } else if (passnum == 3) { // third pass
-    if (function_ == "soft") {
-      activ_mat_.SoftDer(deriv_mat_);
-    } else if (function_ == "sigm") {
-      activ_mat_.SigmDer(deriv_mat_);
-    } else if (function_ == "relu") {
-      activ_mat_.CondAssign(deriv_mat_, 0, false, 0);
-    } else if (function_ == "SVM") {    
-    }
-    activ_mat_.Validate();
-  }  
+  }
 }

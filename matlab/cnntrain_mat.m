@@ -1,7 +1,6 @@
 function [weights, trainerr] = cnntrain_mat(layers, weights, train_x, train_y, params)
 
 params = setparams(params);
-
 layers = cnnsetup(layers, 0);
 assert(length(size(train_y)) == 2, 'The label array must have 2 dimensions'); 
 train_num = size(train_y, 1);
@@ -27,37 +26,46 @@ assert(size(train_x, 3) == layers{1}.outputmaps, ...
 assert(size(train_x, 4) == train_num, ...
        'Data and labels must have equal number of objects');
 
+rng(params.seed);
 
 numbatches = ceil(train_num/params.batchsize);
 trainerr = zeros(params.numepochs, numbatches);
-for i = 1 : params.numepochs
+for epoch = 1 : params.numepochs  
   if (params.shuffle == 0)
     kk = 1:train_num;
   else
     kk = randperm(train_num);
   end;
-  for j = 1 : numbatches
+  for batch = 1 : numbatches
     
-    batch_x = train_x(:, :, :, kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)));    
-    batch_y = train_y(kk((j-1)*params.batchsize + 1 : min(j*params.batchsize, train_num)), :);
-    layers = updateweights(layers, params, i, 0); % preliminary update
+    batch_x = train_x(:, :, :, kk((batch-1)*params.batchsize + 1 : min(batch*params.batchsize, train_num)));    
+    batch_y = train_y(kk((batch-1)*params.batchsize + 1 : min(batch*params.batchsize, train_num)), :);
+    
+    % first pass
     layers = initact(layers, batch_x);
+    layers = updateweights(layers, params, epoch, 0); % preliminary update
     [layers, pred] = forward(layers, 1);
+    %disp(['pred: ' num2str(pred(1,1:5))]);
+    
+    % second pass
     [layers, loss] = initder(layers, batch_y);
+    trainerr(epoch, batch) = loss;    
+    %disp(['loss: ' num2str(loss)]);
     layers = backward(layers);
     layers = calcweights(layers);
-    layers = updateweights(layers, params, i, 1); % final update
-    trainerr(i, j) = loss;    
+    
+    layers = updateweights(layers, params, epoch, 1); % final update
+     
     if (params.verbose == 2)
-      disp(['Epoch: ' num2str(i) ', batch: ', num2str(j)]);
+      disp(['Epoch: ' num2str(epoch) ', batch: ', num2str(batch)]);
     end;
   end
   if (params.verbose == 1)
-    disp(['Epoch: ' num2str(i)]);
+    disp(['Epoch: ' num2str(epoch)]);
   end;
 end
     
-weights = getweights(layers);
-trainerr = trainerr';
+weights = getweights(layers); 
+trainerr = permute(trainerr, [2 1 3]);
 
 end

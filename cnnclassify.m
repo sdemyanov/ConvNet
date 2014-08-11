@@ -8,11 +8,13 @@ end;
 tic;
 if strcmp(type, 'mexfun')
   test_x = permute(test_x, [2 1 3 4]);
-  if (isfield(layers{1}, 'mean'))
-    layers{1}.mean = permute(layers{1}.mean, [2 1 3]);
-  end;
-  if (isfield(layers{1}, 'stdev'))
-    layers{1}.stdev = permute(layers{1}.stdev, [2 1 3]);
+  for i = 1 : numel(layers)
+    if (isfield(layers{i}, 'mean'))
+      layers{i}.mean = permute(layers{i}.mean, [2 1 3]);
+    end;
+    if (isfield(layers{i}, 'stdev'))
+      layers{i}.stdev = permute(layers{i}.stdev, [2 1 3]);
+    end;
   end;
   pred = classify_mex(layers, weights_in, test_x);
   pred = permute(pred, [2 1]);

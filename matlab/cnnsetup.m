@@ -11,6 +11,25 @@ for l = 1 : n   %  layer
     outputmaps = layers{l}.outputmaps;
     mapsize = layers{l}.mapsize; 
   
+  elseif strcmp(layers{l}.type, 'n') % normalization    
+    layers{l}.w = double(zeros([mapsize outputmaps 2]));    
+    layers{l}.w(:, :, :, 2) = double(ones([mapsize outputmaps]));
+    if (isfield(layers{l}, 'mean'))
+      layers{l}.w(:, :, :, 1) = -layers{l}.mean;
+    end;
+    layers{l}.is_dev = 1;
+    if (isfield(layers{l}, 'stdev'))
+      if (ischar(layers{l}.stdev) && strcmp(layers{l}.stdev, 'no'))
+        layers{l}.is_dev = 0;
+        layers{l}.w(:, :, :, 2) = [];
+      else
+        layers{l}.w(:, :, :, 2) = 1 ./ layers{l}.stdev;
+      end;
+    end;    
+    layers{l}.dw = double(zeros(size(layers{l}.w)));
+    layers{l}.dwp = double(zeros(size(layers{l}.w)));
+    layers{l}.gw = double(ones(size(layers{l}.w)));
+  
   elseif strcmp(layers{l}.type, 'j') % scaling
     assert(isfield(layers{l}, 'mapsize'), 'The "j" type layer must contain the "mapsize" field');    
     mapsize = layers{l}.mapsize;    
@@ -48,7 +67,6 @@ for l = 1 : n   %  layer
     rand_coef = 2 * sqrt(6 / (fan_in + fan_out));
     layers{l}.k = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
     layers{l}.dk = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
-    layers{l}.dk2 = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
     layers{l}.dkp = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
     layers{l}.gk = double(ones([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
     if (isgen)
@@ -58,7 +76,6 @@ for l = 1 : n   %  layer
     end;
     layers{l}.b = double(zeros(layers{l}.outputmaps, 1));
     layers{l}.db = double(zeros(layers{l}.outputmaps, 1));    
-    layers{l}.db2 = double(zeros(layers{l}.outputmaps, 1));    
     layers{l}.dbp = double(zeros(layers{l}.outputmaps, 1));
     layers{l}.gb = double(ones(layers{l}.outputmaps, 1));
     mapsize = mapsize + 2*layers{l}.padding - layers{l}.kernelsize + 1;
@@ -93,13 +110,11 @@ for l = 1 : n   %  layer
       layers{l}.w = double(zeros(weightsize));
     end;
     layers{l}.dw = double(zeros(weightsize));
-    layers{l}.dw2 = double(zeros(weightsize));
     layers{l}.dwp = double(zeros(weightsize));
     layers{l}.gw = double(ones(weightsize));
 
     layers{l}.b = double(zeros(1, weightsize(1)));
     layers{l}.db = double(zeros(1, weightsize(1)));    
-    layers{l}.db2 = double(zeros(1, weightsize(1)));    
     layers{l}.dbp = double(zeros(1, weightsize(1)));
     layers{l}.gb = double(ones(1, weightsize(1)));      
     mapsize = [0 0];
