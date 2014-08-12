@@ -19,8 +19,8 @@ The library was written for Matlab and its functions can be called only from Mat
 
 The library contains 3 main functions to call:
 
-- [weights_in] = genweights(layers, funtype);
-Returns randomly generated initial weights for the net. Has to be called for the before the training.
+- [weights] = genweights(layers, seed, funtype);
+Returns randomly generated initial weights for the net. Has to be called before the training.
 - [weights, trainerr] = cnntrain(layers, weights, train_x, train_y, params, funtype);  
 Performs neural net training. Returns weights from all layers as a single vector.
 - [err, bad, pred] = cnntest(layers, weights, test_x, test_y, funtype)
@@ -31,7 +31,7 @@ Parameters:
 
 layers - the structure of CNN. Sets up as cell array, with each element representing an independent layer. Layers can be one of 4 types:
 - i - input layer. Must be the first and only first. Must contain the "mapsize" field, that is a vector with 2 integer values, representing the objects size. May also contain the "outputmaps" field, that specifies the number of independent data sources. In this case the function input must be a cell array with the "outputmaps" number of cells. May contain 'norm' field. If it does, the it specifies the sum of squared values of the each input map after normalization. It is a normalization within a sample. May also contain 'mean' and 'stdev' matrices, that specify the intersample normalization for each pixel. The 'mean' matriced is subtracted from the input maps, the 'stdev' matrices are their elementwise dividers. These matrices should be computed in Matlab in advance.
-- j - jitter layer. Specify possible transformations of the input maps, that might be used to avoid transformation invariance. The possible parameters are: 'shift' field, that specify the allowed shift of the image in each dimension, 'scale' - scale in each dimension. If for some dimension it is x>1, the image might be scaled with the factor from [1/x x]. The 'mirror' vector is binary and determines if the image might be mirrored in a particular dimension or not. The 'angle' parameter specifies allowed angle of rotation. Pi corresponds to the value 1. Layer must contain the 'mapsize' field, that is typically smaller than the input map size. If the transformed image might be out of the original one, there will be an error. If you want to avoid it, specify the 'default' parameter, that defines the maps value outside the borders. This layer is fully implemented only in c++ vesion, in Matlab it can only crop the image to the mapsize.
+- j - jitter layer. Specify possible transformations of the input maps, that might be used to avoid transformation invariance. The possible parameters are: 'shift' field, that specify the allowed shift of the image in each dimension, 'scale' - scale in each dimension. If for some dimension it is x>1, the image might be scaled with the factor from [1/x x]. The 'mirror' vector is binary and determines if the image might be mirrored in a particular dimension or not. The 'angle' parameter specifies allowed angle of rotation. Pi corresponds to the value 1. Layer must contain the 'mapsize' field, that is typically smaller than the input map size. If the transformed image might be out of the original one, there will be an error. If you want to avoid it, specify the 'default' parameter, that defines the maps value outside the borders. This layer is fully implemented only in C++ vesion, in Matlab it can only crop the image to the mapsize.
 - c - convolutional layer. Must contain the "kernelsize" field, that identifies the filter size. Must not be greater than the size of maps on the previous layer. Must also contain the "outputmaps" field, that is the number of maps for each objects on this layer. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m * n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions. May contain 'padding' field, that specifies the size of zero padding around the maps for each dimension. The default value is 0.
 - s - scaling layer. Reduces the map size by pooling. Must contain the "scale" field, that is also a vector with 2 integer values. May additionally contain 'stride' field, that determines the step in each dimension. By default is equal to 'scale'.
 - f - fully connected layer. Must contain the "length" field that defines the number of its outputs. Must be the last one. For the last layer the length must coincide with the number of classes. May also contain the "dropout" field, that determines the probabilty of dropping the weights on this layer. Thus, it works as DropConnect. Should not be too large, otherwise it drops everything.
@@ -43,7 +43,7 @@ See [this article](www.cs.toronto.edu/~tang/papers/dlsvm.pdf) for the details. H
 - s - it defines the pooling procedure, that can be either "mean" or "max". The default value is "mean". 
 
 params - define the learning process. It is a structure with the following fields. If some of them are absent, the value by default is taken.
-- seed - any positive integer, that allows to repeat the same random numbers. Default is 0.
+- seed - any nonnegative integer, that allows to repeat the same random numbers. Default is 0.
 - batchsize - defines the size of batches. Default is 50.
 - numepochs - the number of repeats the training procedure with different batch splits. Default is 1.
 - alpha - defines the learning rate speed. Default is 1. Can aslo be the vector of the length 'numepochs'. Then an individual rate for each epoch will be used.
@@ -51,30 +51,25 @@ params - define the learning process. It is a structure with the following field
 - adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
 - maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively. Default is 1.
 - balance - boolean variable. Balances errors according to the class appearance frequencies. Useful for highly unbalanced datasets. Default is 0.
-- shuffle - determines whether the input dataset will be shuffled or not. If you want repeatable results, you need to set it to 0. In this case the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Otherwise, it should be 1. Default is 1.
+- shuffle - determines whether the input dataset will be shuffled or not. If it is set to 0, the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Otherwise, it should be 1. Default is 1.
 - verbose - determines output info during learning. For 0 there is no output, for 1 it prints only number of epochs, for 2 it prints both numbers of epoch and batch. Default is 2.
 
-weights - the weights vector obtained from genweights or cnntrain, that is used for weights initialization. Can be used for testing, repeating the results or continuing the training procedure. 
+weights - the weights vector obtained from genweights or cnntrain, that is used for weights initialization. Can be used for testing or continuing the training procedure. 
 
 funtype - defines the actual function that is used. Can be either "mexfun" or "matlab". "Mexfun" is faster, but in "matlab" it is easier to do some debugging and see the intermediate results.
 
 TECHNICAL DETAILS
 
-- To run the c++ version, you first need to compile it. To do that, you need to run 'compile' script in the main folder. It can be compiled to work with either double and float types. To change it, you need to modify the settings in ftype.h file and recompile the files. 
-- You can also specify if you want c++ version to be multi-thread or not by changing the value of macros USE_MULTITHREAD in the same file. By default it is, however if you run several Matlabs in parallel, I would recommend to use the single-thread version.
+- To run the C++ version, you first need to compile it. To do that, you need to run 'compile' script in the main folder. It can be compiled to work with either double and float types. To change it, you need to modify the settings in ftype.h file and recompile the files. 
+- You can also specify if you want C++ version to be multi-thread or not by changing the value of macros USE_MULTITHREAD in the same file. By default it is, however if you run several Matlabs in parallel, I would recommend to use the single-thread version.
 - For stability purposes all values that are less then a threshold are considered as 0. You can change the threshold in ftype.h and cnnsetup.m, however you need to understand why you do this.
 
 - The code uses c++11 features, so the compiler must understand them. In Windows it was tested with Microsoft SDK 7.1, in Ubuntu with g++ 4.7. Note, that it is possible to use g++ 4.7 only in Matlab R2013b or later. However, it does not understand c++11 by default. To enable c++11 features in Linux, you need to do the following:
-1). Open the file <matlabroot>/bin/mexopts.sh,
+1). Copy the settings file <MatlabRoot>/bin/mexopts.sh to ~/.matlab/<MatlabVersion>,
 2). Find and change the line "CXXFLAGS='-ansi -D_GNU_SOURCE'" to "CXXFLAGS='-std=c++11 -D_GNU_SOURCE'"
-3). Open Matlab with the superuser rights.
-4). Run "mex -setup", choose the <matlabroot>/bin/mexopts.sh file and say "yes" to overright its local copy.
 Now you can compile the code.
 
-- The "cnnexamples.m" file requires "mnist_uint8.mat" file to be performed. You can get it from 
-[Matlab Central File Exchange](http://www.mathworks.com.au/matlabcentral/fileexchange/38310-deep-learning-toolbox/content/rasmusbergpalm-DeepLearnToolbox-45ef96c/data/mnist_uint8.mat), just download it and save in ./data folder.
-
-- Uncertainty comes not only from weights and the input data order. Another source of uncertainity is the dropout matrix. Therefore if want to get repeatable resutls, you need to setup all dropout rates to 0.
+- Random numbers are used for generating weights, shuffling batches and dropout. Thus, if want to get identical resutls in both Matlab and C++ versions, you need to use the same initial weights, do not use shuffling and set dropout to 0. Note, that these versions produce different random numbers for the same seeds.
 
 SOME COMMENTS 
 
