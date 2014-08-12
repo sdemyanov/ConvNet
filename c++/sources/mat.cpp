@@ -729,7 +729,7 @@ void Filter(const Mat &image, const Mat &filter,
       }
     }
   }
-  filtered = std::move(cache_mat); 
+  Swap(filtered, cache_mat);
 }
 
 void Transform(const Mat &image, const std::vector<ftype> &shift,

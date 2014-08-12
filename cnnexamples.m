@@ -72,4 +72,4 @@ for i = 1 : EpochNum
   errors(i) = err;
 end;
 
-save(fullfile(kWorkspaceFolder, 'weights.mat'), 'weights');  
+%save(fullfile(kWorkspaceFolder, 'weights.mat'), 'weights');  
