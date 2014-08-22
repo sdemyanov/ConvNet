@@ -80,6 +80,7 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
   //mexPrintMsg("Start training...");  
   ReadData(mx_data);
   ReadLabels(mx_labels);
+  InitNorm();
   
   std::srand(params_.seed_);  
   
@@ -126,11 +127,36 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
 void Net::Classify(const mxArray *mx_data, mxArray *&mx_pred) {  
   //mexPrintMsg("Start classification...");
   ReadData(mx_data);
-  Mat pred;
   InitActiv(data_);
+  Mat pred;
   Forward(pred, 0);
   mx_pred = mexSetMatrix(pred);
   //mexPrintMsg("Classification finished");
+}
+
+void Net::InitNorm() {
+
+  LayerInput *firstlayer = static_cast<LayerInput*>(layers_[0]);
+  size_t num_weights = firstlayer->NumWeights();
+  if (num_weights == 0) return;
+  Mat norm_mat = data_;
+  if (firstlayer->norm_ > 0) {
+    norm_mat.Normalize(firstlayer->norm_);
+  }
+  Mat mean_vect = (Mean(norm_mat, 1) *= -1);
+  if (firstlayer->is_mean_) {
+    firstlayer->mean_weights_.get() = mean_vect;
+    firstlayer->mean_weights_.get() += firstlayer->mean_;
+  }
+  if (firstlayer->is_maxdev_) {
+    norm_mat.AddVect(mean_vect, 1);
+    norm_mat *= norm_mat;
+    Mat stdev_mat = Mean(norm_mat, 1).Sqrt();
+    stdev_mat.CondAssign(stdev_mat, firstlayer->maxdev_, false, firstlayer->maxdev_);        
+    Mat ones(stdev_mat.size1(), stdev_mat.size2());
+    ones.assign(firstlayer->maxdev_);    
+    firstlayer->maxdev_weights_.get() = (ones /= stdev_mat);
+  }
 }
 
 void Net::InitActiv(const Mat &data) {
@@ -192,7 +218,8 @@ void Net::InitDeriv(const Mat &labels_batch, ftype &loss) {
     "Labels in batch and last layer must have equal number of classes");  
   if (lastlayer->function_ == "SVM") {
     Mat lossmat = lastlayer->activ_mat_;
-    (((lossmat *= labels_batch) *= -1) += 1).ElemMax(0);        
+    ((lossmat *= labels_batch) *= -1) += 1;
+    lossmat.CondAssign(lossmat, 0, false, 0);
     lastlayer->deriv_mat_ = lossmat;
     (lastlayer->deriv_mat_ *= labels_batch) *= -2;    
     // correct loss also contains weightsT * weights / C, but it is too long to calculate it
@@ -271,7 +298,7 @@ void Net::InitWeights(const mxArray *mx_weights_in) { // testing
     "In InitWeights the vector of weights has the wrong length!");
   weights_.Init(mexGetPointer(mx_weights_in), num_weights);
   size_t offset = 0;
-  for (size_t i = 1; i < layers_.size(); ++i) {
+  for (size_t i = 0; i < layers_.size(); ++i) {
     layers_[i]->InitWeights(weights_, offset, false);
   }
 }

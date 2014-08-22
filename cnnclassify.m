@@ -7,15 +7,7 @@ end;
 
 tic;
 if strcmp(type, 'mexfun')
-  test_x = permute(test_x, [2 1 3 4]);
-  for i = 1 : numel(layers)
-    if (isfield(layers{i}, 'mean'))
-      layers{i}.mean = permute(layers{i}.mean, [2 1 3]);
-    end;
-    if (isfield(layers{i}, 'stdev'))
-      layers{i}.stdev = permute(layers{i}.stdev, [2 1 3]);
-    end;
-  end;
+  test_x = permute(test_x, [2 1 3 4]);  
   pred = classify_mex(layers, weights_in, test_x);
   pred = permute(pred, [2 1]);
   %z = logsumexp(pred, 2);

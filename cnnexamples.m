@@ -6,7 +6,9 @@ addpath('./matlab');
 addpath('./data');
 load mnist;
 
-kXSize = [size(TrainX, 1) size(TrainX, 2)];
+kSampleDim = ndims(TrainX);
+kXSize = size(TrainX);
+kXSize(kSampleDim) = [];
 kWorkspaceFolder = './workspace';
 if (~exist(kWorkspaceFolder, 'dir'))
   mkdir(kWorkspaceFolder);
@@ -21,17 +23,6 @@ kTestNum = 10000;
 test_x = TestX(:, :, 1:kTestNum);
 test_y = TestY(1:kTestNum, :);
 
-train_x_norm = train_x;
-mean_s = mean(mean(train_x_norm, 1), 2);
-train_x_norm = train_x_norm - repmat(mean_s, [kXSize 1]);
-datanorm = sqrt(sum(sum(train_x_norm.^2, 1), 2));
-norm_x = mean(squeeze(datanorm));
-datanorm(datanorm < 1e-8) = 1;
-train_x_norm = train_x_norm ./ repmat(datanorm, [kXSize 1]) * norm_x;
-kMinVar = 1;
-mean_x = mean(train_x_norm, 3);
-std_x = sqrt(var(train_x_norm, 0, 3) + kMinVar);
-
 params.seed = 1;
 params.batchsize = 50;
 params.numepochs = 1;
@@ -41,10 +32,12 @@ params.shuffle = 0;
 params.verbose = 0;
 dropout = 0;
 
+norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
+
 % This structure is just supposed to demonstrate the implemented options
 layers = {
     struct('type', 'i', 'mapsize', kXSize, 'outputmaps', 1, ...
-           'norm', norm_x, 'mean', mean_x, 'stdev', std_x)    
+           'norm', norm_x, 'mean', 0', 'maxdev', 1);
     struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 6) %convolution layer
     struct('type', 's', 'scale', [3 3], 'function', 'mean', 'stride', [2 2]) % subsampling layer
     struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 12, 'padding', [1 1]) %convolution layer
@@ -65,7 +58,7 @@ weights = weights_in;
 for i = 1 : EpochNum
   disp(['Epoch: ' num2str(i)])
   [weights, trainerr] = cnntrain(layers, weights, train_x, train_y, params, funtype);  
-  %plot(trainerr);
+  plot(trainerr);
   disp([num2str(mean(trainerr)) ' loss']);
   [err, bad, pred]  = cnntest(layers, weights, test_x, test_y, funtype);  
   disp([num2str(err*100) '% error']);

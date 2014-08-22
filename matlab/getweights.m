@@ -4,7 +4,20 @@ n = numel(layers);
 ind = 0;
 der = double([]);
 for l = 1 : n   %  layer  
-  if strcmp(layers{l}.type, 'n') % normalization
+  if strcmp(layers{l}.type, 'i') % input
+    if (isfield(layers{l}, 'mean'))      
+      curlen = numel(layers{l}.mw);
+      w_trans = permute(layers{l}.mw, [2 1 3 4]);
+      der(ind+1:ind+curlen, 1) = w_trans(:);
+      ind = ind + curlen;
+    end;
+    if (isfield(layers{l}, 'maxdev'))      
+      curlen = numel(layers{l}.sw);
+      w_trans = permute(layers{l}.sw, [2 1 3 4]);
+      der(ind+1:ind+curlen, 1) = w_trans(:);
+      ind = ind + curlen;
+    end;
+  elseif strcmp(layers{l}.type, 'n') % normalization
     curlen = numel(layers{l}.w);
     w_trans = permute(layers{l}.w, [2 1 3 4]);
     der(ind+1:ind+curlen, 1) = w_trans(:);

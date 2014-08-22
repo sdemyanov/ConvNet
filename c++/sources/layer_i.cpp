@@ -25,6 +25,11 @@ LayerInput::LayerInput() {
   numdim_ = 2;
   batchsize_ = 0;
   length_prev_ = 0;
+  norm_ = 0;
+  mean_ = 0;
+  maxdev_ = 1;
+  is_mean_ = false;
+  is_maxdev_ = false;
 }  
   
 void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
@@ -49,93 +54,53 @@ void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
     numel *= mapsize_[i];
   }
   if (mexIsField(mx_layer, "norm")) {
-    norm_ = mexGetVector(mexGetField(mx_layer, "norm"));
-    mexAssert(norm_.size() == outputmaps_, "The length of the norm vector is wrong");
-    for (size_t i = 0; i < outputmaps_; ++i) {      
-      mexAssert(0 < norm_[i], "Norm on the 'i' layer must be positive");          
-    }    
+    norm_ = mexGetScalar(mexGetField(mx_layer, "norm"));
+    mexAssert(norm_ > 0, "Norm on the 'i' layer must be positive");        
   }
   if (mexIsField(mx_layer, "mean")) {
-    std::vector<size_t> data_dim = mexGetDimensions(mexGetField(mx_layer, "mean"));
-    mexAssert(numdim_ <= data_dim.size() && data_dim.size() <= numdim_ + 1, 
-      "Mean matrix on the 'i' layer has wrong the number of dimensions");
-    for (size_t i = 0; i < numdim_; ++i) {    
-      mexAssert(data_dim[i] == mapsize_[i], "The size of Mean matrix must coincide with the mapsize");
-    }
-    if (data_dim.size() == numdim_) {
-      mexAssert(outputmaps_ == 1, "Not enough Mean matrices for this outputmaps number");      
-    } else {
-      mexAssert(outputmaps_ == data_dim[numdim_],
-        "The number of Mean matrices must coincide with the outputmaps");        
-    }
-    mean_.resize(outputmaps_);
-    ftype *mean = mexGetPointer(mexGetField(mx_layer, "mean"));
-    for (size_t i = 0; i < outputmaps_; ++i) {
-      mean_[i].attach(mean, mapsize_);
-      mean += numel;
-    }    
+    is_mean_ = true;
+    mean_ = mexGetScalar(mexGetField(mx_layer, "mean"));    
   }
-  if (mexIsField(mx_layer, "stdev")) {
-    std::vector<size_t> data_dim = mexGetDimensions(mexGetField(mx_layer, "stdev"));
-    mexAssert(numdim_ <= data_dim.size() && data_dim.size() <= numdim_ + 1, 
-      "Mean matrix on the 'i' layer has wrong the number of dimensions");    
-    for (size_t i = 0; i < numdim_; ++i) {    
-      mexAssert(data_dim[i] == mapsize_[i], "The size of Stdev matrix must coincide with the mapsize");
-    }
-    if (data_dim.size() == numdim_) {
-      mexAssert(outputmaps_ == 1, "Not enough Stdev matrices for this outputmaps number");      
-    } else {
-      mexAssert(outputmaps_ == data_dim[numdim_],
-        "The number of Stdev matrices must coincide with the outputmaps");        
-    }
-    stdev_.resize(outputmaps_);
-    ftype *stdev = mexGetPointer(mexGetField(mx_layer, "stdev"));
-    for (size_t i = 0; i < outputmaps_; ++i) {
-      stdev_[i].attach(stdev, mapsize_);
-      stdev += numel;
-      Mat cond;
-      cond.init(mapsize_, 0);    
-      cond.CondAssign(stdev_[i], 0, false, 1);    
-      mexAssert(cond.Sum() == 0, "All elements of stdev matrix must be positive");
-    }    
+  if (mexIsField(mx_layer, "maxdev")) {
+    is_maxdev_ = true;
+    maxdev_ = mexGetScalar(mexGetField(mx_layer, "maxdev"));    
+    mexAssert(maxdev_ > 0, "Maxdev on the 'i' layer must be positive");        
   }
 }
 
 void LayerInput::Forward(Layer *prev_layer, int passnum) {  
   batchsize_ = activ_mat_.size1();
   InitMaps(activ_mat_, mapsize_, activ_);
-  datanorm_.resize(batchsize_, outputmaps_);  
-  bool is_norm = (norm_.size() > 0);
-  bool is_mean = (mean_.size() > 0);
-  bool is_stdev = (stdev_.size() > 0);  
-  #if USE_MULTITHREAD == 1
-    #pragma omp parallel for
-  #endif
-  for (int k = 0; k < batchsize_; ++k) {
-    for (size_t i = 0; i < outputmaps_; ++i) {
-      if (is_norm) {
-        activ_[k][i].Normalize(norm_[i], datanorm_(k, i));        
-      }
-      if (is_mean) {
-        activ_[k][i] -= mean_[i];        
-      }
-      if (is_stdev) activ_[k][i] /= stdev_[i];      
-    }    
+  if (norm_ > 0) {
+    activ_mat_.Normalize(norm_);
   }
+  if (is_mean_) {
+    activ_mat_.AddVect(mean_weights_.get(), 1);
+  }
+  if (is_maxdev_) {
+    activ_mat_.MultVect(maxdev_weights_.get(), 1);
+  }  
   activ_mat_.Validate();  
 }
 
-void LayerInput::Backward(Layer *prev_layer) {  
-  bool is_norm = (norm_.size() > 0);  
-  bool is_stdev = (stdev_.size() > 0);
-  #if USE_MULTITHREAD == 1
-    #pragma omp parallel for
-  #endif
-  for (int k = 0; k < batchsize_; ++k) {
-    for (size_t i = 0; i < outputmaps_; ++i) {    
-      if (is_stdev) deriv_[k][i] /= stdev_[i];      
-      if (is_norm) deriv_[k][i] *= (norm_[i] / datanorm_(k, i));
-    }    
+void LayerInput::InitWeights(Weights &weights, size_t &offset, bool isgen) {  
+  std::vector<size_t> weightssize(2);
+  weightssize[0] = 1; weightssize[1] = length_;
+  if (is_mean_) {
+    mean_weights_.Attach(weights, weightssize, offset);
+    offset += length_;  
+    if (isgen) mean_weights_.get().assign(0);
   }
-  deriv_mat_.Validate();  
+  if (is_maxdev_) {
+    maxdev_weights_.Attach(weights, weightssize, offset);
+    offset += length_;  
+    if (isgen) maxdev_weights_.get().assign(1);
+  }  
+}
+
+size_t LayerInput::NumWeights() const {
+  size_t num_weights = 0;
+  if (is_mean_) num_weights += length_;
+  if (is_maxdev_) num_weights += length_;
+  return num_weights;
 }

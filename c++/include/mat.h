@@ -85,14 +85,13 @@ public:
   Mat& SoftDer(const Mat& a);
   Mat& Sigmoid();
   Mat& SigmDer(const Mat& a);
-  Mat& ElemMax(ftype a);
   Mat& CondAssign(const Mat &condmat, ftype threshold, bool incase, ftype a);
   Mat& CondAdd(const Mat &condmat, ftype threshold, bool incase, ftype a);
   Mat& CondProd(const Mat &condmat, ftype threshold, bool incase, ftype a);
   Mat& AddVect(const Mat &vect, size_t dim);
   Mat& AddVect(const Mat &vect, const Mat &m, size_t dim);
   Mat& MultVect(const Mat &vect, size_t dim);
-  Mat& Normalize(ftype norm, ftype &oldnorm);
+  Mat& Normalize(ftype norm);
   Mat& CalcPercents();
   Mat& Validate();
                     

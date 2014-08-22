@@ -42,7 +42,6 @@ public:
 private:
   Mat weights_;
   Mat weights_der_;
-  Mat weights_der2_;
   Mat weights_der_prev_;
   Mat weights_learn_coefs_; 
   std::vector<size_t> size_;

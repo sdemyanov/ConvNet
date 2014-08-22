@@ -8,6 +8,8 @@ for l = 1 : n   %  layer
     if (~isfield(layers{l}, 'outputmaps'))
       layers{l}.outputmaps = 1;
     end;
+    layers{l}.mw = double(zeros([layers{l}.mapsize layers{l}.outputmaps]));
+    layers{l}.sw = double(zeros([layers{l}.mapsize layers{l}.outputmaps]));
     outputmaps = layers{l}.outputmaps;
     mapsize = layers{l}.mapsize; 
   

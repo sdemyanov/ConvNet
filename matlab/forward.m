@@ -7,24 +7,16 @@ for l = 1 : n   %  for each layer
   
   if strcmp(layers{l}.type, 'i')
     if (isfield(layers{l}, 'norm'))
-      datamean = mean(mean(layers{l}.a, 2), 1);
-      layers{l}.a = layers{l}.a - repmat(datamean, [layers{l}.mapsize 1 1]);
-      datanorm = sqrt(sum(sum(layers{l}.a.^2, 1), 2));
-      datanorm(datanorm < layers{l}.eps) = 1;
-      layers{l}.datanorm = datanorm;      
-      layers{l}.a = layers{l}.a ./ repmat(layers{l}.datanorm, [layers{l}.mapsize 1 1]);
-      if (numel(layers{l}.norm) > 1)
-        repnorm = repmat(permute(layers{l}.norm(:), [2 3 1 4]), [layers{l}.mapsize 1 batchsize]);
-        layers{l}.a = layers{l}.a .* repnorm;
-      else
-        layers{l}.a = layers{l}.a * layers{l}.norm;
-      end;
+      datanorm = sqrt(sum(sum(sum(layers{l}.a.^2, 1), 2), 3));
+      datanorm(datanorm <= layers{l}.eps) = layers{l}.norm;
+      layers{l}.a = layers{l}.a ./ repmat(datanorm, [layers{l}.mapsize layers{l}.outputmaps 1]);
+      layers{l}.a = layers{l}.a * layers{l}.norm;      
     end;      
     if (isfield(layers{l}, 'mean'))
-      layers{l}.a = layers{l}.a - repmat(layers{l}.mean, [1 1 1 batchsize]);      
+      layers{l}.a = layers{l}.a + repmat(layers{l}.mw, [1 1 1 batchsize]);      
     end;
-    if (isfield(layers{l}, 'stdev'))
-      layers{l}.a = layers{l}.a ./ repmat(layers{l}.stdev, [1 1 1 batchsize]);
+    if (isfield(layers{l}, 'maxdev'))
+      layers{l}.a = layers{l}.a .* repmat(layers{l}.sw, [1 1 1 batchsize]);
     end;
     
   elseif strcmp(layers{l}.type, 'n')

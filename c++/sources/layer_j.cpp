@@ -145,8 +145,3 @@ void LayerJitt::Forward(Layer *prev_layer, int passnum) {
     mexPrintMsg("Jitt: activ_[0][0]", activ_[0][0](0, i)); 
   } */
 }
-
-void LayerJitt::Backward(Layer *prev_layer) {    
-  prev_layer->deriv_mat_ = deriv_mat_;
-}
-

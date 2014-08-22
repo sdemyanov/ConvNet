@@ -29,18 +29,20 @@ public:
   ~LayerInput() {};  
   void Init(const mxArray *mx_layer, Layer *prev_layer);
   void Forward(Layer *prev_layer, int passnum);
-  void Backward(Layer *prev_layer);
+  void Backward(Layer *prev_layer) {};
   void CalcWeights(Layer *prev_layer) {};
-  void InitWeights(Weights &weights, size_t &offset, bool isgen) {};
+  void InitWeights(Weights &weights, size_t &offset, bool isgen);  
   void UpdateWeights(const Params &params, size_t epoch, bool isafter) {};
-  size_t NumWeights() const { return 0; };
+  size_t NumWeights() const;
   
-private:
-  std::vector<ftype> norm_;
-  Mat datanorm_;
-  std::vector<Mat> mean_;
-  std::vector<Mat> stdev_;
-  
+//private:
+  ftype norm_;
+  ftype mean_;
+  ftype maxdev_;
+  bool is_mean_;
+  bool is_maxdev_;
+  Weights mean_weights_;
+  Weights maxdev_weights_;
 };
 
 #endif

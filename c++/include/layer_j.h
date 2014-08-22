@@ -30,7 +30,7 @@ public:
   ~LayerJitt() {};  
   void Init(const mxArray *mx_layer, Layer *prev_layer);
   void Forward(Layer *prev_layer, int passnum);
-  void Backward(Layer *prev_layer);
+  void Backward(Layer *prev_layer) {};
   void CalcWeights(Layer *prev_layer) {};
   void InitWeights(Weights &weights, size_t &offset, bool isgen) {};
   void UpdateWeights(const Params &params, size_t epoch, bool isafter) {};

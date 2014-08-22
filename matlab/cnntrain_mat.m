@@ -26,8 +26,9 @@ assert(size(train_x, 3) == layers{1}.outputmaps, ...
 assert(size(train_x, 4) == train_num, ...
        'Data and labels must have equal number of objects');
 
-rng(params.seed);
+layers{1} = initnorm(layers{1}, train_x);
 
+rng(params.seed);
 numbatches = ceil(train_num/params.batchsize);
 trainerr = zeros(params.numepochs, numbatches);
 for epoch = 1 : params.numepochs  

@@ -26,7 +26,7 @@ void Layer::Nonlinear(int passnum) {
     } else if (function_ == "sigm") {
       activ_mat_.Sigmoid();
     } else if (function_ == "relu") {
-      activ_mat_.ElemMax(0);
+      activ_mat_.CondAssign(activ_mat_, 0, false, 0);
     } else if (function_ == "SVM") {    
     }
     activ_mat_.Validate();

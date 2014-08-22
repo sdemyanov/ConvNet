@@ -342,13 +342,6 @@ Mat& Mat::SigmDer(const Mat& a) {
   return *this;
 }  
 
-Mat& Mat::ElemMax(ftype a) {
-  for (size_t i = 0; i < size1_ * size2_ ; ++i) {  
-    if (data_[i] < a) data_[i] = a;
-  }
-  return *this;
-}
-
 Mat& Mat::CondAssign(const Mat &condmat, ftype threshold, bool incase, ftype a) {
   mexAssert(size1_ == condmat.size1_ && size2_ == condmat.size2_,
     "In Mat::CondAssign the sizes of matrices do not correspond");
@@ -457,17 +450,19 @@ Mat& Mat::MultVect(const Mat &vect, size_t dim) {
   return *this;
 }
 
-Mat& Mat::Normalize(ftype norm, ftype &oldnorm) {
-  (*this) -= Sum() / (size1_ * size2_);
-  ftype curnorm = 0;
-  for (size_t i = 0; i < size1_ * size2_; ++i) {
-    curnorm += data_[i] * data_[i];
+Mat& Mat::Normalize(ftype norm) {
+  for (size_t i = 0; i < size1_; ++i) {
+    ftype curnorm = 0;
+    for (size_t j = 0; j < size2_; ++j) {
+      curnorm += data(i, j) * data(i, j);
+    }
+    curnorm = sqrt(curnorm);
+    if (curnorm > kEps) {
+      for (size_t j = 0; j < size2_; ++j) {
+        data(i, j) *= (norm / curnorm);
+      }
+    }
   }
-  curnorm = sqrt(curnorm);
-  if (curnorm > kEps) {
-    (*this) *= (norm / curnorm);
-  }
-  oldnorm = curnorm;
   return *this;
 }
 

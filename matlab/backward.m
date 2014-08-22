@@ -16,21 +16,7 @@ for l = n : -1 : 1
     layers{l}.d(-layers{l}.eps < layers{l}.d & layers{l}.d < layers{l}.eps) = 0;    
   end;
   
-  if strcmp(layers{l}.type, 'i')    
-    if (isfield(layers{l}, 'stdev'))
-      layers{l}.d = layers{l}.d ./ repmat(layers{l}.stdev, [1 1 1 batchsize]);
-    end;    
-    if (isfield(layers{l}, 'norm'))      
-      layers{l}.d = layers{l}.d ./ repmat(layers{l}.datanorm, [layers{l}.mapsize 1 1]);
-      if (numel(layers{l}.norm) > 1)        
-        repnorm = repmat(permute(layers{l}.norm(:), [2 3 1 4]), [layers{l}.mapsize 1 batchsize]);
-        layers{l}.d = layers{l}.d .* repnorm;
-      else
-        layers{l}.d = layers{l}.d * layers{l}.norm;
-      end;      
-    end;    
-    
-  elseif strcmp(layers{l}.type, 'n')    
+  if strcmp(layers{l}.type, 'n')    
     layers{l-1}.d = layers{l}.d;
     if (layers{l}.is_dev == 1)
       layers{l-1}.d = layers{l-1}.d .* repmat(layers{l}.w(:, :, :, 2), [1 1 1 batchsize]);
