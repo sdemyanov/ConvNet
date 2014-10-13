@@ -65,7 +65,7 @@ TECHNICAL DETAILS
 - For stability purposes all values that are less then a threshold are considered as 0. You can change the threshold in ftype.h and cnnsetup.m, however you need to understand why you do this.
 
 - The code uses c++11 features, so the compiler must understand them. In Windows it was tested with Microsoft SDK 7.1, in Ubuntu with g++ 4.7. Note, that it is possible to use g++ 4.7 only in Matlab R2013b or later. However, it does not understand c++11 by default. To enable c++11 features in Linux, you need to do the following:
-1). Copy the settings file <MatlabRoot>/bin/mexopts.sh to ~/.matlab/<MatlabVersion>,
+1). Copy the settings file "MatlabRoot"/bin/mexopts.sh to ~/.matlab/"MatlabVersion",
 2). Find and change the line "CXXFLAGS='-ansi -D_GNU_SOURCE'" to "CXXFLAGS='-std=c++11 -D_GNU_SOURCE'"
 Now you can compile the code.
 
