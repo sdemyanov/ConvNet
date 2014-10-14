@@ -686,7 +686,7 @@ void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, const Mat &m, Mat &c
 }
 
 void Filter(const Mat &image, const Mat &filter, 
-            const std::vector<size_t> padding, Mat &filtered) {
+            const std::vector<size_t> padding, bool conv, Mat &filtered) {
   mexAssert(filtered.size1_ == image.size1_ + 2*padding[0] + 1 - filter.size1_ &&   
             filtered.size2_ == image.size2_ + 2*padding[1] + 1 - filter.size2_,
             "In 'Filter' the parameters do not correspond each other");
@@ -697,7 +697,11 @@ void Filter(const Mat &image, const Mat &filter,
         cache_mat(i, j) = 0;
         for (size_t u = 0; u < filter.size1_; ++u) {
           for (size_t v = 0; v < filter.size2_; ++v) {
-            cache_mat(i, j) += filter(u, v) * image(i + u, j + v);
+            if (conv) {
+              cache_mat(i, j) += filter(filter.size1_ - 1 - u, filter.size2_ - 1 - v) * image(i + u, j + v);
+            } else {
+              cache_mat(i, j) += filter(u, v) * image(i + u, j + v);
+            }
           }        
         }
       }
@@ -718,7 +722,11 @@ void Filter(const Mat &image, const Mat &filter,
         int maxv = std::min(offset2 - j, filtersize2);
         for (int u = minu; u < maxu; ++u) {
           for (int v = minv; v < maxv; ++v) {
-            cache_mat(i, j) += filter(u, v) * image(i + u - padding1, j + v - padding2);
+            if (conv) {
+              cache_mat(i, j) += filter(filtersize1 - 1 - u, filtersize2 - 1 - v) * image(i + u - padding1, j + v - padding2);
+            } else {
+              cache_mat(i, j) += filter(u, v) * image(i + u - padding1, j + v - padding2);
+            }
           }        
         }
       }
