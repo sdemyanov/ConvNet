@@ -20,10 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "net.h"
 #include "layer_i.h"
 #include "layer_j.h"
-#include "layer_n.h"
 #include "layer_c.h"
 #include "layer_s.h"
-#include "layer_t.h"
 #include "layer_f.h"
 #include <ctime>
 
@@ -45,14 +43,10 @@ void Net::InitLayers(const mxArray *mx_layers) {
     layer_type = mexGetString(mexGetField(mx_layer, "type"));
     if (layer_type == "j") {
       layers_[i] = new LayerJitt();
-    } else if (layer_type == "n") {      
-      layers_[i] = new LayerNorm();
     } else if (layer_type == "c") {      
       layers_[i] = new LayerConv();
     } else if (layer_type == "s") {
       layers_[i] = new LayerScal();
-    } else if (layer_type == "t") {
-      layers_[i] = new LayerTrim();
     } else if (layer_type == "f") {
       layers_[i] = new LayerFull();
     } else {
