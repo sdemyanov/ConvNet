@@ -80,7 +80,7 @@ void LayerConv::Forward(Layer *prev_layer, int passnum) {
       activ_[k][i].assign(biases_.get(i));
       for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {
         Mat act_mat(mapsize_);
-        Filter(prev_layer->activ_[k][j], kernels_[i][j].get(), padding_, act_mat);
+        Filter(prev_layer->activ_[k][j], kernels_[i][j].get(), padding_, false, act_mat);
         activ_[k][i] += act_mat;
       }      
     }    
@@ -111,7 +111,7 @@ void LayerConv::Backward(Layer *prev_layer) {
     for (size_t i = 0; i < outputmaps_; ++i) {      
       for (size_t j = 0; j < prev_layer->outputmaps_; ++j) {                        
         Mat der_mat(prev_layer->mapsize_);
-        Filter(deriv_[k][i], kernels_[i][j].get(), padding_der, der_mat);        
+        Filter(deriv_[k][i], kernels_[i][j].get(), padding_der, true, der_mat);        
         prev_layer->deriv_[k][j] += der_mat;
       }      
     }        
@@ -134,7 +134,7 @@ void LayerConv::CalcWeights(Layer *prev_layer) {
       #endif
       for (int k = 0; k < batchsize_; ++k) {
         Mat ker_mat(kernelsize_);
-        Filter(prev_layer->activ_[k][j], deriv_[k][i], padding_, ker_mat);        
+        Filter(prev_layer->activ_[k][j], deriv_[k][i], padding_, false, ker_mat);        
         #if USE_MULTITHREAD == 1
           #pragma omp critical
         #endif
