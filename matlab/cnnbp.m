@@ -42,10 +42,10 @@ for l = n : -1 : 1
         end;
         if (layers{l}.padding(1) > 0 || layers{l}.padding(2) > 0)
           layers{l-1}.d(:, :, j, :) = layers{l-1}.d(:, :, j, :) + ...
-            filtn(d_cur(:, :, i, :), layers{l}.k(:, :, j, i), 'valid');
+            convn(d_cur(:, :, i, :), layers{l}.k(:, :, j, i), 'valid');
         else
           layers{l-1}.d(:, :, j, :) = layers{l-1}.d(:, :, j, :) + ...
-            filtn(d_cur(:, :, i, :), layers{l}.k(:, :, j, i), 'full');          
+            convn(d_cur(:, :, i, :), layers{l}.k(:, :, j, i), 'full');          
         end;
       end        
     end;
