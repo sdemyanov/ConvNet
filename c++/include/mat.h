@@ -108,7 +108,7 @@ public:
   friend void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, Mat &c);
   friend void Prod(const Mat &a, bool a_tr, const Mat &b, bool b_tr, const Mat &m, Mat &c);
   friend void Filter(const Mat &image, const Mat &filter, 
-                     const std::vector<size_t> padding, Mat &filtered);
+                     const std::vector<size_t> padding, bool conv, Mat &filtered);
   friend void Transform(const Mat &image, const std::vector<ftype> &shift, 
                         const std::vector<ftype> &scale, const std::vector<bool> &mirror,
                         ftype angle, ftype defval, Mat &transformed);         
