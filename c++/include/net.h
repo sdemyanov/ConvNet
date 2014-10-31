@@ -24,29 +24,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "params.h"
 
 class Net {
-
-public:
-  void InitLayers(const mxArray *mx_layers);
-  void InitParams(const mxArray *mx_params);
-  void Train(const mxArray *mx_data, const mxArray *mx_labels);
-  void Classify(const mxArray *mx_data, mxArray *&mx_pred);
-  void InitWeights(const mxArray *mx_weights_in);  
-  void InitWeights(const mxArray *mx_weights_in, mxArray *&mx_weights);  
-  void GetTrainErrors(mxArray *&mx_errors) const;
-  size_t NumWeights() const;  
-  void Clear();
-  
-  Net() {};
-  ~Net() { Clear(); }
   
 private:
   std::vector<Layer*> layers_;  
-  Weights weights_; // in fact a vector
+  Weights weights_;
   Params params_;
-  Mat data_, labels_;  
+  MatCPU data_, labels_;
+  MatCPU trainerrors_;
   Mat classcoefs_; // in fact vector
-  Mat trainerror_; // in fact vector
-
+  Mat weights_mat_; // also a vector
+  Mat lossmat_, lossmat2_;
+  
   void ReadData(const mxArray *mx_data);
   void ReadLabels(const mxArray *mx_labels);  
   void InitNorm();
@@ -54,8 +42,22 @@ private:
   void Forward(Mat &pred, int passnum);  
   void InitDeriv(const Mat &labels_batch, ftype &loss);
   void Backward();
-  void CalcWeights();
+  void CalcWeights(int passnum);
   void UpdateWeights(size_t epoch, bool isafter);  
+
+public:
+  Net();
+  ~Net();
+  void InitRand(size_t seed);
+  void InitLayers(const mxArray *mx_layers);
+  void InitParams(const mxArray *mx_params);
+  void Train(const mxArray *mx_data, const mxArray *mx_labels);
+  void Classify(const mxArray *mx_data, mxArray *&mx_pred);
+  void InitWeights(const mxArray *mx_weights_in);  
+  void GetErrors(mxArray *&mx_errors) const;
+  void GetWeights(mxArray *&mx_weights) const;
+  size_t NumWeights() const;  
+  
 };
 
 #endif

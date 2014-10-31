@@ -27,17 +27,17 @@ class Weights {
   
 public:
   Weights() {};
-  ~Weights() {};
-  void Init(ftype *weights, size_t num_weights);
-  void Attach(Weights &weights, const std::vector<size_t> &newsize, size_t offset);  
+  ~Weights() { Clear(); };
+  void Init(const Mat &weights);
+  void Attach(Weights &weights, size_t offset, size_t size1, size_t size2, bool order);  
   void Update(const Params &params, size_t epoch, bool isafter);
-  inline void Write(ftype *weights) const { weights_.ToVect(weights); }
+  void Clear();
   inline Mat& get() { return weights_; }
   inline const Mat& get() const { return weights_; }
-  inline const ftype& get(size_t ind) const { return weights_(ind); }
+  inline ftype get(size_t ind) const { return weights_(ind); }
   inline std::vector<size_t> size() const { return size_; }
   inline Mat& der() { return weights_der_; }
-  inline ftype& der(size_t ind) { return weights_der_(ind); }
+  inline Mat der(size_t ind) { return weights_der_(ind); }
   
 private:
   Mat weights_;

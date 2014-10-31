@@ -1,4 +1,4 @@
-function pred = cnnclassify(layers, weights_in, test_x, type)
+function pred = cnnclassify(layers, weights, params, test_x, type)
 
 if (length(size(test_x)) == 3)
   % insert singletone maps index
@@ -6,16 +6,10 @@ if (length(size(test_x)) == 3)
 end;
 
 tic;
-if strcmp(type, 'mexfun')
-  test_x = permute(test_x, [2 1 3 4]);  
-  pred = classify_mex(layers, weights_in, test_x);
-  pred = permute(pred, [2 1]);
-  %z = logsumexp(pred, 2);
-  %pred = exp(bsxfun(@minus, pred, z));  
+if (strcmp(type, 'cpu') || strcmp(type, 'gpu'))
+  pred = classify_mex(layers, weights, params, test_x);  
 elseif strcmp(type, 'matlab')
-  pred = classify_mat(layers, weights_in, test_x);
-  %z = logsumexp(pred, 2);
-  %pred = exp(bsxfun(@minus, pred, z));  
+  pred = classify_mat(layers, weights, params, test_x);  
 else
   error('"%s" - wrong type, must be either "mexfun" or "matlab"', type);
 end;

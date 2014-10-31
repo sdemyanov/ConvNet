@@ -19,13 +19,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "net.h"
 
-#define NARGIN 3
+#define NARGIN 4
 #define IN_L pRhs[0] // layers
 #define IN_W pRhs[1] // weights
-#define IN_X pRhs[2] // data
+#define IN_P pRhs[2] // params
+#define IN_X pRhs[3] // data
 
 #define NARGOUT 1
-#define OUT_P	pLhs[0] // predictions
+#define OUT_Y	pLhs[0] // predictions
 
 int print = 0;
 
@@ -37,6 +38,7 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   Net net;
   net.InitLayers(IN_L);  
   net.InitWeights(IN_W);  
-  net.Classify(IN_X, OUT_P);
+  net.InitParams(IN_P);
+  net.Classify(IN_X, OUT_Y);
   
 }

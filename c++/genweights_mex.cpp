@@ -34,10 +34,10 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   mexAssert(nLhs == NARGOUT, "Number of output arguments is wrong!" );
   
   size_t seed = (size_t) mexGetScalar(IN_S);
-  std::srand(seed);
   
   Net net;
+  net.InitRand(seed);
   net.InitLayers(IN_L);  
-  net.InitWeights(NULL, OUT_W);
-  
+  net.InitWeights(NULL);
+  net.GetWeights(OUT_W);
 }

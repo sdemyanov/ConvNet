@@ -35,7 +35,7 @@ public:
   bool balance_;
   bool shuffle_;
   size_t verbose_;
-  size_t seed_;
+  size_t seed_;  
 
   Params();
   

@@ -22,13 +22,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define NARGIN 5
 #define IN_L pRhs[0] // layers
 #define IN_W pRhs[1] // weights
-#define IN_X pRhs[2] // data
-#define IN_Y pRhs[3] // labels
-#define IN_P pRhs[4] // params
+#define IN_P pRhs[2] // params
+#define IN_X pRhs[3] // data
+#define IN_Y pRhs[4] // labels
 
 #define NARGOUT 2
-#define OUT_W	pLhs[0] // weights
-#define OUT_E pLhs[1] // train errors on each batch
+#define OUT_W pLhs[0] // weights
+#define OUT_E pLhs[1] // train errors
 
 int print = 0;
 
@@ -39,8 +39,9 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   
   Net net;
   net.InitLayers(IN_L);
-  net.InitWeights(IN_W, OUT_W);
+  net.InitWeights(IN_W);
   net.InitParams(IN_P);
   net.Train(IN_X, IN_Y);  
-  net.GetTrainErrors(OUT_E);
+  net.GetWeights(OUT_W);
+  net.GetErrors(OUT_E);
 }

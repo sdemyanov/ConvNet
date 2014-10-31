@@ -20,7 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef _MEX_UTIL_H_
 #define _MEX_UTIL_H_
 
-#include "mat.h"
+#include "mat_cpu.h"
+#include <ctime>
 
 #if defined (_WIN32)
   #define NOMINMAX
@@ -34,6 +35,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #else
   extern bool utIsInterruptPending();
 #endif
+
+void StartTimer();
+void MeasureTime(std::string msg);
 
 bool mexIsStruct(const mxArray *mx_array);
 bool mexIsCell(const mxArray *mx_array);
@@ -52,12 +56,12 @@ std::string mexGetString(const mxArray *mx_array);
 ftype* mexGetPointer(const mxArray *mx_array);
 ftype mexGetScalar(const mxArray *mx_array);
 std::vector<ftype> mexGetVector(const mxArray *mx_array);
-Mat mexGetMatrix(const mxArray *mx_array);
+void mexGetMatrix(const mxArray *mx_array, MatCPU &mat);
 
 mxArray* mexNewMatrix(size_t size1, size_t size2);
 mxArray* mexSetScalar(ftype scalar);
 mxArray* mexSetVector(const std::vector<ftype> &vect);
-mxArray* mexSetMatrix(const Mat &mat);
+mxArray* mexSetMatrix(const MatCPU &mat);
 mxArray* mexSetCellMat(size_t size1, size_t size2);
 void mexSetCell(mxArray* mx_array, size_t ind, mxArray* mx_value);
 

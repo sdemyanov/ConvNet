@@ -21,7 +21,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LayerJitt::LayerJitt() {
   type_ = "j";
-  is_weights_ = false;
   batchsize_ = 0;
 }  
   
@@ -112,8 +111,10 @@ void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
 void LayerJitt::Forward(Layer *prev_layer, int passnum) {
   batchsize_ = prev_layer->batchsize_;
   activ_mat_.resize(batchsize_, length_);
-  InitMaps(activ_mat_, mapsize_, activ_);  
-  #if USE_MULTITHREAD == 1
+  std::vector< std::vector<Mat> > prev_activ, activ;    
+  InitMaps(prev_layer->activ_mat_, prev_layer->mapsize_, prev_activ);
+  InitMaps(activ_mat_, mapsize_, activ);    
+  #if COMP_REGIME == 1
     #pragma omp parallel for
   #endif
   for (int k = 0; k < batchsize_; ++k) {  
@@ -124,19 +125,19 @@ void LayerJitt::Forward(Layer *prev_layer, int passnum) {
       ftype angle = 0;
       for (size_t j = 0; j < numdim_; ++j) {
         if (shift_[j] > 0) {
-          shift[j] = ((ftype) rand() / RAND_MAX * 2 - 1) * shift_[j];          
+          shift[j] = ((ftype) std::rand() / RAND_MAX * 2 - 1) * shift_[j];          
         }
         if (scale_[j] > 1) {
-          scale[j] = pow(scale_[j], (ftype) rand() / RAND_MAX * 2 - 1);          
+          scale[j] = pow(scale_[j], (ftype) std::rand() / RAND_MAX * 2 - 1);          
         }
         if (mirror_[j]) {
-          mirror[j] = ((ftype) rand() / RAND_MAX > 0.5);          
+          mirror[j] = ((ftype) std::rand() / RAND_MAX > 0.5);          
         }        
       }
       if (angle_ > 0) {
-        angle = ((ftype) rand() / RAND_MAX * 2 - 1) * M_PI * angle_;
+        angle = ((ftype) std::rand() / RAND_MAX * 2 - 1) * M_PI * angle_;
       }      
-      Transform(prev_layer->activ_[k][i], shift, scale, mirror, angle, default_, activ_[k][i]);      
+      Transform(prev_activ[k][i], shift, scale, mirror, angle, default_, activ[k][i]);      
     }    
   }
   activ_mat_.Validate();  

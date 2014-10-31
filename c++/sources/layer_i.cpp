@@ -21,7 +21,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LayerInput::LayerInput() {
   type_ = "i";
-  is_weights_ = false;
   numdim_ = 2;
   batchsize_ = 0;
   length_prev_ = 0;
@@ -70,32 +69,66 @@ void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
 
 void LayerInput::Forward(Layer *prev_layer, int passnum) {  
   batchsize_ = activ_mat_.size1();
-  InitMaps(activ_mat_, mapsize_, activ_);
-  if (norm_ > 0) {
-    activ_mat_.Normalize(norm_);
-  }
+  
+  if (passnum == 3) return;
+  
   if (is_mean_) {
     activ_mat_.AddVect(mean_weights_.get(), 1);
   }
   if (is_maxdev_) {
     activ_mat_.MultVect(maxdev_weights_.get(), 1);
-  }  
+  }
   activ_mat_.Validate();  
+  
+  /*
+  mexPrintMsg("INPUT");    
+  Mat m;
+  m.attach(activ_mat_);
+  mexPrintMsg("s1", m.size1());    
+  mexPrintMsg("s2", m.size2()); 
+  mexPrintMsg("totalsum", m.sum());    
+  Mat versum = Sum(m, 1);
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("versum", versum(0, i));    
+  }
+  Mat horsum = Sum(m, 2);
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("horsum", horsum(i, 0));    
+  }  
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("Horizontal", m(0, i));    
+  }
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("Vertical", m(i, 0));    
+  } */
 }
 
 void LayerInput::InitWeights(Weights &weights, size_t &offset, bool isgen) {  
-  std::vector<size_t> weightssize(2);
-  weightssize[0] = 1; weightssize[1] = length_;
   if (is_mean_) {
-    mean_weights_.Attach(weights, weightssize, offset);
+    mean_weights_.Attach(weights, offset, 1, length_, kMatlabOrder);
     offset += length_;  
     if (isgen) mean_weights_.get().assign(0);
   }
   if (is_maxdev_) {
-    maxdev_weights_.Attach(weights, weightssize, offset);
+    maxdev_weights_.Attach(weights, offset, 1, length_, kMatlabOrder);
     offset += length_;  
     if (isgen) maxdev_weights_.get().assign(1);
   }  
+}
+
+void LayerInput::GetWeights(Mat &weights, size_t &offset) const {
+  if (is_mean_) {
+    Mat mean_weights;
+    mean_weights.attach(weights, offset, 1, length_, kMatlabOrder);
+    mean_weights = mean_weights_.get();
+    offset += length_;
+  }
+  if (is_maxdev_) {
+    Mat maxdev_weights;
+    maxdev_weights.attach(weights, offset, 1, length_, kMatlabOrder);
+    maxdev_weights = maxdev_weights_.get();
+    offset += length_;
+  }
 }
 
 size_t LayerInput::NumWeights() const {

@@ -19,6 +19,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "mex_util.h"
 
+static clock_t _start_timer_time = 0;
+
+void StartTimer() {
+  if (print < 2) return;
+  _start_timer_time = std::clock();
+}
+
+void MeasureTime(std::string msg) {
+  if (print < 2) return;
+  clock_t t0 = _start_timer_time;
+  clock_t t = std::clock();
+  double d = double(t - t0);
+  mexPrintMsg(msg, d);
+}
+
 bool mexIsStruct(const mxArray *mx_array) {	
   mexAssert(mx_array != NULL && !mxIsEmpty(mx_array), "In 'mexIsStruct' the array is NULL or empty");
   return mxIsStruct(mx_array);
@@ -68,8 +83,6 @@ std::vector<size_t> mexGetDimensions(const mxArray *mx_array) {
   for (size_t i = 0; i < dimnum; ++i) {
     dim[i] = (size_t) pdim[i];    
   }
-  size_t tmp = dim[0]; dim[0] = dim[1]; dim[1] = tmp;
-  // because Matlab stores data in the reverse order
   return dim;
 }
 
@@ -130,21 +143,19 @@ std::vector<ftype> mexGetVector(const mxArray *mx_array) {
   return vect;
 }
 
-Mat mexGetMatrix(const mxArray *mx_array) {  
+void mexGetMatrix(const mxArray *mx_array, MatCPU &mat) {
   //mexAssert(mx_array != NULL, "mx_array in 'mexGetMatrix' is NULL");
   std::vector<size_t> dim = mexGetDimensions(mx_array);
   mexAssert(dim.size() == 2, "In 'GetMatrix' argument must be the 2D matrix");  
   mexAssert(mxGetClassID(mx_array) == MEX_CLASS,
     "In 'mexGetMatrix' mx_array is of the wrong type");
-  ftype *pdata = (ftype*) mxGetData(mx_array);
-  Mat mat(dim[1], dim[0]);
-  mat.attach(pdata, dim);
-  return mat;
+  ftype *pdata = (ftype*) mxGetData(mx_array);  
+  mat.attach(pdata, dim[0], dim[1], 1, kMatlabOrder);  
 }
 
 mxArray* mexNewMatrix(size_t size1, size_t size2) {
   mwSize ndims = 2, dims[2];
-  dims[0] = size2; dims[1] = size1; // because Matlab stores data in the reverse order
+  dims[0] = size1; dims[1] = size2;    
   mxArray *mx_array = mxCreateNumericArray(ndims, dims, MEX_CLASS, mxREAL);	
   return mx_array;
 }
@@ -153,7 +164,7 @@ mxArray* mexSetScalar(ftype scalar) {
   mxArray *mx_scalar = mexNewMatrix(1, 1);
 	ftype *pdata = (ftype*) mxGetData(mx_scalar);
 	pdata[0] = scalar;
-	return mx_scalar;  
+	return mx_scalar;
 }
 
 mxArray* mexSetVector(const std::vector<ftype> &vect) {  	
@@ -165,11 +176,11 @@ mxArray* mexSetVector(const std::vector<ftype> &vect) {
 	return mx_array;  
 }
 
-mxArray* mexSetMatrix(const Mat &mat) {			
+mxArray* mexSetMatrix(const MatCPU &mat) {			
   mxArray *mx_array = mexNewMatrix(mat.size1(), mat.size2());  
 	ftype *pdata = (ftype*) mxGetData(mx_array);  
-  mat.ToVect(pdata);  
-	return mx_array;  
+  mat.write(pdata);  
+  return mx_array;  
 }
 
 void mexSetCell(mxArray* mx_array, size_t ind, mxArray* mx_value) {

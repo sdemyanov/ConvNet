@@ -1,7 +1,7 @@
 function weights = genweights(layers, seed, type)
 
-if strcmp(type, 'mexfun')
-  weights = genweights_mex(layers, seed);
+if (strcmp(type, 'cpu') || strcmp(type, 'gpu'))
+  weights = genweights_mex(layers, seed);  
 elseif strcmp(type, 'matlab')
   weights = genweights_mat(layers, seed);
 else

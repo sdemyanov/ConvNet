@@ -25,11 +25,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 extern int print;
 
+inline void mexAssert(bool b) {
+  if (b) return;  		
+  std::string _errmsg = std::string("Assertion Failed");
+	mexErrMsgTxt(_errmsg.c_str());
+}
+
 inline void mexAssert(bool b, std::string msg) {
-	if (!b){		
-		std::string _errmsg = std::string("Assertion Failed: ") + msg;
-		mexErrMsgTxt(_errmsg.c_str());
-	}
+	if (b) return;
+  std::string _errmsg = std::string("Assertion Failed: ") + msg;
+	mexErrMsgTxt(_errmsg.c_str());
 }
 
 inline void mexPrintMsg(std::string msg) {
@@ -37,8 +42,13 @@ inline void mexPrintMsg(std::string msg) {
   mexEvalString("drawnow;");
 }
 
-inline void mexPrintMsg(std::string msg, long double x) {
-  mexPrintf((msg + ": " + std::to_string(x) + "\n").c_str());
+inline void mexPrintInt(std::string msg, int x) {
+  mexPrintf((msg + ": " + std::to_string((long long) x) + "\n").c_str());
+  mexEvalString("drawnow;");
+}
+
+inline void mexPrintMsg(std::string msg, double x) {
+  mexPrintf((msg + ": " + std::to_string((long double) x) + "\n").c_str());
   mexEvalString("drawnow;");
 }
 

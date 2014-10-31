@@ -20,17 +20,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "params.h"
 
 Params::Params() {
-  batchsize_ = 50;
+  batchsize_ = 128;
   numepochs_ = 1;
-  alpha_.assign(1, 1);  
+  alpha_.assign(1, 1);
   momentum_.assign(1, 0);
   adjustrate_ = 0;
   maxcoef_ = 1;
   mincoef_ = 1;
   balance_ = false;
-  shuffle_ = true;
-  verbose_ = 2;
-  seed_ = 0;
+  shuffle_ = false;
+  verbose_ = 0;
+  seed_ = 0;  
 }
   
 void Params::Init(const mxArray *mx_params) {

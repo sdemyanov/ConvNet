@@ -26,7 +26,7 @@ for l = n : -1 : 1
     d_cur = layers{l}.d;    
     if (layers{l}.padding(1) > 0 || layers{l}.padding(2) > 0)
       ds = size(layers{l}.d); ds(end+1:4) = 1;
-      padding = layers{l}.kernelsize - 1 - layers{l}.padding;
+      padding = layers{l}.filtersize - 1 - layers{l}.padding;
       d_cur = zeros([ds(1:2) + 2*padding ds(3:4)]);
       d_cur(padding(1)+1:padding(1)+ds(1), padding(2)+1:padding(2)+ds(2), :, :) =  layers{l}.d;      
     end;
@@ -42,6 +42,8 @@ for l = n : -1 : 1
         end;
       end        
     end;
+    %disp(sum(layers{l-1}.d(:)));
+    %disp(layers{l-1}.d(1, 1:5, 1, 1));
 
   elseif strcmp(layers{l}.type, 's')    
     sc = [layers{l}.scale 1 1];
@@ -50,17 +52,11 @@ for l = n : -1 : 1
     curder = expand(layers{l}.d, sc);
     if strcmp(layers{l}.function, 'max')
       curval = expand(layers{l}.a, sc);
-      if (~isequal(sc, st))
-        prevval = stretch(layers{l-1}.a, sc, st);
-        maxmat = (prevval == curval);
-        maxmat = uniq(maxmat, sc);
-        curder = curder .* maxmat;
-        layers{l-1}.d = shrink(curder, sc, st);
-      else
-        maxmat = (layers{l-1}.a == curval);
-        maxmat = uniq(maxmat, sc);
-        layers{l-1}.d = curder .* maxmat;
-      end;
+      prevval = stretch(layers{l-1}.a, sc, st);
+      maxmat = (prevval == curval);
+      %maxmat = uniq(maxmat, sc);
+      curder = curder .* maxmat;
+      layers{l-1}.d = shrink(curder, sc, st);
     elseif strcmp(layers{l}.function, 'mean')
       curder = curder / prod(sc);
       if (~isequal(sc, st))
@@ -91,10 +87,8 @@ for l = n : -1 : 1
     else
       layers{l}.di = layers{l}.d * layers{l}.w; 
     end;
-    if ~strcmp(layers{l-1}.type, 'f')        
-      mapsize = layers{l-1}.mapsize;
-      d_trans = reshape(layers{l}.di, [batchsize mapsize(2) mapsize(1) layers{l-1}.outputmaps]);
-      layers{l-1}.d = permute(d_trans, [3 2 4 1]);        
+    if ~strcmp(layers{l-1}.type, 'f')      
+      layers{l-1}.d = reshape(layers{l}.di', [layers{l-1}.mapsize layers{l-1}.outputmaps batchsize]);        
     else
       layers{l-1}.d = layers{l}.di;
     end;      

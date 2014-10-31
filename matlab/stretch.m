@@ -1,7 +1,9 @@
 function B = stretch(A, sc, st)
 
-dim = length(size(A));
-s = ceil(size(A) ./ st);
+asize = [size(A, 1) size(A, 2) size(A, 3) size(A, 4)];
+
+dim = length(asize);
+s = ceil(asize ./ st);
 newsize = sc .* s;
 B = zeros(newsize);
 order = cell(dim, 1);

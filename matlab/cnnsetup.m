@@ -8,29 +8,10 @@ for l = 1 : n   %  layer
     if (~isfield(layers{l}, 'outputmaps'))
       layers{l}.outputmaps = 1;
     end;
-    layers{l}.mw = double(zeros([layers{l}.mapsize layers{l}.outputmaps]));
-    layers{l}.sw = double(zeros([layers{l}.mapsize layers{l}.outputmaps]));
+    layers{l}.mw = single(zeros([layers{l}.mapsize layers{l}.outputmaps]));
+    layers{l}.sw = single(zeros([layers{l}.mapsize layers{l}.outputmaps]));
     outputmaps = layers{l}.outputmaps;
     mapsize = layers{l}.mapsize; 
-  
-  elseif strcmp(layers{l}.type, 'n') % normalization    
-    layers{l}.w = double(zeros([mapsize outputmaps 2]));    
-    layers{l}.w(:, :, :, 2) = double(ones([mapsize outputmaps]));
-    if (isfield(layers{l}, 'mean'))
-      layers{l}.w(:, :, :, 1) = -layers{l}.mean;
-    end;
-    layers{l}.is_dev = 1;
-    if (isfield(layers{l}, 'stdev'))
-      if (ischar(layers{l}.stdev) && strcmp(layers{l}.stdev, 'no'))
-        layers{l}.is_dev = 0;
-        layers{l}.w(:, :, :, 2) = [];
-      else
-        layers{l}.w(:, :, :, 2) = 1 ./ layers{l}.stdev;
-      end;
-    end;    
-    layers{l}.dw = double(zeros(size(layers{l}.w)));
-    layers{l}.dwp = double(zeros(size(layers{l}.w)));
-    layers{l}.gw = double(ones(size(layers{l}.w)));
   
   elseif strcmp(layers{l}.type, 'j') % scaling
     assert(isfield(layers{l}, 'mapsize'), 'The "j" type layer must contain the "mapsize" field');    
@@ -50,7 +31,7 @@ for l = 1 : n   %  layer
     mapsize = ceil(mapsize ./ layers{l}.stride);
     
   elseif strcmp(layers{l}.type, 'c') % convolutional
-    assert(isfield(layers{l}, 'kernelsize'), 'The "c" type layer must contain the "kernelsize" field');
+    assert(isfield(layers{l}, 'filtersize'), 'The "c" type layer must contain the "filtersize" field');
     assert(isfield(layers{l}, 'outputmaps'), 'The "c" type layer must contain the "outputmaps" field');
     if (~isfield(layers{l}, 'function'))
       layers{l}.function = 'relu';
@@ -64,23 +45,23 @@ for l = 1 : n   %  layer
       layers{l}.padding = [0 0];
     end;
     
-    fan_in = outputmaps * layers{l}.kernelsize(1) *  layers{l}.kernelsize(2);
-    fan_out = layers{l}.outputmaps * layers{l}.kernelsize(1) * layers{l}.kernelsize(2);
+    fan_in = outputmaps * layers{l}.filtersize(1) *  layers{l}.filtersize(2);
+    fan_out = layers{l}.outputmaps * layers{l}.filtersize(1) * layers{l}.filtersize(2);
     rand_coef = 2 * sqrt(6 / (fan_in + fan_out));
-    layers{l}.k = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
-    layers{l}.dk = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
-    layers{l}.dkp = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
-    layers{l}.gk = double(ones([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
+    layers{l}.k = single(zeros([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
+    layers{l}.dk = single(zeros([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
+    layers{l}.dkp = single(zeros([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
+    layers{l}.gk = single(ones([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
     if (isgen)
-      layers{l}.k = (rand([layers{l}.kernelsize outputmaps layers{l}.outputmaps]) - 0.5) * rand_coef;
+      layers{l}.k = (rand([layers{l}.filtersize outputmaps layers{l}.outputmaps]) - 0.5) * rand_coef;
     else
-      layers{l}.k = double(zeros([layers{l}.kernelsize outputmaps, layers{l}.outputmaps]));
+      layers{l}.k = single(zeros([layers{l}.filtersize outputmaps, layers{l}.outputmaps]));
     end;
-    layers{l}.b = double(zeros(layers{l}.outputmaps, 1));
-    layers{l}.db = double(zeros(layers{l}.outputmaps, 1));    
-    layers{l}.dbp = double(zeros(layers{l}.outputmaps, 1));
-    layers{l}.gb = double(ones(layers{l}.outputmaps, 1));
-    mapsize = mapsize + 2*layers{l}.padding - layers{l}.kernelsize + 1;
+    layers{l}.b = single(zeros(layers{l}.outputmaps, 1));
+    layers{l}.db = single(zeros(layers{l}.outputmaps, 1));    
+    layers{l}.dbp = single(zeros(layers{l}.outputmaps, 1));
+    layers{l}.gb = single(ones(layers{l}.outputmaps, 1));
+    mapsize = mapsize + 2*layers{l}.padding - layers{l}.filtersize + 1;
     outputmaps = layers{l}.outputmaps;
 
   elseif strcmp(layers{l}.type, 'f') % fully connected
@@ -107,18 +88,18 @@ for l = 1 : n   %  layer
     end;
     layers{l}.weightsize = weightsize; 
     if (isgen)
-      layers{l}.w = double((rand(weightsize) - 0.5) * 2 * sqrt(6/sum(weightsize)));
+      layers{l}.w = single((rand(weightsize) - 0.5) * 2 * sqrt(6/sum(weightsize)));
     else
-      layers{l}.w = double(zeros(weightsize));
+      layers{l}.w = single(zeros(weightsize));
     end;
-    layers{l}.dw = double(zeros(weightsize));
-    layers{l}.dwp = double(zeros(weightsize));
-    layers{l}.gw = double(ones(weightsize));
+    layers{l}.dw = single(zeros(weightsize));
+    layers{l}.dwp = single(zeros(weightsize));
+    layers{l}.gw = single(ones(weightsize));
 
-    layers{l}.b = double(zeros(1, weightsize(1)));
-    layers{l}.db = double(zeros(1, weightsize(1)));    
-    layers{l}.dbp = double(zeros(1, weightsize(1)));
-    layers{l}.gb = double(ones(1, weightsize(1)));      
+    layers{l}.b = single(zeros(1, weightsize(1)));
+    layers{l}.db = single(zeros(1, weightsize(1)));    
+    layers{l}.dbp = single(zeros(1, weightsize(1)));
+    layers{l}.gb = single(ones(1, weightsize(1)));      
     mapsize = [0 0];
     outputmaps = 0;      
   else
@@ -128,9 +109,8 @@ for l = 1 : n   %  layer
     layers{l}.function = 'none';
   end;
   layers{l}.outputmaps = outputmaps;
-  layers{l}.mapsize = mapsize; 
-  layers{l}.eps = 1e-8; % double
-  %layers{l}.eps = 1e-4; % single
+  layers{l}.mapsize = mapsize;   
+  layers{l}.eps = 1e-6;
 end
 %assert(strcmp(layers{n}.type, 'f'), 'The last layer must be the type of "f"'); 
   

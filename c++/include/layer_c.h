@@ -30,16 +30,19 @@ public:
   void Init(const mxArray *mx_layer, Layer *prev_layer);
   void Forward(Layer *prev_layer, int passnum);
   void Backward(Layer *prev_layer);
-  void CalcWeights(Layer *prev_layer);
+  void CalcWeights(Layer *prev_layer, int passnum);
   void InitWeights(Weights &weights, size_t &offset, bool isgen);
-  void UpdateWeights(const Params &params, size_t epoch, bool isafter);
+  void GetWeights(Mat &weights, size_t &offset) const;
   size_t NumWeights() const;
   
 private:
-  std::vector<size_t> kernelsize_;  
-  std::vector< std::vector<Weights> > kernels_;
+  Weights weights_;
   Weights biases_;
+  std::vector<size_t> filtersize_;
   std::vector<size_t> padding_;
+  size_t minsize_;
+  Mat tmpbuf_der_;
+  size_t sum_width_;
   
 };
 

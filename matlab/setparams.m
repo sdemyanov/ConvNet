@@ -1,7 +1,7 @@
 function [params] = setparams(params)
 
 if (~isfield(params, 'batchsize'))
-  params.batchsize = 50;  
+  params.batchsize = 128;  
 end;
 if (~isfield(params, 'numepochs'))
   params.numepochs = 1;  
@@ -25,10 +25,10 @@ else
   params.mincoef = 1 / params.maxcoef;
 end;
 if (~isfield(params, 'shuffle'))
-  params.shuffle = 1;
+  params.shuffle = 0;
 end;
 if (~isfield(params, 'verbose'))
-  params.verbose = 2;
+  params.verbose = 0;
 end;
 if (~isfield(params, 'seed'))
   params.seed = 0;

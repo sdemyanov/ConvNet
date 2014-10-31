@@ -1,7 +1,19 @@
 
 close all; clear mex;
 
-addpath('./c++/build');
+cd(fileparts(mfilename('fullpath')));
+
+funtype = 'gpu';
+%funtype = 'cpu';
+%funtype = 'matlab';
+
+disp(funtype);
+
+if (strcmp(funtype, 'gpu') || strcmp(funtype, 'cpu'))  
+  kBuildFolder = './c++/build';
+  copyfile(fullfile(kBuildFolder, funtype, '*.mexw64'), kBuildFolder, 'f');
+  addpath(kBuildFolder);
+end;
 addpath('./matlab');
 addpath('./data');
 load mnist;
@@ -14,55 +26,58 @@ if (~exist(kWorkspaceFolder, 'dir'))
   mkdir(kWorkspaceFolder);
 end;
 
-kTrainNum = 10000;
+kTrainNum = 60000;
+%kTrainNum = 12800;
+%kTrainNum = 200;
 kOutputs = size(TrainY, 2);
-train_x = TrainX(:, :, 1:kTrainNum);
-train_y = TrainY(1:kTrainNum, :);
+train_x = single(TrainX(:, :, 1:kTrainNum));
+train_y = single(TrainY(1:kTrainNum, :));
 
-kTestNum = 10000;
-test_x = TestX(:, :, 1:kTestNum);
-test_y = TestY(1:kTestNum, :);
+kTestNum = 1000;
+test_x = single(TestX(:, :, 1:kTestNum));
+test_y = single(TestY(1:kTestNum, :));
 
-params.seed = 1;
-params.batchsize = 50;
+clear params;
 params.numepochs = 1;
+params.seed = 0;
 params.alpha = 1;
+params.beta = 0;
 params.momentum = 0.9;
 params.shuffle = 0;
-params.verbose = 0;
 dropout = 0;
 
 norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
 
-% This structure is just supposed to demonstrate the implemented options
+% This structure is just for demonstration purposes
+
+% !!! IMPORTANT NOTICES FOR GPU VERSION !!!
+% Outputmaps number should be divisible on 16
+% Use only the default value of batchsize = 128
+
 layers = {
     struct('type', 'i', 'mapsize', kXSize, 'outputmaps', 1, ...
-           'norm', norm_x, 'mean', 0', 'maxdev', 1);
-    struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 6) %convolution layer
+           'norm', norm_x, 'mean', 0', 'maxdev', 1)
+    struct('type', 'c', 'filtersize', [4 4], 'outputmaps', 16, 'padding', [1 1]) %convolution layer
     struct('type', 's', 'scale', [3 3], 'function', 'mean', 'stride', [2 2]) % subsampling layer
-    struct('type', 'c', 'kernelsize', [5 5], 'outputmaps', 12, 'padding', [1 1]) %convolution layer
-    struct('type', 's', 'scale', [3 3], 'function', 'max', 'stride', [2 2]) % subsampling layer        
-    struct('type', 'f', 'length', 64) % fully connected layer
+    struct('type', 'c', 'filtersize', [4 4], 'outputmaps', 32, 'padding', [1 1]) %convolution layer
+    struct('type', 's', 'scale', [3 3], 'function', 'max', 'stride', [2 2]) % subsampling layer   
+    struct('type', 'f', 'length', 256) % fully connected layer
     struct('type', 'f', 'length', kOutputs, 'function', 'soft', ...
            'dropout', dropout) % fully connected layer
 };
 
-funtype = 'mexfun';
-%funtype = 'matlab';
-
 rng(params.seed);
-weights_in = genweights(layers, params.seed, 'matlab');
+weights = single(genweights(layers, params.seed, 'matlab'));
 EpochNum = 1;
 errors = zeros(EpochNum, 1);
-weights = weights_in;
 for i = 1 : EpochNum
-  disp(['Epoch: ' num2str(i)])
-  [weights, trainerr] = cnntrain(layers, weights, train_x, train_y, params, funtype);  
-  plot(trainerr);
-  disp([num2str(mean(trainerr)) ' loss']);
-  [err, bad, pred]  = cnntest(layers, weights, test_x, test_y, funtype);  
-  disp([num2str(err*100) '% error']);
+  disp(['Epoch: ' num2str((i-1) * params.numepochs) + 1])
+  [weights, trainerr] = cnntrain(layers, weights, params, train_x, train_y, funtype);  
+  disp([num2str(mean(trainerr(:, 1))) ' loss']);  
+  [err, bad, pred] = cnntest(layers, weights, params, test_x, test_y, funtype);  
+  disp([num2str(err*100) '% error']);  
   errors(i) = err;
 end;
+%plot(errors);
+disp('Done!');
 
-%save(fullfile(kWorkspaceFolder, 'weights.mat'), 'weights');  

@@ -19,32 +19,46 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "weights.h"
 
-void Weights::Init(ftype *weights, size_t num_weights) {
+void Weights::Init(const Mat &weights) {
   size_.resize(2);
-  size_[0] = 1;
-  size_[1] = num_weights;
-  weights_.attach(weights, 1, num_weights);  
-  weights_der_.init(1, num_weights, 0);
-  weights_der_prev_.init(1, num_weights, 0);
-  weights_learn_coefs_.init(1, num_weights, 1);  
+  size_[0] = weights.size1();
+  size_[1] = weights.size2();
+  
+  weights_.attach(weights);  
+  
+  weights_der_.resize(size_[0], size_[1]);
+  weights_der_prev_.resize(size_[0], size_[1]);
+  weights_learn_coefs_.resize(size_[0], size_[1]);  
+  
+  weights_der_.assign(0);
+  weights_der_prev_.assign(0);
+  weights_learn_coefs_.assign(1);  
 }
 
-void Weights::Attach(Weights &weights, const std::vector<size_t> &newsize, size_t offset) {
-  size_ = newsize;
-  weights_.attach(weights.weights_, newsize, offset);
-  weights_der_.attach(weights.weights_der_, newsize, offset);
-  weights_der_prev_.attach(weights.weights_der_prev_, newsize, offset);
-  weights_learn_coefs_.attach(weights.weights_learn_coefs_, newsize, offset);  
+void Weights::Attach(Weights &weights, size_t offset, size_t size1, size_t size2, bool order) {
+  size_.resize(2);
+  size_[0] = size1; size_[1] = size2;
+  size_t numel = size1 * size2;
+  
+  weights_.attach(weights.weights_, offset, size1, size2, order);
+  weights_der_.attach(weights.weights_der_, offset, size1, size2, order);
+  weights_der_prev_.attach(weights.weights_der_prev_, offset, size1, size2, order);
+  weights_learn_coefs_.attach(weights.weights_learn_coefs_, offset, size1, size2, order);  
+  
+  weights_.reorder(kDefaultOrder, true);
+  weights_der_.reorder(kDefaultOrder, false);
+  weights_der_prev_.reorder(kDefaultOrder, false);
+  weights_learn_coefs_.reorder(kDefaultOrder, false);
 }
 
 void Weights::Update(const Params &params, size_t epoch, bool isafter) {
   
-  ftype alpha, momentum;
+  ftype alpha, beta, momentum;
   if (params.alpha_.size() == 1) {
     alpha = params.alpha_[0];
   } else {
     alpha = params.alpha_[epoch];
-  } 
+  }
   if (params.momentum_.size() == 1) {
     momentum = params.momentum_[0];
   } else {
@@ -55,22 +69,29 @@ void Weights::Update(const Params &params, size_t epoch, bool isafter) {
     weights_der_ = weights_der_prev_;    
     weights_der_ *= momentum; 
   } else {
-    weights_der_ *= alpha;    
+    weights_der_ *= alpha;
     if (params.adjustrate_ > 0) {      
       Mat signs = weights_der_prev_;      
       signs *= weights_der_;
-      weights_learn_coefs_.CondAdd(signs, 0, true, params.adjustrate_);
-      weights_learn_coefs_.CondProd(signs, 0, false, 1-params.adjustrate_);
-      weights_learn_coefs_.CondAssign(weights_learn_coefs_, params.maxcoef_, true, params.maxcoef_);
-      weights_learn_coefs_.CondAssign(weights_learn_coefs_, params.mincoef_, false, params.mincoef_);      
+      weights_learn_coefs_.CondAdd(signs, true, 0, params.adjustrate_);
+      weights_learn_coefs_.CondMult(signs, false, 0, 1 - params.adjustrate_);
+      weights_learn_coefs_.CondAssign(weights_learn_coefs_, true, params.maxcoef_, params.maxcoef_);
+      weights_learn_coefs_.CondAssign(weights_learn_coefs_, false, params.mincoef_, params.mincoef_);      
       weights_der_ *= weights_learn_coefs_;      
     }
     weights_der_prev_ = weights_der_;    
     if (momentum > 0) {
       weights_der_ *= (1 - momentum);    
     }
-  }  
-  weights_ -= weights_der_;
-  weights_.Validate();
+  }
   // direction that decreases the error
+  weights_ -= weights_der_;
+  weights_.Validate();  
+}
+
+void Weights::Clear() {
+  weights_.clear();
+  weights_der_.clear();
+  weights_der_prev_.clear();
+  weights_learn_coefs_.clear(); 
 }

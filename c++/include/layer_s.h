@@ -30,15 +30,14 @@ public:
   void Init(const mxArray *mx_layer, Layer *prev_layer);
   void Forward(Layer *prev_layer, int passnum);
   void Backward(Layer *prev_layer);
-  void CalcWeights(Layer *prev_layer) {};
+  void CalcWeights(Layer *prev_layer, int passnum) {};
   void InitWeights(Weights &weights, size_t &offset, bool isgen) {};
-  void UpdateWeights(const Params &params, size_t epoch, bool isafter) {};
+  void GetWeights(Mat &weights, size_t &offset) const {};
   size_t NumWeights() const { return 0; };
   
 private:
   std::vector<size_t> scale_;
-  std::vector<size_t> stride_;
-  std::vector< std::vector<Mat> > maxmat_;
+  std::vector<size_t> stride_;  
   
 };
 
