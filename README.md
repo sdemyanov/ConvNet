@@ -63,8 +63,8 @@ TECHNICAL DETAILS
 
 If you cannot use the binaries for C++ CPU and GPU versions, you need to compile them by yourself. The compilation options are defined in the file "settings.h". Here they are:
 
-- COMP_REGIME. Identifies the version you want to compile. Might have the following values:
-1) 0 - compiles the single-thread CPU version. Use it if you don't have GPU with CUDA support :)
+- COMP_REGIME. Identifies the version you want to compile. Might have the following values:         
+1) 0 - compiles the single-thread CPU version. Use it if you don't have GPU with CUDA support :)       
 2) 1 - compiles the multi-thread GPU version. Use it to speed-up computations. However, if you run several Matlabs in parallel, I would recommend to use the single-thread version.
 3) 2 - compiles the GPU version. The main one
 
