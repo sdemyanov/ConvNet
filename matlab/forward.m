@@ -8,13 +8,7 @@ for l = 1 : n   %  for each layer
   if strcmp(layers{l}.type, 'i')
     if (passnum == 3)
       continue;
-    end;
-    if (isfield(layers{l}, 'norm'))    
-      datanorm = sqrt(sum(sum(sum(layers{l}.a.^2, 1), 2), 3));
-      datanorm(datanorm <= layers{l}.eps) = layers{l}.norm;
-      layers{l}.a = layers{l}.a ./ repmat(datanorm, [layers{l}.mapsize layers{l}.outputmaps 1]);
-      layers{l}.a = layers{l}.a * layers{l}.norm;      
-    end;      
+    end;   
     if (isfield(layers{l}, 'mean'))
       layers{l}.a = layers{l}.a + repmat(layers{l}.mw, [1 1 1 batchsize]);      
     end;
