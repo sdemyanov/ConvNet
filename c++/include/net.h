@@ -42,7 +42,6 @@ private:
   void Forward(Mat &pred, int passnum);  
   void InitDeriv(const Mat &labels_batch, ftype &loss);
   void Backward();
-  void CalcWeights(int passnum);
   void UpdateWeights(size_t epoch, bool isafter);  
 
 public:

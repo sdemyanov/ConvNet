@@ -142,8 +142,9 @@ void LayerFull::Backward(Layer *prev_layer) {
 
 void LayerFull::CalcWeights(Layer *prev_layer, int passnum) {
 
+  if (passnum < 2) return;
   Mat weights_der;
-  if (passnum == 1) {
+  if (passnum == 2) {
     weights_der.attach(weights_.der());
   }
   if (dropout_ > 0) {    
@@ -153,7 +154,7 @@ void LayerFull::CalcWeights(Layer *prev_layer, int passnum) {
     dividers.reshape(length_, length_prev_);
     dividers.CondAssign(dividers, false, 0, 1); // to avoid division by zero    
     weights_der /= dividers;    
-    if (passnum == 1) {
+    if (passnum == 2) {
       Sum(deriv_mat_, biases_.der(), 1);
       Mat dividers_bias(1, dropmat_bias_.size2());
       Sum(dropmat_bias_, dividers_bias, 1);
@@ -163,11 +164,11 @@ void LayerFull::CalcWeights(Layer *prev_layer, int passnum) {
   } else {
     Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_der);
     weights_der /= batchsize_;    
-    if (passnum == 1) {
+    if (passnum == 2) {
       Mean(deriv_mat_, biases_.der(), 1);    
     }
   }
-  if (passnum == 1) {    
+  if (passnum == 2) {    
     if (function_ == "SVM") {
       Mat weights_reg = weights_.get();    
       weights_der += (weights_reg /= c_);

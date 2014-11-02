@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LayerJitt::LayerJitt() {
   type_ = "j";
+  function_ = "none";
   batchsize_ = 0;
 }  
   

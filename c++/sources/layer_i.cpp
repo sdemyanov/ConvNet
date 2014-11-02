@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LayerInput::LayerInput() {
   type_ = "i";
+  function_ = "none";
   numdim_ = 2;
   batchsize_ = 0;
   length_prev_ = 0;

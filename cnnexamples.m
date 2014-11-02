@@ -33,7 +33,7 @@ kOutputs = size(TrainY, 2);
 train_x = single(TrainX(:, :, 1:kTrainNum));
 train_y = single(TrainY(1:kTrainNum, :));
 
-kTestNum = 1000;
+kTestNum = 10000;
 test_x = single(TestX(:, :, 1:kTestNum));
 test_y = single(TestY(1:kTestNum, :));
 
@@ -48,11 +48,11 @@ dropout = 0;
 
 norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
 
-% This structure is just for demonstration purposes
-
 % !!! IMPORTANT NOTICES FOR GPU VERSION !!!
 % Outputmaps number should be divisible on 16
 % Use only the default value of batchsize = 128
+
+% This structure is just for demonstration purposes
 
 layers = {
     struct('type', 'i', 'mapsize', kXSize, 'outputmaps', 1, ...

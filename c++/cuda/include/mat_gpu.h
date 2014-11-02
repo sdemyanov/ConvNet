@@ -41,7 +41,7 @@ private:
   static cublasHandle_t _cublasHandle;  
   static int getDeviceID();
   
-  static cudaEvent_t _start;  
+  static cudaEvent_t _start, _stop;  
   
   static MatGPU _subset_buf, _sum_buf;
   static MatGPU _softmax_buf1, _softmax_buf2;

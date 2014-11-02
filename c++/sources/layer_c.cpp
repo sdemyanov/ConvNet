@@ -147,8 +147,10 @@ void LayerConv::Backward(Layer *prev_layer) {
 }
 
 void LayerConv::CalcWeights(Layer *prev_layer, int passnum) {
+  
+  if (passnum < 2) return;
   Mat weights_der;
-  if (passnum == 1) {
+  if (passnum == 2) {
     weights_der.attach(weights_.der());
   }
   #if COMP_REGIME != 2
@@ -178,7 +180,7 @@ void LayerConv::CalcWeights(Layer *prev_layer, int passnum) {
     WeightActs(prev_layer->activ_mat_, deriv_mat_, weights_der,
                prev_layer->mapsize_, padding_[0], filtersize_[0], sum_width_, tmpbuf_der_);        
   #endif  
-  if (passnum == 1) {
+  if (passnum == 2) {
     mexAssert(deriv_mat_.order() == false, "deriv_mat_.order() should be false");
     deriv_mat_.reshape(deriv_mat_.size1() * deriv_mat_.size2() / outputmaps_, outputmaps_);
     Sum(deriv_mat_, biases_.der(), 1);

@@ -55,12 +55,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // static
 
-MatGPU MatGPU::_subset_buf = MatGPU::MatGPU();
-MatGPU MatGPU::_softmax_buf1 = MatGPU::MatGPU();
-MatGPU MatGPU::_softmax_buf2 = MatGPU::MatGPU();
-MatGPU MatGPU::_sum_buf = MatGPU::MatGPU();
+MatGPU MatGPU::_subset_buf;
+MatGPU MatGPU::_softmax_buf1;
+MatGPU MatGPU::_softmax_buf2;
+MatGPU MatGPU::_sum_buf;
 
-cudaEvent_t MatGPU::_start, _stop;
+cudaEvent_t MatGPU::_start, MatGPU::_stop;
 
 void MatGPU::StartCudaTimer() {
   if (print < 2) return;  
@@ -100,7 +100,12 @@ void MatGPU::CudaInit() {
   cudaDeviceProp prop;
   CUDA_CALL(cudaGetDeviceProperties(&prop, getDeviceID()));
   mexPrintMsg("Executing on", prop.name);    
-  */
+  */  
+  
+  _subset_buf = MatGPU();
+  _softmax_buf1 = MatGPU();
+  _softmax_buf2 = MatGPU();
+  _sum_buf = MatGPU();
   
   cudaEventCreate(&_start);
   cudaEventCreate(&_stop);  
@@ -113,13 +118,13 @@ void MatGPU::InitRand(size_t seed) {
 
 void MatGPU::CudaReset() {
 
+  cudaEventDestroy(_start);
+  cudaEventDestroy(_stop);
+    
   _softmax_buf1.clear();
   _softmax_buf2.clear();
   _subset_buf.clear();
   _sum_buf.clear();
-
-  cudaEventDestroy(_start);
-  cudaEventDestroy(_stop);
 
   CURAND_CALL(curandDestroyGenerator(_randGen));  
   CUDA_CALL(cudaStreamDestroy(_defaultStream));   
@@ -174,8 +179,7 @@ cudaTextureObject_t MatGPU::getTextureObject() {
     resDesc.res.linear.desc = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
     cudaTextureDesc texDesc;
     memset(&texDesc, 0, sizeof(texDesc));
-    CUDA_CALL(cudaCreateTextureObject(&texture_, &resDesc, &texDesc, NULL));
-    mexAssert(texture_ != 0, "Texture has not been created");
+    CUDA_CALL(cudaCreateTextureObject(&texture_, &resDesc, &texDesc, NULL));    
     /*
     mexPrintInt("texture", (int) texture_);
     CUDA_CALL(cudaDestroyTextureObject(texture_));    

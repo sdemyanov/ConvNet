@@ -116,7 +116,6 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       InitDeriv(labels_batch, error1);
       trainerrors_(epoch, 0) += error1;
       Backward();
-      CalcWeights(1);
       UpdateWeights(epoch, true); 
       offset += batchsize;
       if (params_.verbose_ == 2) {
@@ -195,19 +194,8 @@ void Net::Forward(Mat &pred, int passnum) {
   layers_[0]->Forward(NULL, passnum);  
   for (size_t i = 1; i < layers_.size(); ++i) {
     //mexPrintMsg("Forward pass for layer", layers_[i]->type_);  
-    Mat activ_mat_prev;
-    if (layers_[i]->type_ == "c" || layers_[i]->type_ == "f") {
-      if (passnum == 3) {
-        activ_mat_prev.resize(layers_[i]->activ_mat_.size1(), layers_[i]->activ_mat_.size2());
-        activ_mat_prev = layers_[i]->activ_mat_;
-      }
-    }
     layers_[i]->Forward(layers_[i-1], passnum);    
-    if (layers_[i]->type_ == "c" || layers_[i]->type_ == "f") {
-      if (passnum == 3) Swap(activ_mat_prev, layers_[i]->deriv_mat_);
-      layers_[i]->Nonlinear(passnum);      
-      if (passnum == 3) Swap(activ_mat_prev, layers_[i]->deriv_mat_);
-    }    
+    layers_[i]->Nonlinear(passnum);      
     if (utIsInterruptPending()) {
       mexAssert(false, "Ctrl-C Detected. END");
     }
@@ -224,13 +212,13 @@ void Net::Backward() {
   
   for (size_t i = layers_.size() - 1; i > 0; --i) {    
     //mexPrintMsg("Backward pass for layer", layers_[i]->type_);    
-    if (layers_[i]->type_ == "c" || layers_[i]->type_ == "f") {
-      layers_[i]->Nonlinear(2);      
-    }
-    layers_[i]->Backward(layers_[i-1]);    
+    layers_[i]->Nonlinear(2);      
+    layers_[i]->Backward(layers_[i-1]);
+    layers_[i]->CalcWeights(layers_[i-1], 2);    
   }
   //mexPrintMsg("Backward pass for layer", layers_[0]->type_);  
-  layers_[0]->Backward(NULL);  
+  layers_[0]->Backward(NULL);
+  layers_[0]->CalcWeights(NULL, 2);  
   //mexPrintMsg("Backward pass finished");  
 }
 
@@ -264,16 +252,6 @@ void Net::InitDeriv(const Mat &labels_batch, ftype &loss) {
     lastlayer->deriv_mat_.MultVect(classcoefs_, 1);
     lastlayer->deriv_mat_.Validate(); 
   }    
-}
-
-void Net::CalcWeights(int passnum) {  
-  //mexPrintMsg("CalcWeights pass for layer", layers_[0]->type_);
-  layers_[0]->CalcWeights(NULL, passnum);
-  for (size_t i = 1; i < layers_.size(); ++i) {
-    //mexPrintMsg("CalcWeights pass for layer", layers_[i]->type_);    
-    layers_[i]->CalcWeights(layers_[i-1], passnum);
-  }
-  //mexPrintMsg("CalcWeights pass finished");  
 }
 
 void Net::UpdateWeights(size_t epoch, bool isafter) {
