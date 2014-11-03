@@ -40,8 +40,7 @@ private:
   Weights biases_;
   std::vector<size_t> filtersize_;
   std::vector<size_t> padding_;
-  size_t minsize_;
-  Mat tmpbuf_der_;
+  size_t minsize_;  
   size_t sum_width_;
   
 };

@@ -249,9 +249,9 @@ void Net::InitDeriv(const Mat &labels_batch, ftype &loss) {
     loss = (lossmat_ *= lastlayer->deriv_mat_).sum() / (2 * batchsize);    
   }
   if (params_.balance_) {
-    lastlayer->deriv_mat_.MultVect(classcoefs_, 1);
-    lastlayer->deriv_mat_.Validate(); 
+    lastlayer->deriv_mat_.MultVect(classcoefs_, 1);    
   }    
+  lastlayer->deriv_mat_.Validate(); 
 }
 
 void Net::UpdateWeights(size_t epoch, bool isafter) {

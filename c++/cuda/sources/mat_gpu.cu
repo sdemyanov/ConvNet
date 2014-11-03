@@ -16,7 +16,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+   
 #include "mat_gpu.h"
 #include "cuda_util.h"
 
@@ -55,11 +55,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // static
 
-MatGPU MatGPU::_subset_buf;
-MatGPU MatGPU::_softmax_buf1;
-MatGPU MatGPU::_softmax_buf2;
-MatGPU MatGPU::_sum_buf;
-
 cudaEvent_t MatGPU::_start, MatGPU::_stop;
 
 void MatGPU::StartCudaTimer() {
@@ -76,10 +71,21 @@ void MatGPU::MeasureCudaTime(std::string msg) {
   mexPrintMsg(msg, elapsedTime);
 }
 
+std::map<int, MatGPU> MatGPU::_buffers;
+
+void MatGPU::swapWithBuffer(MatGPU &mat, int key) {
+  std::map<int, MatGPU>::iterator it = _buffers.find(key);  
+  if (it == _buffers.end()) {
+    //mexPrintMsg("key", key);
+    _buffers[key] = MatGPU();
+    it = _buffers.find(key);
+  }
+  Swap(mat, it->second);
+}
+
 curandGenerator_t MatGPU::_randGen;
 cudaStream_t MatGPU::_defaultStream;
 cublasHandle_t MatGPU::_cublasHandle;
-//std::mutex MatGPU::_mutex;
 
 int MatGPU::getDeviceID() {
   int id;
@@ -100,12 +106,7 @@ void MatGPU::CudaInit() {
   cudaDeviceProp prop;
   CUDA_CALL(cudaGetDeviceProperties(&prop, getDeviceID()));
   mexPrintMsg("Executing on", prop.name);    
-  */  
-  
-  _subset_buf = MatGPU();
-  _softmax_buf1 = MatGPU();
-  _softmax_buf2 = MatGPU();
-  _sum_buf = MatGPU();
+  */
   
   cudaEventCreate(&_start);
   cudaEventCreate(&_stop);  
@@ -120,11 +121,8 @@ void MatGPU::CudaReset() {
 
   cudaEventDestroy(_start);
   cudaEventDestroy(_stop);
-    
-  _softmax_buf1.clear();
-  _softmax_buf2.clear();
-  _subset_buf.clear();
-  _sum_buf.clear();
+  
+  _buffers.clear();
 
   CURAND_CALL(curandDestroyGenerator(_randGen));  
   CUDA_CALL(cudaStreamDestroy(_defaultStream));   
@@ -271,9 +269,11 @@ MatGPU& MatGPU::operator = (const MatGPU &a) {
 MatGPU& MatGPU::resize(size_t size1, size_t size2) {
   //mexPrintMsg("Array resize");
   if (size1 * size2 != size1_ * size2_) {
-  //if (size1 != size1_ || size2_ != size2_) {
     clear();
     if (size1 * size2 > 0) {
+      /* if (print == 2) {
+        mexPrintMsg("size", size1 * size2);
+      } */
       CUDA_CALL(cudaMalloc(&data_, size1 * size2 * sizeof(ftype)));
       owner_ = true;
     }
@@ -289,6 +289,11 @@ MatGPU& MatGPU::reshape(size_t size1, size_t size2) {
     "In MatCPU::reshape the sizes do not correspond");
   size1_ = size1;
   size2_ = size2;
+  return *this;
+}
+
+MatGPU& MatGPU::reorder(bool order, bool real) {
+  mexAssert(order_ == order, "In MatGPU::reorder order should be the same");
   return *this;
 }
 
@@ -419,18 +424,20 @@ MatGPU& MatGPU::SigmDer(const MatGPU& a) {
 }  
 
 MatGPU& MatGPU::SoftMax() {
-  MatGPU::_softmax_buf1.resize(size1_, 1);
-  MatGPU::_softmax_buf2.resize(size1_, 1);
-  MatGPU maxvect, sumvect;
-  maxvect.attach(MatGPU::_softmax_buf1);
-  sumvect.attach(MatGPU::_softmax_buf2);
+  MatGPU maxvect, sumvect;  
+  swapWithBuffer(maxvect, -1);
+  maxvect.resize(size1_, 1);
   cuda_maxvect(*this, maxvect, 2);
   this->AddVect(maxvect *= -1, 2);
   cuda_exp(*this);
+  swapWithBuffer(sumvect, -2);  
+  sumvect.resize(size1_, 1);
   Sum(*this, sumvect, 2);  
   maxvect.assign(1);
   maxvect /= sumvect;
-  this->MultVect(maxvect, 2);  
+  this->MultVect(maxvect, 2);
+  swapWithBuffer(maxvect, -1);
+  swapWithBuffer(sumvect, -1);
   return *this;
 }
 
@@ -525,9 +532,10 @@ void SubSet(MatCPU &a, MatGPU &b, size_t offset, bool dir) {
             "In SubSet the sizes don't correspond each other");  
   MatCPU as;
   as.attach(a_ptr->data_ + offset * a_ptr->size2_, b.size1_, b.size2_, 1, true);
-  MatGPU::_subset_buf.resize(b.size1_, b.size2_);  
   MatGPU br;
-  br.attach(MatGPU::_subset_buf);  
+  int bufsize = (int) (b.size1_ * b.size2_);
+  MatGPU::swapWithBuffer(br, bufsize);
+  br.resize(b.size1_, b.size2_);
   br.order_ = true;
   if (dir) {        
     br = as; // HostToDevice    
@@ -536,6 +544,7 @@ void SubSet(MatCPU &a, MatGPU &b, size_t offset, bool dir) {
     br = b; //changes order
     DeviceToHost(br, as);
   }
+  MatGPU::swapWithBuffer(br, bufsize);
   
   if (print >= 3) {
     cudaEventCreate(&stop);
@@ -699,15 +708,18 @@ void ImgActs(MatGPU& hidActs, MatGPU& filters, MatGPU& targets,
 
 void WeightActs(MatGPU& images, MatGPU& hidActs, MatGPU& targets,
                 const std::vector<size_t> &prev_mapsize, size_t padding, 
-                size_t filtersize, size_t sum_width, MatGPU& tmpbuf) {
+                size_t filtersize, size_t sum_width) {
   size_t mapsize1 = prev_mapsize[0] + 2 * padding + 1 - filtersize;
   size_t mapsize2 = prev_mapsize[1] + 2 * padding + 1 - filtersize;
   size_t chunks_x = DIVUP(mapsize1, sum_width);
   size_t chunks_y = DIVUP(mapsize2, sum_width);
   size_t chunks_num = chunks_x * chunks_y;      
   
+  MatGPU tmpbuf;
+  int bufsize = (int) (targets.size1_ * targets.size2_ * chunks_num);
   if (chunks_num > 1) {
-    tmpbuf.resize(targets.size1_, targets.size2_ * chunks_num);
+    MatGPU::swapWithBuffer(tmpbuf, bufsize);    
+    tmpbuf.resize(targets.size1_, targets.size2_ * chunks_num);    
   } else {
     tmpbuf.attach(targets);
   }
@@ -738,6 +750,7 @@ void WeightActs(MatGPU& images, MatGPU& hidActs, MatGPU& targets,
     Sum(tmpbuf, targets, 2);
     targets.reshape(outputmaps, targets.size1_ / outputmaps);    
     tmpbuf.reshape(targets.size1_, targets.size2_ * chunks_num);
+    MatGPU::swapWithBuffer(tmpbuf, bufsize);    
   }  
 }
 

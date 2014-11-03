@@ -178,7 +178,7 @@ void LayerConv::CalcWeights(Layer *prev_layer, int passnum) {
     }    
   #else // GPU
     WeightActs(prev_layer->activ_mat_, deriv_mat_, weights_der,
-               prev_layer->mapsize_, padding_[0], filtersize_[0], sum_width_, tmpbuf_der_);        
+               prev_layer->mapsize_, padding_[0], filtersize_[0], sum_width_);        
   #endif  
   if (passnum == 2) {
     mexAssert(deriv_mat_.order() == false, "deriv_mat_.order() should be false");

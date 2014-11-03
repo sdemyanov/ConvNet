@@ -1033,16 +1033,21 @@ float cuda_sum(const MatGPU &mat) {
   
   size_t numElements = mat.size1_ * mat.size2_;
   size_t blocks_number = MIN(DIVUP(numElements, ELTWISE_FLAT_THREADS_X), ELTWISE_FLAT_THREADS_X);
-  MatGPU::_sum_buf.resize(ELTWISE_FLAT_THREADS_X, 1);
-  MatGPU partsums;
-  partsums.attach(MatGPU::_sum_buf);  
+  //MatGPU::_sum_buf1.resize(ELTWISE_FLAT_THREADS_X, 1);
+  //MatGPU::_sum_buf2.resize(1, 1);
+  MatGPU partsums, totalsum;
+  MatGPU::swapWithBuffer(partsums, ELTWISE_FLAT_THREADS_X);
+  partsums.resize(ELTWISE_FLAT_THREADS_X, 1);
+  MatGPU::swapWithBuffer(totalsum, 1);
+  totalsum.resize(1, 1);
   _totalSum<<<blocks_number, ELTWISE_FLAT_THREADS_X, 0, stream>>>
     (mat.data_, partsums.data_, numElements);
-  MatGPU totalsum(1, 1);
   _totalSum<<<1, ELTWISE_FLAT_THREADS_X, 0, stream>>>
     (partsums.data_, totalsum.data_, blocks_number);
   MatCPU cpusum(1, 1);
   DeviceToHost(totalsum, cpusum);
+  MatGPU::swapWithBuffer(partsums, ELTWISE_FLAT_THREADS_X);
+  MatGPU::swapWithBuffer(totalsum, 1);
   return cpusum(0, 0);
 }
 

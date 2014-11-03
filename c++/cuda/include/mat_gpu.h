@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mat_cpu.h"
 #include <cublas_v2.h>
 #include <curand.h>
+#include <map>
 //#include <mutex>
 
 #ifndef _Pragma // Windows
@@ -41,10 +42,10 @@ private:
   static cublasHandle_t _cublasHandle;  
   static int getDeviceID();
   
-  static cudaEvent_t _start, _stop;  
+  static std::map<int, MatGPU> _buffers;
+  static void swapWithBuffer(MatGPU &mat, int key);
   
-  static MatGPU _subset_buf, _sum_buf;
-  static MatGPU _softmax_buf1, _softmax_buf2;
+  static cudaEvent_t _start, _stop;  
   
 public:
   // static
@@ -75,6 +76,7 @@ public:
   MatGPU& operator = (const MatGPU &a);
   MatGPU& resize(size_t size1, size_t size2);  
   MatGPU& reshape(size_t size1, size_t size2); 
+  MatGPU& reorder(bool order, bool real);
   MatGPU& clear();
   friend void Swap(MatGPU &a, MatGPU &b);
   
@@ -129,7 +131,7 @@ public:
                       const std::vector<size_t> &prev_mapsize, size_t padding);                      
   friend void WeightActs(MatGPU& images, MatGPU& hidActs, MatGPU& targets,
                          const std::vector<size_t> &prev_mapsize, size_t padding, 
-                         size_t filtersize, size_t sum_width, MatGPU& weights_der);
+                         size_t filtersize, size_t sum_width);
   
   // scaling functions  
   friend void AvgPooling(MatGPU& images, MatGPU& targets,
