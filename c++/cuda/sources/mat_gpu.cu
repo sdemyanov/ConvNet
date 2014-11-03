@@ -437,7 +437,7 @@ MatGPU& MatGPU::SoftMax() {
   maxvect /= sumvect;
   this->MultVect(maxvect, 2);
   swapWithBuffer(maxvect, -1);
-  swapWithBuffer(sumvect, -1);
+  swapWithBuffer(sumvect, -2);
   return *this;
 }
 
