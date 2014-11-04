@@ -580,7 +580,7 @@ void Shuffle(MatCPU &a, MatCPU &b) {
   mexAssert(a.stride_ == 1 && b.stride_ == 1, "In Shuffle the strides should be 1");
   mexAssert(a.size1_ == b.size1_, "In Shuffle the sizes do not correspond");
   size_t train_num = a.size1_;
-  mexPrintMsg("train_num", train_num);
+  //mexPrintMsg("train_num", train_num);
   std::vector<size_t> randind(train_num);
   for (size_t i = 0; i < train_num; ++i) {
     randind[i] = i;
