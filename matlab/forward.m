@@ -6,9 +6,6 @@ batchsize = size(layers{1}.a, 4); % number of examples in the minibatch
 for l = 1 : n   %  for each layer
   
   if strcmp(layers{l}.type, 'i')
-    if (passnum == 3)
-      continue;
-    end;   
     if (isfield(layers{l}, 'mean'))
       layers{l}.a = layers{l}.a + repmat(layers{l}.mw, [1 1 1 batchsize]);      
     end;
@@ -41,13 +38,8 @@ for l = 1 : n   %  for each layer
         layers{l}.a(:, :, i, :) = layers{l}.a(:, :, i, :) + ...
           filtn(a_prev(:, :, j, :), layers{l}.k(:, :, j, i), 'valid');        
       end    
-    end    
-    %{
-    disp(layers{l-1}.a(1, 1:5, 1, 1));
-    disp(layers{l}.k(1, 1:4, 1, 1));
-    disp(layers{l}.k(1:4, 1, 1, 1));
-    disp(layers{l}.a(1, 1:5, 1, 1));    
-    %}
+    end
+    layers{l}.a(-layers{l}.eps < layers{l}.a & layers{l}.a < layers{l}.eps) = 0;   
 
   elseif strcmp(layers{l}.type, 's')
     sc = [layers{l}.scale 1 1];
@@ -94,50 +86,30 @@ for l = 1 : n   %  for each layer
   
   elseif strcmp(layers{l}.type, 'f')    
     %  concatenate all end layer feature maps into vector
-    if ~strcmp(layers{l-1}.type, 'f')          
-      %a_trans = permute(layers{l-1}.a, [4 1 2 3]);
-      %disp('prev_layer->activ_mat');
-      %disp(a_trans(1, 1:5, 1, 1));
-      %disp('weights');
-      %disp(layers{l}.w(1, 1:5));
+    if strcmp(layers{l-1}.type, 'f')          
+      layers{l}.ai = layers{l-1}.a;      
+    else      
       layers{l}.ai = reshape(layers{l-1}.a, layers{l}.weightsize(2), batchsize)';      
-    else
-      layers{l}.ai = layers{l-1}.a;
+    end;
+    if (passnum == 0 || passnum == 1)
+      layers{l}.a = bsxfun(@plus, layers{l}.ai * layers{l}.w', layers{l}.b);    
     end;
     if (layers{l}.dropout > 0) % dropout
       if (passnum == 1) % training 1
-        dropmat = rand([size(layers{l}.w) batchsize]);
+        dropmat = rand(batchsize, layers{l}.length);
         dropmat(dropmat < layers{l}.dropout) = 0;
         dropmat(dropmat > 0) = 1;
-        layers{l}.dropmat = dropmat;        
-        layers{l}.a = maskprod(layers{l}.ai, 0, layers{l}.w, 1, dropmat);        
-        
-        dropmat_bias = rand([batchsize size(layers{l}.b, 2)]);
-        dropmat_bias(dropmat_bias < layers{l}.dropout) = 0;
-        dropmat_bias(dropmat_bias > 0) = 1;
-        layers{l}.dropmat_bias = dropmat_bias;        
-        biases = repmat(layers{l}.b, [batchsize 1]) .* dropmat_bias;
-        layers{l}.a = layers{l}.a + biases;
-      elseif (passnum == 3)
-        a = layers{l}.a;
-        layers{l}.a = maskprod(layers{l}.ai, 0, layers{l}.w, 1, layers{l}.dropmat);        
-      elseif (passnum == 0) % testing      
-        layers{l-1}.a = layers{l-1}.a * (1 - layers{l}.dropout);
-        biases = layers{l}.b * (1 - layers{l}.dropout);
-        layers{l}.a = bsxfun(@plus, layers{l}.ai * layers{l}.w', biases);      
+        layers{l}.dropmat = dropmat;
+        layers{l}.a = layers{l}.a .* dropmat;      
+      elseif (passnum == 0) % testing
+        layers{l}.a = layers{l}.a * (1 - layers{l}.dropout);        
       end;    
-    else
-      if (passnum == 0 || passnum == 1)
-        layers{l}.a = bsxfun(@plus, layers{l}.ai * layers{l}.w', layers{l}.b);      
-      elseif (passnum == 3)
-        a = layers{l}.a;
-        layers{l}.a = layers{l}.ai * layers{l}.w';      
-      end;
     end;
+    layers{l}.a(-layers{l}.eps < layers{l}.a & layers{l}.a < layers{l}.eps) = 0;
     %disp('activ_mat');
     %disp(layers{l}.a(1, 1:5, 1, 1));
   end
-  layers{l}.a(-layers{l}.eps < layers{l}.a & layers{l}.a < layers{l}.eps) = 0;
+  
   
   if strcmp(layers{l}.type, 'c') || strcmp(layers{l}.type, 'f')
     if (passnum == 0 || passnum == 1)
@@ -159,7 +131,9 @@ for l = 1 : n   %  for each layer
       elseif strcmp(layers{l}.function, 'SVM')
       end;
     end;
-    layers{l}.a(-layers{l}.eps < layers{l}.a & layers{l}.a < layers{l}.eps) = 0;
+    if (strcmp(layers{l}.function, 'soft') || strcmp(layers{l}.function, 'sigm'))
+      layers{l}.a(-layers{l}.eps < layers{l}.a & layers{l}.a < layers{l}.eps) = 0;
+    end;
   end;
 end
 

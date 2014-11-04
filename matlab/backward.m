@@ -13,16 +13,12 @@ for l = n : -1 : 1
       layers{l}.d = layers{l}.d .* (layers{l}.a > 0);          
     elseif strcmp(layers{l}.function, 'SVM') % for SVM
     end;
-    layers{l}.d(-layers{l}.eps < layers{l}.d & layers{l}.d < layers{l}.eps) = 0;    
+    if (strcmp(layers{l}.function, 'soft') || strcmp(layers{l}.function, 'sigm'))
+      layers{l}.d(-layers{l}.eps < layers{l}.d & layers{l}.d < layers{l}.eps) = 0;    
+    end;
   end;
   
-  if strcmp(layers{l}.type, 'n')    
-    layers{l-1}.d = layers{l}.d;
-    if (layers{l}.is_dev == 1)
-      layers{l-1}.d = layers{l-1}.d .* repmat(layers{l}.w(:, :, :, 2), [1 1 1 batchsize]);
-    end;
-
-  elseif strcmp(layers{l}.type, 'c')
+  if strcmp(layers{l}.type, 'c')
     d_cur = layers{l}.d;    
     if (layers{l}.padding(1) > 0 || layers{l}.padding(2) > 0)
       ds = size(layers{l}.d); ds(end+1:4) = 1;
@@ -42,8 +38,7 @@ for l = n : -1 : 1
         end;
       end        
     end;
-    %disp(sum(layers{l-1}.d(:)));
-    %disp(layers{l-1}.d(1, 1:5, 1, 1));
+    layers{l-1}.d(-layers{l-1}.eps < layers{l-1}.d & layers{l-1}.d < layers{l-1}.eps) = 0;
 
   elseif strcmp(layers{l}.type, 's')    
     sc = [layers{l}.scale 1 1];
@@ -82,19 +77,18 @@ for l = n : -1 : 1
     end;      
 
   elseif strcmp(layers{l}.type, 'f')
-    if (layers{l}.dropout > 0) % dropout
-      layers{l}.di = maskprod(layers{l}.d, 0, layers{l}.w, 0, layers{l}.dropmat);
-    else
-      layers{l}.di = layers{l}.d * layers{l}.w; 
-    end;
-    if ~strcmp(layers{l-1}.type, 'f')      
-      layers{l-1}.d = reshape(layers{l}.di', [layers{l-1}.mapsize layers{l-1}.outputmaps batchsize]);        
-    else
+    layers{l}.di = layers{l}.d * layers{l}.w;
+    if strcmp(layers{l-1}.type, 'f')      
       layers{l-1}.d = layers{l}.di;
-    end;      
-  end;  
-  if (l == 1), ind = 1; else ind = l-1; end;  
-  layers{ind}.d(-layers{ind}.eps < layers{ind}.d & layers{ind}.d < layers{ind}.eps) = 0;
+      if (layers{l-1}.dropout > 0) % dropout
+        layers{l-1}.d = layers{l-1}.d .* layers{l-1}.dropmat;
+      end;
+    else
+      layers{l-1}.d = reshape(layers{l}.di', [layers{l-1}.mapsize layers{l-1}.outputmaps batchsize]);
+    end;
+    layers{l-1}.d(-layers{l-1}.eps < layers{l-1}.d & layers{l-1}.d < layers{l-1}.eps) = 0;
+  end;    
+  
 end
     
 end

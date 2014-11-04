@@ -636,12 +636,7 @@ void InitMaps(const MatCPU &a, const std::vector<size_t> &mapsize,
 
 // layer transformation functions
 
-void Prod(const MatCPU &a, bool a_tr, const MatCPU &b, bool b_tr, MatCPU &c) {  
-  MatCPU m; // empty mask matrix;
-  Prod(a, a_tr, b, b_tr, m, c);
-}
-
-void Prod(const MatCPU &a, bool a_tr, const MatCPU &b, bool b_tr, const MatCPU &mask, MatCPU &c) {
+void Prod(const MatCPU &a, bool a_tr, const MatCPU &b, bool b_tr, MatCPU &c) {
   size_t as1, as2, bs1, bs2;
   MatCPU al, bl, cl;
   if (!a_tr) { // a
@@ -662,48 +657,18 @@ void Prod(const MatCPU &a, bool a_tr, const MatCPU &b, bool b_tr, const MatCPU &
     bl.resize(b.size1_, b.size2_);
     bl = b;    
   }
-  if (!mask.empty()) {
-    mexAssert(mask.size1_ == a.size1_, "In Prod the size1 of mask is wrong");  
-    mexAssert(mask.size2_ == a.size2_ * bs2, "In Prod the size2 of mask is wrong");    
-  }  
   mexAssert(as2 == bs1, "In Prod the sizes of matrices do not correspond"); 
   mexAssert(c.size1_ == as1 && c.size2_ == bs2, "In Prod the size of output matrix is wrong");
   
   cl.resize(as1, bs2);
   cl.assign(0);
-  if (mask.empty()) {
-    for (size_t k = 0; k < bs1; ++k) {    
-      for (size_t j = 0; j < bs2; ++j) {
-        for (size_t i = 0; i < as1; ++i) {                    
-          cl(i, j) += al(i, k) * bl(j, k);            
-        }
+  for (size_t k = 0; k < bs1; ++k) {    
+    for (size_t j = 0; j < bs2; ++j) {
+      for (size_t i = 0; i < as1; ++i) {                    
+        cl(i, j) += al(i, k) * bl(j, k);            
       }
     }
-  } else {
-    for (size_t k = 0; k < bs1; ++k) {    
-      for (size_t j = 0; j < bs2; ++j) {
-        for (size_t i = 0; i < as1; ++i) {          
-          if (!a_tr && !b_tr) { // backward
-            if (mask(i, k * bs2 + j) > 0) {                  
-              cl(i, j) += al(i, k) * bl(j, k);
-            }            
-          } else if (!a_tr && b_tr) { // forward
-            if (mask(i, j * bs1 + k) > 0) {              
-              cl(i, j) += al(i, k) * bl(j, k);
-            }
-          } else if (a_tr && !b_tr) { // calcweights
-            if (mask(k, i * bs2 + j) > 0) {                  
-              cl(i, j) += al(i, k) * bl(j, k);
-            }
-          } else if (a_tr && b_tr) {
-            if (mask(k, j * bs1 + i) > 0) {                  
-              cl(i, j) += al(i, k) * bl(j, k);
-            }
-          }          
-        }
-      }
-    }    
-  }
+  }  
   c = cl;
   //Swap(c, cl);  
 }

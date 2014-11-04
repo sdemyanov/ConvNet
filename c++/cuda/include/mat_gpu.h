@@ -49,10 +49,11 @@ private:
   
 public:
   // static
+
   static void CudaInit();
   static void InitRand(size_t seed);  
   static void CudaReset();  
-  
+
   static void StartCudaTimer();
   static void MeasureCudaTime(std::string msg);
   
@@ -122,8 +123,7 @@ public:
   
   // layer transformation functions
   friend void Prod(const MatGPU &a, bool a_tr, const MatGPU &b, bool b_tr, MatGPU &c);
-  friend void Prod(const MatGPU &a, bool a_tr, const MatGPU &b, bool b_tr, const MatGPU &mask, MatGPU &c);
-
+  
   // filter functions  
   friend void FilterActs(MatGPU& images, MatGPU& filters, MatGPU& targets,
                          const std::vector<size_t> &prev_mapsize, size_t padding);

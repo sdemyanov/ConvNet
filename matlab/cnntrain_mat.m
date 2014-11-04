@@ -52,7 +52,7 @@ for epoch = 1 : params.numepochs
     trainerr(epoch, 1) = trainerr(epoch, 1) + loss;
     %disp(['loss: ' num2str(loss)]);
     layers = backward(layers);
-    layers = calcweights(layers, 1);
+    layers = calcweights(layers, 2);
     
     layers = updateweights(layers, params, epoch, 1); % final update
      

@@ -21,6 +21,9 @@ load mnist;
 kSampleDim = ndims(TrainX);
 kXSize = size(TrainX);
 kXSize(kSampleDim) = [];
+if (kSampleDim == 3)  
+  kXSize(3) = 1;
+end;
 kWorkspaceFolder = './workspace';
 if (~exist(kWorkspaceFolder, 'dir'))
   mkdir(kWorkspaceFolder);
@@ -38,10 +41,9 @@ test_x = single(TestX(:, :, 1:kTestNum));
 test_y = single(TestY(1:kTestNum, :));
 
 clear params;
-params.numepochs = 1;
 params.seed = 0;
+params.numepochs = 1;
 params.alpha = 1;
-params.beta = 0;
 params.momentum = 0.9;
 params.shuffle = 0;
 dropout = 0;
@@ -55,15 +57,14 @@ norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
 % This structure is just for demonstration purposes
 
 layers = {
-    struct('type', 'i', 'mapsize', kXSize, 'outputmaps', 1, ...
+    struct('type', 'i', 'mapsize', kXSize(1:2), 'outputmaps', kXSize(3), ...
            'norm', norm_x, 'mean', 0', 'maxdev', 1)
     struct('type', 'c', 'filtersize', [4 4], 'outputmaps', 16, 'padding', [1 1]) %convolution layer
     struct('type', 's', 'scale', [3 3], 'function', 'mean', 'stride', [2 2]) % subsampling layer
     struct('type', 'c', 'filtersize', [4 4], 'outputmaps', 32, 'padding', [1 1]) %convolution layer
     struct('type', 's', 'scale', [3 3], 'function', 'max', 'stride', [2 2]) % subsampling layer   
-    struct('type', 'f', 'length', 256) % fully connected layer
-    struct('type', 'f', 'length', kOutputs, 'function', 'soft', ...
-           'dropout', dropout) % fully connected layer
+    struct('type', 'f', 'length', 256, 'dropout', dropout) % fully connected layer
+    struct('type', 'f', 'length', kOutputs, 'function', 'soft') % fully connected layer
 };
 
 rng(params.seed);

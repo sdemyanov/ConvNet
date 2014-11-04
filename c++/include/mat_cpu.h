@@ -141,7 +141,6 @@ public:
   
   // layer transformation functions
   friend void Prod(const MatCPU &a, bool a_tr, const MatCPU &b, bool b_tr, MatCPU &c);
-  friend void Prod(const MatCPU &a, bool a_tr, const MatCPU &b, bool b_tr, const MatCPU &mask, MatCPU &c);
   friend void Filter(const MatCPU &image, const MatCPU &filter, 
                      const std::vector<size_t> padding, bool conv, MatCPU &filtered);
   friend void Transform(const MatCPU &image, const std::vector<ftype> &shift, 

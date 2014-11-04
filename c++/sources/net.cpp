@@ -71,10 +71,12 @@ void Net::InitLayers(const mxArray *mx_layers) {
     layers_[i]->Init(mx_layer, prev_layer);    
   }
   mexAssert(layer_type == "f", "The last layer must be the type of 'f'");
-  mexAssert(layers_.back()->function_ == "soft" || 
-            layers_.back()->function_ == "sigm" ||
-            layers_.back()->function_ == "SVM",
+  LayerFull *lastlayer = static_cast<LayerFull*>(layers_.back());
+  mexAssert(lastlayer->function_ == "soft" || 
+            lastlayer->function_ == "sigm" ||
+            lastlayer->function_ == "SVM",
             "The last layer function must be 'soft', 'sigm' or 'SVM'");
+  mexAssert(lastlayer->dropout_ == 0, "The last layer dropout must be 0");
   //mexPrintMsg("Layers initialization finished");
 }
 

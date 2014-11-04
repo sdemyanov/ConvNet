@@ -125,7 +125,7 @@ void MatGPU::CudaReset() {
   _buffers.clear();
 
   CURAND_CALL(curandDestroyGenerator(_randGen));  
-  CUDA_CALL(cudaStreamDestroy(_defaultStream));   
+  CUDA_CALL(cudaStreamDestroy(_defaultStream));
   CUBLAS_CALL(cublasDestroy(_cublasHandle));
    
   CUDA_CALL(cudaDeviceReset());
@@ -270,10 +270,7 @@ MatGPU& MatGPU::resize(size_t size1, size_t size2) {
   //mexPrintMsg("Array resize");
   if (size1 * size2 != size1_ * size2_) {
     clear();
-    if (size1 * size2 > 0) {
-      /* if (print == 2) {
-        mexPrintMsg("size", size1 * size2);
-      } */
+    if (size1 * size2 > 0) {       
       CUDA_CALL(cudaMalloc(&data_, size1 * size2 * sizeof(ftype)));
       owner_ = true;
     }
@@ -616,11 +613,6 @@ void Trans(const MatGPU &a, MatGPU &b) {
 // layer transformation functions
 
 void Prod(const MatGPU &a, bool a_tr, const MatGPU &b, bool b_tr, MatGPU &c) {  
-  MatGPU mask; // empty mask matrix;
-  Prod(a, a_tr, b, b_tr, mask, c);
-}
-
-void Prod(const MatGPU &a, bool a_tr, const MatGPU &b, bool b_tr, const MatGPU &mask, MatGPU &c) {
   
   size_t as1, as2, bs1, bs2;
   cublasOperation_t a_op, b_op;
@@ -638,25 +630,18 @@ void Prod(const MatGPU &a, bool a_tr, const MatGPU &b, bool b_tr, const MatGPU &
     bs1 = b.size2_; bs2 = b.size1_;
     b_op = CUBLAS_OP_T;
   }
-  if (!mask.empty()) {
-    mexAssert(mask.size1_ == a.size1_, "In Prod the size1 of mask is wrong");  
-    mexAssert(mask.size2_ == a.size2_ * bs2, "In Prod the size2 of mask is wrong");    
-  }  
+
   mexAssert(as2 == bs1, "In Prod the sizes of matrices do not correspond");   
   mexAssert(c.size1_ == as1 && c.size2_ == bs2, "In Prod the size of output matrix is wrong"); 
   mexAssert(a.stride_ == 1 && b.stride_ == 1 && c.stride_ == 1, "In Prod one of strides is not 1"); 
   
-  if (mask.empty()) {
-    cudaStream_t stream = MatGPU::_defaultStream;
-    cublasHandle_t handle = MatGPU::_cublasHandle;
-    const ftype scale_prod = 1.0, scale_cur = 0.0;    
-    CUBLAS_CALL(cublasSetStream(handle, stream));
-    CUBLAS_CALL(cublasSgemm(handle, a_op, b_op, as1, bs2, as2,
-                           &scale_prod, a.data_, a.size1_, b.data_, b.size1_,
-                           &scale_cur, c.data_, c.size1_));
-  } else {    
-    mexAssert("dropout > 0 is not implemented in the GPU version yet");
-  }   
+  cudaStream_t stream = MatGPU::_defaultStream;
+  cublasHandle_t handle = MatGPU::_cublasHandle;
+  const ftype scale_prod = 1.0, scale_cur = 0.0;    
+  CUBLAS_CALL(cublasSetStream(handle, stream));
+  CUBLAS_CALL(cublasSgemm(handle, a_op, b_op, as1, bs2, as2,
+                         &scale_prod, a.data_, a.size1_, b.data_, b.size1_,
+                         &scale_cur, c.data_, c.size1_));
 }
 
 // filter functions
