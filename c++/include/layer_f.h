@@ -25,8 +25,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 class LayerFull : public Layer {
   
 public:
-  // activ_ and deriv_ are not used in this class
-  
   LayerFull();  
   ~LayerFull() {};    
   void Init(const mxArray *mx_layer, Layer *prev_layer);
@@ -43,7 +41,6 @@ private:
   Weights weights_;
   Weights biases_;  
   Mat dropmat_;
-  Mat dropmat_bias_;
   ftype c_; // coefficient for SVM
   
 };
