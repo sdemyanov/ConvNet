@@ -37,10 +37,11 @@ public:
   void GetWeights(Mat &weights, size_t &offset) const;
   size_t NumWeights() const;
   
+  ftype dropout_;
+  
 private:
   Weights weights_;
-  Weights biases_;
-  ftype dropout_;
+  Weights biases_;  
   Mat dropmat_;
   Mat dropmat_bias_;
   ftype c_; // coefficient for SVM
