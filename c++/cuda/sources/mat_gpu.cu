@@ -410,6 +410,11 @@ MatGPU& MatGPU::Sqrt() {
   return *this;
 }
 
+MatGPU& MatGPU::Log() {
+  cuda_log(*this);
+  return *this;
+}
+
 MatGPU& MatGPU::Sigmoid() {
   cuda_sigmoid(*this);
   return *this;

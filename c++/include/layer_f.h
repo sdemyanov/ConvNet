@@ -41,7 +41,6 @@ private:
   Weights weights_;
   Weights biases_;  
   Mat dropmat_;
-  ftype c_; // coefficient for SVM
   
 };
 

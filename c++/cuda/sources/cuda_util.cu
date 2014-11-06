@@ -86,6 +86,13 @@ public:
     }
   };
   
+  class Log {
+  public:
+    __device__ inline float operator()(const float a) const {
+      return __logf(a);
+    }
+  };
+  
   class Exp {
   public:
     __device__ inline float operator()(const float a) const {
@@ -263,6 +270,10 @@ void cuda_sqrt(MatGPU &mat) {
   _applyUnaryOp(mat, UnaryOp::Sqrt());
 }
 
+void cuda_log(MatGPU &mat) {
+  _applyUnaryOp(mat, UnaryOp::Log());
+}
+
 void cuda_exp(MatGPU &mat) {
   _applyUnaryOp(mat, UnaryOp::Exp());
 }
@@ -403,8 +414,7 @@ __global__ void kSoftmaxGrad(float* dE_dy_l, float* y_l, float* dE_dx_l, int num
         for (int j = 0; j < numOut; j++) {
             v += dE_dy_l[j * numCases + tx] * ((j == ty) - y_l[j * numCases + tx]);
         }
-        v *= y_l[tidx];
-        
+        v *= y_l[tidx];        
         dE_dx_l[tidx] = v;        
     }
 }

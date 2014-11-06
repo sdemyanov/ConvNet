@@ -31,12 +31,8 @@ for l = 1 : n
     %disp(layers{l}.dk(1, 1:5, 1, 1));
 
   elseif strcmp(layers{l}.type, 'f')
-    dw = layers{l}.d' * layers{l}.ai / batchsize;
     if (passnum == 2)
-      layers{l}.dw = dw;
-      if strcmp(layers{l}.function, 'SVM')
-        layers{l}.dw = layers{l}.dw + layers{l}.w / layers{l}.C;
-      end;
+      layers{l}.dw = layers{l}.d' * layers{l}.ai / batchsize;
       layers{l}.db = mean(layers{l}.d, 1);    
       layers{l}.db(-layers{l}.eps < layers{l}.db & layers{l}.db < layers{l}.eps) = 0;
       layers{l}.dw(-layers{l}.eps < layers{l}.dw & layers{l}.dw < layers{l}.eps) = 0;    

@@ -119,7 +119,6 @@ for l = 1 : n   %  for each layer
         layers{l}.a = sigm(layers{l}.a);        
       elseif strcmp(layers{l}.function, 'relu')
         layers{l}.a = max(layers{l}.a, 0);
-      elseif strcmp(layers{l}.function, 'SVM')
       end;
     elseif (passnum == 3)
       if strcmp(layers{l}.function, 'soft')
@@ -128,7 +127,6 @@ for l = 1 : n   %  for each layer
         layers{l}.a = layers{l}.a .* a .* (1 - a);        
       elseif strcmp(layers{l}.function, 'relu')
         layers{l}.a = layers{l}.a .* (a > 0);
-      elseif strcmp(layers{l}.function, 'SVM')
       end;
     end;
     if (strcmp(layers{l}.function, 'soft') || strcmp(layers{l}.function, 'sigm'))

@@ -116,6 +116,7 @@ public:
   MatCPU& operator /= (ftype a);  
   MatCPU& Sign();
   MatCPU& Sqrt();
+  MatCPU& Log();  
   MatCPU& SoftMax();
   MatCPU& SoftDer(const MatCPU &a);
   MatCPU& Sigmoid();

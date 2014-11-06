@@ -29,11 +29,14 @@ Params::Params() {
   mincoef_ = 1;
   balance_ = false;
   shuffle_ = false;
+  lossfun_ = "squared";
   verbose_ = 0;
   seed_ = 0;  
 }
   
 void Params::Init(const mxArray *mx_params) {
+
+  mexAssert(mexIsStruct(mx_params), "In 'Params::Init' the array in not a struct");  
   
   if (mexIsField(mx_params, "batchsize")) {    
     batchsize_ = (size_t) mexGetScalar(mexGetField(mx_params, "batchsize"));    
@@ -73,6 +76,11 @@ void Params::Init(const mxArray *mx_params) {
   }
   if (mexIsField(mx_params, "shuffle")) {    
     shuffle_ = (bool) mexGetScalar(mexGetField(mx_params, "shuffle"));    
+  }
+  if (mexIsField(mx_params, "lossfun")) {
+    lossfun_ = mexGetString(mexGetField(mx_params, "lossfun"));
+    mexAssert(lossfun_ == "logreg" || lossfun_ == "squared", 
+      "Unknown loss function in params");    
   }
   if (mexIsField(mx_params, "verbose")) {    
     verbose_ = (size_t) mexGetScalar(mexGetField(mx_params, "verbose"));    

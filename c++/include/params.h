@@ -34,6 +34,7 @@ public:
   ftype mincoef_;
   bool balance_;
   bool shuffle_;
+  std::string lossfun_;
   size_t verbose_;
   size_t seed_;  
 

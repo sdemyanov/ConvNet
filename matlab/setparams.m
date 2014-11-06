@@ -27,6 +27,9 @@ end;
 if (~isfield(params, 'shuffle'))
   params.shuffle = 0;
 end;
+if (~isfield(params, 'lossfun'))
+  params.lossfun = 'squared';
+end;
 if (~isfield(params, 'verbose'))
   params.verbose = 0;
 end;

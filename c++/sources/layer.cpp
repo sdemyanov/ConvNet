@@ -29,7 +29,6 @@ void Layer::Nonlinear(int passnum) {
       activ_mat_.Validate();
     } else if (function_ == "relu") {
       activ_mat_.CondAssign(activ_mat_, false, 0, 0);
-    } else if (function_ == "SVM") {    
     }    
   } else if (passnum == 2) { // backward
     if (function_ == "soft") {
@@ -40,7 +39,6 @@ void Layer::Nonlinear(int passnum) {
       deriv_mat_.Validate();  
     } else if (function_ == "relu") {        
       deriv_mat_.CondAssign(activ_mat_, false, 0, 0);
-    } else if (function_ == "SVM") {    
     }    
   }
 }

@@ -37,8 +37,8 @@ void LayerConv::Init(const mxArray *mx_layer, Layer *prev_layer) {
   outputmaps_ = (size_t) outputmaps;  
   if (mexIsField(mx_layer, "function")) {
     function_ = mexGetString(mexGetField(mx_layer, "function"));
-    mexAssert(function_ == "soft" || function_ == "sigm" || function_ == "relu", 
-      "Unknown function for the 'c' layer");    
+    mexAssert(function_ == "relu" || function_ == "sigm", 
+      "Unknown function for the 'c' layer");
   }
   mexAssert(mexIsField(mx_layer, "filtersize"), "The 'c' type layer must contain the 'filtersize' field");
   std::vector<ftype> filtersize = mexGetVector(mexGetField(mx_layer, "filtersize"));

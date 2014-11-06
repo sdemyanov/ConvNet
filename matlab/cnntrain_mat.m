@@ -11,9 +11,6 @@ if (params.balance == 1)
 elseif (params.balance == 0)
   layers{end}.coef = ones(1, classes_num);  
 end;
-if strcmp(layers{end}.function, 'SVM')
-  train_y(train_y == 0) = -1;
-end;
 layers = setweights(layers, weights);
 
 assert(size(train_x, 1) == layers{1}.mapsize(1) && ...
@@ -48,10 +45,10 @@ for epoch = 1 : params.numepochs
     %disp(['pred: ' num2str(pred(1,1:5))]);
     
     % second pass
-    [layers, loss] = initder(layers, batch_y);
+    [layers, loss] = initder(layers, params, batch_y);
     trainerr(epoch, 1) = trainerr(epoch, 1) + loss;
     %disp(['loss: ' num2str(loss)]);
-    layers = backward(layers);
+    layers = backward(layers, params);
     layers = calcweights(layers, 2);
     
     layers = updateweights(layers, params, epoch, 1); % final update

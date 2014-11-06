@@ -313,6 +313,12 @@ MatCPU& MatCPU::Sqrt() {
   return *this;
 }
 
+MatCPU& MatCPU::Log() {
+  for (size_t i = 0; i < size1_ * size2_; ++i) {
+    data(i) = log(data(i));
+  }
+  return *this;
+}
 
 MatCPU& MatCPU::SoftMax() {
 

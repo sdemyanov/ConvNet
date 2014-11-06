@@ -37,13 +37,7 @@ void LayerFull::Init(const mxArray *mx_layer, Layer *prev_layer) {
   length_prev_ = prev_layer->length_;
   if (mexIsField(mx_layer, "function")) {
     function_ = mexGetString(mexGetField(mx_layer, "function"));  
-    if (function_ == "SVM") {
-      mexAssert(mexIsField(mx_layer, "C"), "The 'SVM' layer must contain the 'C' field");
-      c_ = mexGetScalar(mexGetField(mx_layer, "C"));
-      mexAssert(c_ > 0, "C on the 'f' layer must be positive");
-    }
-    mexAssert(function_ == "soft" || function_ == "sigm" || 
-              function_ == "relu" || function_ == "SVM",
+    mexAssert(function_ == "soft" || function_ == "sigm" || function_ == "relu",
       "Unknown function for the 'f' layer");
   }
   if (mexIsField(mx_layer, "dropout")) {
@@ -97,10 +91,6 @@ void LayerFull::CalcWeights(Layer *prev_layer, int passnum) {
   Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_der);
   if (passnum == 2) {
     Mean(deriv_mat_, biases_.der(), 1);    
-    if (function_ == "SVM") {
-      Mat weights_reg = weights_.get();    
-      weights_der += (weights_reg /= c_);
-    }  
     biases_.der().Validate();
   }
   weights_der /= batchsize_;

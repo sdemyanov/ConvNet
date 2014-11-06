@@ -69,13 +69,13 @@ void Net::InitLayers(const mxArray *mx_layers) {
     }    
     //mexPrintMsg("Initializing layer of type", layer_type);    
     layers_[i]->Init(mx_layer, prev_layer);    
+    mexAssert(layers_[i]->function_ != "soft" || i == layers_num - 1,
+              "Softmax function may be only on the last layer");
   }
   mexAssert(layer_type == "f", "The last layer must be the type of 'f'");
   LayerFull *lastlayer = static_cast<LayerFull*>(layers_.back());
-  mexAssert(lastlayer->function_ == "soft" || 
-            lastlayer->function_ == "sigm" ||
-            lastlayer->function_ == "SVM",
-            "The last layer function must be 'soft', 'sigm' or 'SVM'");
+  mexAssert(lastlayer->function_ == "soft" || lastlayer->function_ == "sigm",
+            "The last layer function must be either 'soft' or 'sigm'");
   mexAssert(lastlayer->dropout_ == 0, "The last layer dropout must be 0");
   //mexPrintMsg("Layers initialization finished");
 }
@@ -112,7 +112,7 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       labels_batch.resize(batchsize, labels_.size2());      
       SubSet(data_, data_batch, offset, true);      
       SubSet(labels_, labels_batch, offset, true);          
-      ftype error1, error2;      
+      ftype error1;      
       InitActiv(data_batch);
       Forward(pred_batch, 1);            
       InitDeriv(labels_batch, error1);
@@ -211,16 +211,19 @@ void Net::Forward(Mat &pred, int passnum) {
 }
 
 void Net::Backward() {
-  
+  int passnum = 2;
   for (size_t i = layers_.size() - 1; i > 0; --i) {    
     //mexPrintMsg("Backward pass for layer", layers_[i]->type_);    
-    layers_[i]->Nonlinear(2);      
+    if (layers_[i]->function_ != "soft" || params_.lossfun_ != "logreg") {
+      // special case, final derivaties are already computed in InitDeriv
+      layers_[i]->Nonlinear(passnum);      
+    }
+    layers_[i]->CalcWeights(layers_[i-1], passnum);
     layers_[i]->Backward(layers_[i-1]);
-    layers_[i]->CalcWeights(layers_[i-1], 2);    
   }
   //mexPrintMsg("Backward pass for layer", layers_[0]->type_);  
-  layers_[0]->Backward(NULL);
-  layers_[0]->CalcWeights(NULL, 2);  
+  layers_[0]->CalcWeights(NULL, passnum);
+  layers_[0]->Backward(NULL);  
   //mexPrintMsg("Backward pass finished");  
 }
 
@@ -232,27 +235,32 @@ void Net::InitDeriv(const Mat &labels_batch, ftype &loss) {
     "The number of objects in data and label batches is different");
   mexAssert(classes_num == lastlayer->length_, 
     "Labels in batch and last layer must have equal number of classes");  
-  if (lastlayer->function_ == "SVM") {
-    lossmat_.resize(batchsize, classes_num);
+  lossmat_.resize(batchsize, classes_num);    
+  lastlayer->deriv_mat_.resize(batchsize, classes_num);    
+  if (params_.lossfun_ == "logreg") {
     lossmat_ = lastlayer->activ_mat_;
-    ((lossmat_ *= labels_batch) *= -1) += 1;
-    lossmat_.CondAssign(lossmat_, false, 0, 0);
-    lastlayer->deriv_mat_.resize(batchsize, classes_num);
-    lastlayer->deriv_mat_ = lossmat_;
-    (lastlayer->deriv_mat_ *= labels_batch) *= -2;    
-    // correct loss also contains weightsT * weights / C, but it is too long to calculate it
-    loss = (lossmat_ *= lossmat_).sum() / batchsize;    
-  } else if (lastlayer->function_ == "soft" || lastlayer->function_ == "sigm") {
-    lastlayer->deriv_mat_.resize(batchsize, classes_num);
+    // to get the log(1) = 0 after and to avoid 0/0;
+    lossmat_.CondAssign(labels_batch, false, 0, 1);    
+    // to void log(0) and division by 0 if there are still some;
+    lossmat_.CondAssign(lossmat_, false, 0, kEps);    
+    if (lastlayer->function_ == "soft") {
+      // directly compute final derivatives, so Nonlinear is not needed
+      lastlayer->deriv_mat_ = lastlayer->activ_mat_;
+	    lastlayer->deriv_mat_ -= labels_batch;
+    } else {
+      lastlayer->deriv_mat_ = labels_batch;
+      (lastlayer->deriv_mat_ /= lossmat_) *= -1;      
+    }
+    loss = -(lossmat_.Log()).sum() / batchsize;
+  } else if (params_.lossfun_ == "squared") {
     lastlayer->deriv_mat_ = lastlayer->activ_mat_;
 	  lastlayer->deriv_mat_ -= labels_batch;    
-    lossmat_.resize(batchsize, classes_num);
-	  lossmat_ = lastlayer->deriv_mat_;
+    lossmat_ = lastlayer->deriv_mat_;
     loss = (lossmat_ *= lastlayer->deriv_mat_).sum() / (2 * batchsize);    
   }
   if (params_.balance_) {
     lastlayer->deriv_mat_.MultVect(classcoefs_, 1);    
-  }    
+  }  
   lastlayer->deriv_mat_.Validate(); 
 }
 
@@ -318,9 +326,6 @@ void Net::ReadLabels(const mxArray *mx_labels) {
     classcoefs_.resize(1, classes_num);
     classcoefs_ = cpucoeffs;
     classcoefs_ /= classes_num;
-  }
-  if (layers_.back()->function_ == "SVM") {
-    (labels_norm *= 2) -= 1;    
   }
   labels_.resize(samples_num, classes_num);
   labels_.reorder(true, false); // order_ == true;

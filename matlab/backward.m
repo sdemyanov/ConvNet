@@ -1,4 +1,4 @@
-function layers = backward(layers)
+function layers = backward(layers, params)
 
 n = numel(layers);
 batchsize = size(layers{1}.a, 4);
@@ -6,12 +6,13 @@ batchsize = size(layers{1}.a, 4);
 for l = n : -1 : 1
   if strcmp(layers{l}.type, 'c') || strcmp(layers{l}.type, 'f')
     if strcmp(layers{l}.function, 'soft') % for softmax
-      layers{l}.d = softder(layers{l}.d, layers{l}.a);
+      if (~strcmp(params.lossfun, 'logreg'))
+        layers{l}.d = softder(layers{l}.d, layers{l}.a);
+      end;
     elseif strcmp(layers{l}.function, 'sigm') % for sigmoids
       layers{l}.d = layers{l}.d .* layers{l}.a .* (1 - layers{l}.a);          
     elseif strcmp(layers{l}.function, 'relu')
-      layers{l}.d = layers{l}.d .* (layers{l}.a > 0);          
-    elseif strcmp(layers{l}.function, 'SVM') % for SVM
+      layers{l}.d = layers{l}.d .* (layers{l}.a > 0);
     end;
     if (strcmp(layers{l}.function, 'soft') || strcmp(layers{l}.function, 'sigm'))
       layers{l}.d(-layers{l}.eps < layers{l}.d & layers{l}.d < layers{l}.eps) = 0;    

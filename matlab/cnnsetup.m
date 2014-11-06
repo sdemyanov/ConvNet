@@ -36,9 +36,8 @@ for l = 1 : n   %  layer
     if (~isfield(layers{l}, 'function'))
       layers{l}.function = 'relu';
     end;
-    if ~strcmp(layers{l}.function, 'sigm') && ...
-       ~strcmp(layers{l}.function, 'relu') && ...
-       ~strcmp(layers{l}.function, 'soft') % REctified Linear Unit
+    if (~strcmp(layers{l}.function, 'sigm') && ...
+       ~strcmp(layers{l}.function, 'relu')) % REctified Linear Unit        
       error('"%s" - unknown function for the layer %d', layers{l}.function, l);
     end;
     if (~isfield(layers{l}, 'padding'))
@@ -71,11 +70,9 @@ for l = 1 : n   %  layer
     if (~isfield(layers{l}, 'function'))
       layers{l}.function = 'relu';
     end;
-    if strcmp(layers{l}.function, 'SVM')
-      assert(isfield(layers{l}, 'C'), 'The "SVM" layer must contain the "C" field');      
-    elseif ~strcmp(layers{l}.function, 'relu') && ...
-           ~strcmp(layers{l}.function, 'sigm') && ...
-           ~strcmp(layers{l}.function, 'soft')
+    if (~strcmp(layers{l}.function, 'relu') && ...
+        ~strcmp(layers{l}.function, 'sigm') && ...
+        ~strcmp(layers{l}.function, 'soft'))
       error('"%s" - unknown function for the layer %d', layers{l}.function, l);
     end;
     assert(isfield(layers{l}, 'length'), 'The "f" type layer must contain the "length" field');      

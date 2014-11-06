@@ -94,6 +94,7 @@ public:
   MatGPU& operator /= (ftype a);  
   MatGPU& Sign();
   MatGPU& Sqrt();  
+  MatGPU& Log();  
   MatGPU& SoftMax();
   MatGPU& SoftDer(const MatGPU& a);
   MatGPU& Sigmoid();

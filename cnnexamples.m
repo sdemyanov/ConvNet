@@ -31,7 +31,7 @@ end;
 
 kTrainNum = 60000;
 %kTrainNum = 12800;
-%kTrainNum = 200;
+%kTrainNum = 2000;
 kOutputs = size(TrainY, 2);
 train_x = single(TrainX(:, :, 1:kTrainNum));
 train_y = single(TrainY(1:kTrainNum, :));
@@ -43,8 +43,9 @@ test_y = single(TestY(1:kTestNum, :));
 clear params;
 params.seed = 0;
 params.numepochs = 1;
-params.alpha = 1;
+params.alpha = 0.1;
 params.momentum = 0.9;
+params.lossfun = 'logreg';
 params.shuffle = 0;
 dropout = 0;
 
@@ -63,7 +64,7 @@ layers = {
     struct('type', 's', 'scale', [3 3], 'function', 'mean', 'stride', [2 2]) % subsampling layer
     struct('type', 'c', 'filtersize', [4 4], 'outputmaps', 32, 'padding', [1 1]) %convolution layer
     struct('type', 's', 'scale', [3 3], 'function', 'max', 'stride', [2 2]) % subsampling layer   
-    struct('type', 'f', 'length', 256, 'dropout', dropout) % fully connected layer
+    struct('type', 'f', 'length', 128, 'dropout', dropout) % fully connected layer
     struct('type', 'f', 'length', kOutputs, 'function', 'soft') % fully connected layer
 };
 

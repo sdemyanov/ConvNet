@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 void cuda_validate(MatGPU &mat);
 void cuda_sign(MatGPU &mat);
 void cuda_sqrt(MatGPU &mat);
+void cuda_log(MatGPU &mat);
 void cuda_exp(MatGPU &mat);
 void cuda_sigmoid(MatGPU &mat);
 

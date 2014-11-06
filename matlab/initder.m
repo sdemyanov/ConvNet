@@ -1,16 +1,22 @@
-function [layers, loss] = initder(layers, y)
+function [layers, loss] = initder(layers, params, y)
 
 n = numel(layers);
+assert(strcmp(layers{n}.function, 'sigm') || strcmp(layers{n}.function, 'soft'), ...
+  'The last layer function must be either "soft" or "sigm"');
 batchsize = size(y, 1); % number of examples in the minibatch  
-if (strcmp(layers{n}.function, 'sigm') || strcmp(layers{n}.function, 'soft'))
-  layers{n}.d = layers{n}.a - y;
-  loss = 1/2 * sum(layers{n}.d(:).^2) / batchsize;
-elseif (strcmp(layers{n}.function, 'SVM')) % for SVM 
-  layers{n}.d = -2 * y .* max(1 - layers{n}.a .* y, 0);      
-  loss = sum(sum(max(1 - layers{n}.a .* y, 0).^2)) / batchsize;
-  % + 1/2 * sum(sum(last_layer.w * last_layer.w')) / last_layer.C - too long
+if (strcmp(params.lossfun, 'logreg'))
+  lossmat = layers{n}.a;
+  lossmat(y == 0) = 1;
+  lossmat(lossmat == 0) = layers{n}.eps;
+  if (strcmp(layers{n}.function, 'soft'))
+    layers{n}.d = layers{n}.a - y;
+  else
+    layers{n}.d = -y ./ lossmat;
+  end;
+  loss = -sum(log(lossmat(:))) / batchsize;
 else
-  error('The last layer function must be "soft", "sigm" or "SVM"');
+  layers{n}.d = layers{n}.a - y;
+  loss = 1/2 * sum(layers{n}.d(:).^2) / batchsize;  
 end;
 layers{n}.d(-layers{n}.eps < layers{n}.d & layers{n}.d < layers{n}.eps) = 0;
 
