@@ -39,8 +39,7 @@ layers - the structure of CNN. Sets up as cell array, with each element represen
 - f - fully connected layer. Must contain the "length" field that defines the number of its outputs. The last layer must have this type. For the last layer the length must coincide with the number of classes. May also contain the "dropout" field, that determines the probability of dropping the activations on this layer. Cannot be used on the last layer. Should not be too large, otherwise it drops everything.
 
 All layers except "i" may contain the "function" field, that defines their action. For:
-- c and f - it defines the non-linear transformation function. It can be "soft", "sigm" or "relu", for softmax, sigmoid and rectified linear unit respectively. The default value is "relu".
-- f - it can also be "SVM", that calculates the SVM error function. For "SVM" the derivatives are not restricted to be in (0, 1), so the learning rate should be about 10 - 100 times smaller than usual. I never use it though. See [this article](www.cs.toronto.edu/~tang/papers/dlsvm.pdf) for the details.
+- c and f - it defines the non-linear transformation function. It can be "soft", "sigm" or "relu", for softmax, sigmoid and rectified linear unit respectively. The default value is "relu". The value "soft" must be used only on the last layer.
 - s - it defines the pooling procedure, that can be either "mean" or "max". The default value is "mean". 
 
 params - define the learning process. It is a structure with the following fields. If some of them are absent, the value by default is taken.
@@ -52,8 +51,9 @@ params - define the learning process. It is a structure with the following field
 - adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
 - maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively. Default is 1.
 - balance - boolean variable. Balances errors according to the class appearance frequencies. Useful for highly unbalanced datasets. Default is 0.
+- lossfun - string. Specifies the employed loss function. Must be eigher "squared" or "logreg", that correspond to sum of squared differences and negative log likelihood respectively. If you use "logreg", it is better to use "softmax" nonlinear function on the last layer and reduce the learning rate about 10 times. The default value is "squared".
 - shuffle - determines whether the input dataset will be shuffled or not. If it is set to 0, the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Otherwise, it should be 1. Default is 0.
-- verbose - determines output info during learning. For 0 there is no output, for 1 it prints only number of epochs, for 2 it prints both numbers of epoch and batch. Default is 2.
+- verbose - determines output info during learning. For 0 there is no output, for 1 it prints only number of epochs, for 2 it prints both numbers of epoch and batch. Default is 0.
 
 weights - the weights vector obtained from genweights or cnntrain, that is used for weights initialization. Can be used for testing or continuing the training procedure. 
 
