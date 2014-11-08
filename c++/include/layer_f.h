@@ -34,13 +34,15 @@ public:
   void InitWeights(Weights &weights, size_t &offset, bool isgen);
   void GetWeights(Mat &weights, size_t &offset) const;
   size_t NumWeights() const;
-  
+
   ftype dropout_;
   
 private:
   Weights weights_;
   Weights biases_;  
   Mat dropmat_;
+  ftype init_std_;  
+  ftype bias_coef_;
   
 };
 

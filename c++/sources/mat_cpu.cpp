@@ -21,11 +21,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <cmath>
 
+std::default_random_engine MatCPU::_generator;
+  
+void MatCPU::InitRand(size_t seed) {
+  _generator.seed(seed);
+}
+
+/*
 MatCPU MatCPU::operator () (size_t ind) {
   MatCPU val_mat;
   val_mat.attach(&data(ind), 1, 1);
   return val_mat;
-}
+}*/
 
 // memory functions
 
@@ -215,8 +222,17 @@ MatCPU& MatCPU::assign(ftype val) {
 }
 
 MatCPU& MatCPU::rand() {
+  std::uniform_real_distribution<ftype> distribution(0.0, 1.0);
   for (size_t i = 0; i < size1_ * size2_; ++i) {
-    data(i) = (ftype) std::rand() / RAND_MAX;
+    data(i) = distribution(MatCPU::_generator);
+  }
+  return *this;
+}
+
+MatCPU& MatCPU::randnorm() {
+  std::normal_distribution<ftype> distribution(0.0, 1.0);
+  for (size_t i = 0; i < size1_ * size2_; ++i) {
+    data(i) = distribution(MatCPU::_generator);
   }
   return *this;
 }
@@ -309,6 +325,13 @@ MatCPU& MatCPU::Sign() {
 MatCPU& MatCPU::Sqrt() {
   for (size_t i = 0; i < size1_ * size2_; ++i) {
     data(i) = sqrt(data(i));
+  }
+  return *this;
+}
+
+MatCPU& MatCPU::Exp() {
+  for (size_t i = 0; i < size1_ * size2_; ++i) {
+    data(i) = exp(data(i));
   }
   return *this;
 }
@@ -760,8 +783,8 @@ void Transform(const MatCPU &image, const std::vector<ftype> &shift,
       //mexAssert(0 <= x2 && x2 <= image.size2_-2, "x2 is out of range");      
       int xf1 = (int) std::floor(x1);
       int xf2 = (int) std::floor(x2);
-      if (0 <= xf1 && xf1 + 1 <= image.size1_ - 1 &&
-          0 <= xf2 && xf2 + 1 <= image.size2_ - 1) {
+      if (0 <= xf1 && xf1 + 1 < image.size1_ &&
+          0 <= xf2 && xf2 + 1 < image.size2_) {
         size_t xu1 = (size_t) xf1;
         size_t xu2 = (size_t) xf2;
         ftype vl = (x1 - xu1) * image(xu1 + 1, xu2) + (xu1 + 1 - x1) * image(xu1, xu2);
@@ -875,6 +898,13 @@ ftype MatCPU::sum() const {
     matsum += data(i);
   }      
   return matsum;  
+}
+
+bool MatCPU::hasZeros() const {
+  for (size_t i = 0; i < size1_ * size2_; ++i) {
+    if (data(i) == 0) return true;
+  }
+  return false;
 }
 
 /* we write in a vertical order, because it is used only 

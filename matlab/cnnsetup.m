@@ -43,16 +43,19 @@ for l = 1 : n   %  layer
     if (~isfield(layers{l}, 'padding'))
       layers{l}.padding = [0 0];
     end;
+    if (~isfield(layers{l}, 'initstd'))
+      layers{l}.initstd = 0.01;
+    end;
+    if (~isfield(layers{l}, 'biascoef'))
+      layers{l}.biascoef = 1;
+    end;
     
-    fan_in = outputmaps * layers{l}.filtersize(1) *  layers{l}.filtersize(2);
-    fan_out = layers{l}.outputmaps * layers{l}.filtersize(1) * layers{l}.filtersize(2);
-    rand_coef = 2 * sqrt(6 / (fan_in + fan_out));
     layers{l}.k = single(zeros([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
     layers{l}.dk = single(zeros([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
     layers{l}.dkp = single(zeros([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
     layers{l}.gk = single(ones([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
     if (isgen)
-      layers{l}.k = (rand([layers{l}.filtersize outputmaps layers{l}.outputmaps]) - 0.5) * rand_coef;
+      layers{l}.k = single(randn([layers{l}.filtersize outputmaps layers{l}.outputmaps]) * layers{l}.initstd);
     else
       layers{l}.k = single(zeros([layers{l}.filtersize outputmaps, layers{l}.outputmaps]));
     end;
@@ -75,6 +78,12 @@ for l = 1 : n   %  layer
         ~strcmp(layers{l}.function, 'soft'))
       error('"%s" - unknown function for the layer %d', layers{l}.function, l);
     end;
+    if (~isfield(layers{l}, 'initstd'))
+      layers{l}.initstd = 0.1;
+    end;
+    if (~isfield(layers{l}, 'biascoef'))
+      layers{l}.biascoef = 1;
+    end;
     assert(isfield(layers{l}, 'length'), 'The "f" type layer must contain the "length" field');      
     weightsize(1) = layers{l}.length;
     if ~strcmp(layers{l-1}.type, 'f')
@@ -85,7 +94,7 @@ for l = 1 : n   %  layer
     end;
     layers{l}.weightsize = weightsize; 
     if (isgen)
-      layers{l}.w = single((rand(weightsize) - 0.5) * 2 * sqrt(6/sum(weightsize)));
+      layers{l}.w = single(randn(weightsize) * layers{l}.initstd);
     else
       layers{l}.w = single(zeros(weightsize));
     end;

@@ -20,7 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef _LAYER_J_H_
 #define _LAYER_J_H_
 
-#define _USE_MATH_DEFINES
 #include "layer.h"
 
 class LayerJitt : public Layer {
@@ -41,7 +40,7 @@ private:
   std::vector<ftype> scale_;
   std::vector<bool> mirror_;
   ftype angle_;  
-  ftype default_; // default value to fill in if the new image is out of the original one
+  ftype defval_; // default value to fill in if the new image is out of the original one
   
 };
 

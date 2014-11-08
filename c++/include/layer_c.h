@@ -42,6 +42,8 @@ private:
   std::vector<size_t> padding_;
   size_t minsize_;  
   size_t sum_width_;
+  ftype init_std_;
+  ftype bias_coef_;
   
 };
 

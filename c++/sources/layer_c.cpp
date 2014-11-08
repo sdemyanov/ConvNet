@@ -24,6 +24,8 @@ LayerConv::LayerConv() {
   function_ = "relu";  
   batchsize_ = 0;
   sum_width_ = 1;
+  init_std_ = 0.01;
+  bias_coef_ = 1;
 }
 
 void LayerConv::Init(const mxArray *mx_layer, Layer *prev_layer) {
@@ -78,6 +80,14 @@ void LayerConv::Init(const mxArray *mx_layer, Layer *prev_layer) {
     sum_width_ = (size_t) sum_width;
   } else {
     if (sum_width_ > minsize_) sum_width_ = minsize_;
+  }
+  if (mexIsField(mx_layer, "initstd")) {
+    init_std_ = mexGetScalar(mexGetField(mx_layer, "initstd"));
+    mexAssert(0 <= init_std_, "initstd must be non-negative");  
+  }
+  if (mexIsField(mx_layer, "biascoef")) {
+    bias_coef_ = mexGetScalar(mexGetField(mx_layer, "biascoef"));
+    mexAssert(0 <= bias_coef_, "biascoef must be non-negative");  
   }
 }
     
@@ -179,13 +189,13 @@ void LayerConv::CalcWeights(Layer *prev_layer, int passnum) {
   #else // GPU
     WeightActs(prev_layer->activ_mat_, deriv_mat_, weights_der,
                prev_layer->mapsize_, padding_[0], filtersize_[0], sum_width_);        
-  #endif  
+  #endif
   if (passnum == 2) {
     mexAssert(deriv_mat_.order() == false, "deriv_mat_.order() should be false");
     deriv_mat_.reshape(deriv_mat_.size1() * deriv_mat_.size2() / outputmaps_, outputmaps_);
     Sum(deriv_mat_, biases_.der(), 1);
     deriv_mat_.reshape(batchsize_, deriv_mat_.size1() * deriv_mat_.size2() / batchsize_);        
-    biases_.der() /= batchsize_;      
+    (biases_.der() /= batchsize_) *= bias_coef_;
     biases_.der().Validate();
   }
   weights_der /= batchsize_;  
@@ -201,10 +211,7 @@ void LayerConv::InitWeights(Weights &weights, size_t &offset, bool isgen) {
   weights_.Attach(weights, offset, outputmaps_, pixel_num, false);  
   offset += outputmaps_ * pixel_num;
   if (isgen) {  
-    size_t fan_in = pixel_num;
-    size_t fan_out = outputmaps_ * numel;
-    ftype rand_coef = 2 * sqrt((ftype) 6 / (fan_in + fan_out));
-    (weights_.get().rand() -= 0.5) *= rand_coef;        
+    weights_.get().randnorm() *= init_std_;    
   }
   biases_.Attach(weights, offset, 1, outputmaps_, kMatlabOrder);  
   offset += outputmaps_;  

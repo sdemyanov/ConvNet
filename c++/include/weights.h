@@ -34,11 +34,9 @@ public:
   void Clear();
   inline Mat& get() { return weights_; }
   inline const Mat& get() const { return weights_; }
-  inline ftype get(size_t ind) const { return weights_(ind); }
-  inline std::vector<size_t> size() const { return size_; }
   inline Mat& der() { return weights_der_; }
-  inline Mat der(size_t ind) { return weights_der_(ind); }
-  
+  inline std::vector<size_t> size() const { return size_; }
+    
 private:
   Mat weights_;
   Mat weights_der_;

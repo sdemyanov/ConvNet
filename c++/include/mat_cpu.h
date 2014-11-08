@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mex_print.h"
 #include <vector>
 #include <algorithm>
+#include <random>
 
 /*
 order = false -> size1 is major
@@ -44,9 +45,14 @@ static const bool kMapsOrder = false;
 static const bool kDefaultOrder = false;
 
 class MatCPU {
+
+private:
+  //static
+  static std::default_random_engine _generator;  
                          
 protected:
-  /* NULL by default */
+//public:
+  /* pointer to the first matrix element */
   ftype *data_;
   
   /* define the maximum values for first and second indices accordingly */  
@@ -63,6 +69,9 @@ protected:
   bool owner_;  
 
 public:  
+
+  // static
+  static void InitRand(size_t seed);
   
   // data access
   // private
@@ -81,8 +90,8 @@ public:
   inline size_t size1() const { return size1_; }
   inline size_t size2() const { return size2_; }  
   inline bool order() const { return order_; }
-  inline ftype operator () (size_t ind) const { return data_[index(ind)]; }  
-  MatCPU operator () (size_t ind);
+  //inline ftype operator () (size_t ind) const { return data_[index(ind)]; }  
+  //MatCPU operator () (size_t ind);
   
   // memory functions
   MatCPU();
@@ -106,6 +115,7 @@ public:
   // data functions
   MatCPU& assign(ftype val);
   MatCPU& rand();  
+  MatCPU& randnorm();
   MatCPU& operator += (const MatCPU &a);
   MatCPU& operator -= (const MatCPU &a);
   MatCPU& operator *= (const MatCPU &a);
@@ -116,6 +126,7 @@ public:
   MatCPU& operator /= (ftype a);  
   MatCPU& Sign();
   MatCPU& Sqrt();
+  MatCPU& Exp(); 
   MatCPU& Log();  
   MatCPU& SoftMax();
   MatCPU& SoftDer(const MatCPU &a);
@@ -157,8 +168,9 @@ public:
                           const std::vector<size_t> &scale, const std::vector<size_t> &stride, bool dir);
                          
   // const functions
-  ftype sum() const;  
-  void write(ftype *vect) const;      
+  ftype sum() const;
+  bool hasZeros() const;
+  void write(ftype *vect) const; 
   
 };
 

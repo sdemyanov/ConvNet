@@ -26,6 +26,8 @@ LayerFull::LayerFull() {
   dropout_ = 0;
   numdim_ = 1;
   batchsize_ = 0;
+  init_std_ = 0.1;
+  bias_coef_ = 1;
 }  
   
 void LayerFull::Init(const mxArray *mx_layer, Layer *prev_layer) {
@@ -36,14 +38,22 @@ void LayerFull::Init(const mxArray *mx_layer, Layer *prev_layer) {
   mapsize_.assign(prev_layer->numdim_, 0);  
   length_prev_ = prev_layer->length_;
   if (mexIsField(mx_layer, "function")) {
-    function_ = mexGetString(mexGetField(mx_layer, "function"));  
+    function_ = mexGetString(mexGetField(mx_layer, "function"));
     mexAssert(function_ == "soft" || function_ == "sigm" || function_ == "relu",
       "Unknown function for the 'f' layer");
   }
   if (mexIsField(mx_layer, "dropout")) {
     dropout_ = mexGetScalar(mexGetField(mx_layer, "dropout"));
+    mexAssert(0 <= dropout_ && dropout_ < 1, "Dropout must be in the range [0, 1)");  
   }
-  mexAssert(0 <= dropout_ && dropout_ < 1, "Dropout must be in the range [0, 1)");  
+  if (mexIsField(mx_layer, "initstd")) {
+    init_std_ = mexGetScalar(mexGetField(mx_layer, "initstd"));
+    mexAssert(0 <= init_std_, "initstd must be non-negative");  
+  }  
+  if (mexIsField(mx_layer, "biascoef")) {
+    bias_coef_ = mexGetScalar(mexGetField(mx_layer, "biascoef"));
+    mexAssert(0 <= bias_coef_, "biascoef must be non-negative");  
+  }
 }
 
 void LayerFull::Forward(Layer *prev_layer, int passnum) {
@@ -78,7 +88,7 @@ void LayerFull::Backward(Layer *prev_layer) {
       layerfull->deriv_mat_ *= layerfull->dropmat_;
     }  
   }
-  prev_layer->deriv_mat_.Validate();  
+  prev_layer->deriv_mat_.Validate();
 }
 
 void LayerFull::CalcWeights(Layer *prev_layer, int passnum) {
@@ -90,7 +100,8 @@ void LayerFull::CalcWeights(Layer *prev_layer, int passnum) {
   }
   Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_der);
   if (passnum == 2) {
-    Mean(deriv_mat_, biases_.der(), 1);    
+    Mean(deriv_mat_, biases_.der(), 1);
+    biases_.der() *= bias_coef_;
     biases_.der().Validate();
   }
   weights_der /= batchsize_;
@@ -102,8 +113,7 @@ void LayerFull::InitWeights(Weights &weights, size_t &offset, bool isgen) {
   weights_.Attach(weights, offset, length_, length_prev_, kMatlabOrder);  
   offset += length_ * length_prev_;
   if (isgen) {
-    ftype rand_coef = 2 * sqrt((ftype) 6 / (length_prev_ + length_));  
-    (weights_.get().rand() -= 0.5) *= rand_coef;    
+    weights_.get().randnorm() *= init_std_;
   }
   biases_.Attach(weights, offset, 1, length_, kMatlabOrder);  
   offset += length_;

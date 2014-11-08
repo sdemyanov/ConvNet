@@ -42,12 +42,12 @@ test_y = single(TestY(1:kTestNum, :));
 
 clear params;
 params.seed = 0;
-params.numepochs = 1;
+params.numepochs = 10;
 params.alpha = 0.1;
 params.momentum = 0.9;
 params.lossfun = 'logreg';
-params.shuffle = 0;
-dropout = 0;
+params.shuffle = 1;
+dropout = 0.5;
 
 norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
 
@@ -55,21 +55,22 @@ norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
 % Outputmaps number should be divisible on 16
 % Use only the default value of batchsize = 128
 
-% This structure is just for demonstration purposes
+% This structure gives pretty good results on MNIST after just several epochs
 
 layers = {
-    struct('type', 'i', 'mapsize', kXSize(1:2), 'outputmaps', kXSize(3), ...
-           'norm', norm_x, 'mean', 0', 'maxdev', 1)
-    struct('type', 'c', 'filtersize', [4 4], 'outputmaps', 16, 'padding', [1 1]) %convolution layer
-    struct('type', 's', 'scale', [3 3], 'function', 'mean', 'stride', [2 2]) % subsampling layer
-    struct('type', 'c', 'filtersize', [4 4], 'outputmaps', 32, 'padding', [1 1]) %convolution layer
-    struct('type', 's', 'scale', [3 3], 'function', 'max', 'stride', [2 2]) % subsampling layer   
-    struct('type', 'f', 'length', 128, 'dropout', dropout) % fully connected layer
-    struct('type', 'f', 'length', kOutputs, 'function', 'soft') % fully connected layer
+  struct('type', 'i', 'mapsize', kXSize(1:2), 'outputmaps', kXSize(3), 'mean', 0)
+  struct('type', 'j', 'mapsize', [28 28], 'shift', [2 2], ...
+         'scale', [1.15 1.15], 'angle', 0.15, 'defval', 0)
+  struct('type', 'c', 'filtersize', [4 4], 'outputmaps', 32)
+  struct('type', 's', 'scale', [3 3], 'function', 'max', 'stride', [2 2])
+  struct('type', 'c', 'filtersize', [5 5], 'outputmaps', 64, 'padding', [2 2])
+  struct('type', 's', 'scale', [3 3], 'function', 'max', 'stride', [2 2])
+  struct('type', 'f', 'length', 256, 'dropout', dropout)
+  struct('type', 'f', 'length', kOutputs, 'function', 'soft')
 };
 
 rng(params.seed);
-weights = single(genweights(layers, params.seed, 'matlab'));
+weights = single(genweights(layers, params.seed, funtype));
 EpochNum = 1;
 errors = zeros(EpochNum, 1);
 for i = 1 : EpochNum
@@ -79,6 +80,7 @@ for i = 1 : EpochNum
   [err, bad, pred] = cnntest(layers, weights, params, test_x, test_y, funtype);  
   disp([num2str(err*100) '% error']);  
   errors(i) = err;
+  params.alpha = params.alpha * 0.95;
 end;
 %plot(errors);
 disp('Done!');

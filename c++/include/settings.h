@@ -44,6 +44,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define PRECISION_EPS 1e-6
 static const ftype kEps = (ftype) PRECISION_EPS;
 
+static const ftype kPi = (ftype) 3.141592654;
+
 #ifndef MIN
   #define MIN(a, b) ((a) > (b) ? (b) : (a))
 #endif

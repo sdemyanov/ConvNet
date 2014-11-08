@@ -26,7 +26,6 @@ LayerJitt::LayerJitt() {
 }  
   
 void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
-  
   //mexAssert(prev_layer->type_ == "i", "The 'j' type layer must be after the input one");
   numdim_ = prev_layer->numdim_;
   outputmaps_ = prev_layer->outputmaps_;
@@ -70,9 +69,9 @@ void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
     angle_ = mexGetScalar(mexGetField(mx_layer, "angle"));    
     mexAssert(0 <= angle_ && angle_ <= 1, "Angle in 'j' layer must be between 0 and 1");    
   }  
-  default_ = 0;
-  if (mexIsField(mx_layer, "default")) {
-    default_ = mexGetScalar(mexGetField(mx_layer, "default"));    
+  defval_ = 0;
+  if (mexIsField(mx_layer, "defval")) {
+    defval_ = mexGetScalar(mexGetField(mx_layer, "defval"));    
   } else {  
     // check that the transformed image is always inside the original one
     std::vector<ftype> maxsize(numdim_, 0);    
@@ -80,14 +79,14 @@ void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
       maxsize[i] = (ftype) (mapsize_[i] - 1) * scale_[i];      
     }
     if (angle_ > 0) {
-      ftype angle_inn = atan2((ftype) mapsize_[0], (ftype) mapsize_[1]) / M_PI;    
+      ftype angle_inn = atan2((ftype) mapsize_[0], (ftype) mapsize_[1]) / kPi;    
       ftype maxsin = 1;
       if (angle_inn + angle_ < 0.5) {
-        maxsin = sin(M_PI * (angle_inn + angle_));        
+        maxsin = sin(kPi * (angle_inn + angle_));        
       }    
       ftype maxcos = 1;
       if (angle_inn > angle_) {
-        maxcos = cos(M_PI * (angle_inn - angle_));
+        maxcos = cos(kPi * (angle_inn - angle_));
       }    
       ftype maxrad = sqrt(maxsize[0]*maxsize[0] + maxsize[1]*maxsize[1]);  
       maxsize[0] = maxrad * maxsin;
@@ -110,16 +109,27 @@ void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
 } 
 
 void LayerJitt::Forward(Layer *prev_layer, int passnum) {
-  batchsize_ = prev_layer->batchsize_;
+  
+  if (passnum == 3) return;
+  
+  // for testing just central cropping
+  if (passnum == 0) {
+    shift_.assign(numdim_, 0);
+    scale_.assign(numdim_, 1);
+    mirror_.assign(numdim_, false);
+    angle_ = 0;
+  }
+  
+  batchsize_ = prev_layer->batchsize_;  
   activ_mat_.resize(batchsize_, length_);
-  std::vector< std::vector<Mat> > prev_activ, activ;    
-  InitMaps(prev_layer->activ_mat_, prev_layer->mapsize_, prev_activ);
-  InitMaps(activ_mat_, mapsize_, activ);    
-  #if COMP_REGIME == 1
-    #pragma omp parallel for
-  #endif
-  for (int k = 0; k < batchsize_; ++k) {  
-    for (size_t i = 0; i < outputmaps_; ++i) {
+  #if COMP_REGIME != 2  
+    std::vector< std::vector<Mat> > prev_activ, activ;    
+    InitMaps(prev_layer->activ_mat_, prev_layer->mapsize_, prev_activ);
+    InitMaps(activ_mat_, mapsize_, activ);    
+    #if COMP_REGIME == 1
+      #pragma omp parallel for
+    #endif
+    for (int k = 0; k < batchsize_; ++k) {  
       std::vector<ftype> shift(numdim_, 0);
       std::vector<ftype> scale(numdim_, 1);
       std::vector<bool> mirror(numdim_, false);
@@ -132,15 +142,20 @@ void LayerJitt::Forward(Layer *prev_layer, int passnum) {
           scale[j] = pow(scale_[j], (ftype) std::rand() / RAND_MAX * 2 - 1);          
         }
         if (mirror_[j]) {
-          mirror[j] = ((ftype) std::rand() / RAND_MAX > 0.5);          
+          mirror[j] = ((ftype) std::rand() / RAND_MAX * 2 - 1 > 0);          
         }        
       }
       if (angle_ > 0) {
-        angle = ((ftype) std::rand() / RAND_MAX * 2 - 1) * M_PI * angle_;
+        angle = ((ftype) std::rand() / RAND_MAX * 2 - 1) * kPi * angle_;        
+      }
+      for (size_t i = 0; i < outputmaps_; ++i) {        
+        Transform(prev_activ[k][i], shift, scale, mirror, angle, defval_, activ[k][i]);      
       }      
-      Transform(prev_activ[k][i], shift, scale, mirror, angle, default_, activ[k][i]);      
-    }    
-  }
+    }
+  #else // GPU  
+    TransformActs(prev_layer->activ_mat_, activ_mat_, prev_layer->mapsize_,
+                  mapsize_, shift_, scale_, mirror_, angle_, defval_);
+  #endif
   activ_mat_.Validate();  
   /*
   for (int i = 0; i < 5; ++i) {

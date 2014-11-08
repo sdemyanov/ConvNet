@@ -48,8 +48,8 @@ private:
   static cudaEvent_t _start, _stop;  
   
 public:
-  // static
 
+  // static
   static void CudaInit();
   static void InitRand(size_t seed);  
   static void CudaReset();  
@@ -63,8 +63,6 @@ public:
   size_t getNumDataBytes() const;
   cudaTextureObject_t getTextureObject();
   // public
-  ftype operator () (size_t ind) const;
-  MatGPU operator () (size_t ind);  
   
   // memory functions  
   MatGPU();  
@@ -78,12 +76,17 @@ public:
   MatGPU& resize(size_t size1, size_t size2);  
   MatGPU& reshape(size_t size1, size_t size2); 
   MatGPU& reorder(bool order, bool real);
+  MatGPU& attach(const MatGPU &a);       
+  MatGPU& attach(const MatGPU &a, size_t offset, size_t size1, size_t size2, bool order);
+  MatGPU& attach(ftype *ptr, size_t size1, size_t size2);  
+  MatGPU& attach(ftype *ptr, size_t size1, size_t size2, size_t stride, bool order);  
   MatGPU& clear();
   friend void Swap(MatGPU &a, MatGPU &b);
   
   // data functions  
   MatGPU& assign(ftype val);
   MatGPU& rand();
+  MatGPU& randnorm();
   MatGPU& operator += (const MatGPU &a);
   MatGPU& operator -= (const MatGPU &a);
   MatGPU& operator *= (const MatGPU &a);
@@ -94,7 +97,8 @@ public:
   MatGPU& operator /= (ftype a);  
   MatGPU& Sign();
   MatGPU& Sqrt();  
-  MatGPU& Log();  
+  MatGPU& Log();
+  MatGPU& Exp();  
   MatGPU& SoftMax();
   MatGPU& SoftDer(const MatGPU& a);
   MatGPU& Sigmoid();
@@ -124,7 +128,10 @@ public:
   
   // layer transformation functions
   friend void Prod(const MatGPU &a, bool a_tr, const MatGPU &b, bool b_tr, MatGPU &c);
-  
+  friend void TransformActs(const MatGPU &images, MatGPU &targets,
+                            const std::vector<size_t> &prev_mapsize, const std::vector<size_t> &mapsize,
+                            const std::vector<ftype> &shift, const std::vector<ftype> &scale,  
+                            const std::vector<bool> &mirror, ftype angle, ftype defval);
   // filter functions  
   friend void FilterActs(MatGPU& images, MatGPU& filters, MatGPU& targets,
                          const std::vector<size_t> &prev_mapsize, size_t padding);
@@ -162,7 +169,12 @@ private:
   friend void _aggregate(MatGPU &mat, MatGPU& target, Agg agg, UnaryOp uop, BinaryOp bop, int axis);
   friend void computeSoftmaxGrad(const MatGPU& acts, const MatGPU& actsGrad, MatGPU& target);
   friend void cuda_trans(const MatGPU &mat, MatGPU &target);
-  friend float cuda_sum(const MatGPU &mat);
+  friend void _transformActs(const MatGPU &images, MatGPU &target,
+                             size_t imgSize1, size_t imgSize2,
+                             size_t targSize1, size_t targSize2,
+                             const MatGPU &shift_mat, const MatGPU &scale_mat, 
+                             const MatGPU &mirror_mat, const MatGPU &angle_mat, float defval);
+  friend float cuda_sum(const MatGPU &mat);  
   
   // filter_acts.cu
   friend void _filterActs(MatGPU& images, MatGPU& filters, MatGPU& targets,

@@ -32,14 +32,34 @@ Calculates the test error. Based on cnnclassify, that returns only the predictio
 Parameters:
 
 layers - the structure of CNN. Sets up as cell array, with each element representing an independent layer. Layers can be one of 5 types:
-- i - input layer. Must be the first and only first. Must contain the "mapsize" field, that is a vector with 2 integer values, representing the objects size. May also contain the "outputmaps" field, that specifies the number of data channels. The 'norm' field corresponds to the desired norm of input vectors. It performs a normalization within a sample. May also contain 'mean' and 'maxdev' fields, that indicate the desired mean value and maximum standard deviation of each feature across all samples. See Matlab functions 'normalize' and 'initnorm' for better understanding.
-- j - jitter layer. Not implemented in the GPU version yet. Specify possible transformations of the input maps, that might be used to avoid transformation invariance. The possible parameters are: 'shift' field, that specify the allowed shift of the image in each dimension, 'scale' - scale in each dimension. If for some dimension it is x>1, the image might be scaled with the factor from [1/x x]. The 'mirror' vector is binary and determines if the image might be mirrored in a particular dimension or not. The 'angle' parameter specifies allowed angle of rotation. Pi corresponds to the value 1. Layer must contain the 'mapsize' field, that is typically smaller than the input map size. If the transformed image might be out of the original one, there will be an error. If you want to avoid it, specify the 'default' parameter, that defines the maps value outside the borders. This layer is fully implemented only in C++ vesion, in Matlab it can only crop the image to the mapsize.
-- c - convolutional layer. Must contain the "filtersize" field, that identifies the filter size. Must not be greater than the size of maps on the previous layer. Must also contain the "outputmaps" field, that is the number of maps for each objects on this layer. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m * n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions. May contain 'padding' field, that specifies the size of zero padding around the maps for each dimension. The default value is 0.
-- s - scaling layer. Reduces the map size by pooling. Must contain the "scale" field, that is also a vector with 2 integer values. May additionally contain 'stride' field, that determines the step in each dimension. By default is equal to 'scale'.
-- f - fully connected layer. Must contain the "length" field that defines the number of its outputs. The last layer must have this type. For the last layer the length must coincide with the number of classes. May also contain the "dropout" field, that determines the probability of dropping the activations on this layer. Cannot be used on the last layer. Should not be too large, otherwise it drops everything.
+
+- i - input layer. Must be the first and only first one. Must contain the "mapsize" field, that is a vector with 2 integer values, representing the objects size. May also contain the following additional fields:  
+1) 'outputmaps' - that specifies the number of data channels, if it differs from 1.  
+2) 'norm' - determines the desired norm of input vectors. It performs a normalization within a sample.  
+3) 'mean' - determines the desired mean value of each feature across all samples.  
+4) 'maxdev' - determines the maximum standard deviation of each feature across all samples.
+
+- j - jitter layer. Specify possible transformations of the input maps, that might be used to achieve transformation invariance. Must have the parameter 'mapsize'. Other possible parameters are:  
+1) 'shift' - specifies the maximum shift of the image in each dimension,  
+2) 'scale' - specifies the maximum scale in each dimension. Must be more than 1. The image scales with the random factors from [1/x x].  
+3) 'mirror' - binary vector, that determines if the image might be mirrored in a particular dimension or not.  
+4) 'angle' - scalar, that specifies the maximum angle of rotation. Must be from [0, 1]. The value 1 corresponds to 180 degrees.  
+5) 'defval' - specifies the value that is used when the transformed image lies outside the borders of the original image. If this value is not specified, the transformed value should be always inside the original one, otherwise there will be an error. This layer is not implemented in Matlab version.
+
+- c - convolutional layer. Must contain the "filtersize" field, that identifies the filter size. Must not be greater than the size of maps on the previous layer. Must also contain the "outputmaps" field, that is the number of maps for each objects on this layer. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m * n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions. May contain the following additional fields:  
+1) 'padding' - specifies the size of zero padding around the maps for each dimension. The default value is 0.  
+2) 'initstd' - the standard deviation of normal distribution that is used to generate the weights. The default value is 0.01. Biases are always initialized by 0.  
+3) 'biascoef' - specifies the multiplier for bias learning rate. Might be used if for some reason you decided to use another learning rate than for other weights. The default value is 1.
+
+- s - scaling layer. Reduces the map size by pooling. Must contain the "scale" field, that is also a vector with 2 integer values. May additionally contain 'stride' field, that determines the distance between neighbouring blocks in each dimension. By default is equal to 'scale'.
+
+- f - fully connected layer. Must contain the "length" field that defines the number of its outputs. The last layer must have this type. For the last layer the length must coincide with the number of classes. May also contain the following additional fields:  
+1) "dropout" - determines the probability of dropping the activations on this layer. Cannot be used on the last layer. Should not be too large, otherwise it drops everything.
+2) 'initstd' - the same as for convolutional layers. The default value is 0.1.
+3) 'biascoef' - the same as for convolutional layers.
 
 All layers except "i" may contain the "function" field, that defines their action. For:
-- c and f - it defines the non-linear transformation function. It can be "soft", "sigm" or "relu", for softmax, sigmoid and rectified linear unit respectively. The default value is "relu". The value "soft" must be used only on the last layer.
+- c and f - it defines the non-linear transformation function. It can be "soft", "sigm" or "relu", that correspond to softmax, sigmoid and rectified linear unit respectively. The default value is "relu". The value "soft" must be used only on the last layer.
 - s - it defines the pooling procedure, that can be either "mean" or "max". The default value is "mean". 
 
 params - define the learning process. It is a structure with the following fields. If some of them are absent, the value by default is taken.
@@ -64,9 +84,9 @@ TECHNICAL DETAILS
 If you cannot use the binaries for C++ CPU and GPU versions, you need to compile them by yourself. The compilation options are defined in the file "settings.h". Here they are:
 
 - COMP_REGIME. Identifies the version you want to compile. Might have the following values:  
-1). 0 - compiles the single-thread CPU version. Use it if you don't have GPU with CUDA support :)  
-2). 1 - compiles the multi-thread GPU version. Use it to speed-up computations. However, if you run several Matlabs in parallel, I would recommend to use the single-thread version.  
-3). 2 - compiles the GPU version. The main one.
+1) 0 - compiles the single-thread CPU version. Use it if you don't have GPU with CUDA support :)  
+2) 1 - compiles the multi-thread GPU version. Use it to speed-up computations. However, if you run several Matlabs in parallel, I would recommend to use the single-thread version.  
+3) 2 - compiles the GPU version. The main one.
 
 - PRECISION. Might have two values: 1 - single, uses type 'float'. 2 - double, uses type 'double'. The GPU version supports only single precision.
 

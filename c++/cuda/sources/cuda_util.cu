@@ -988,6 +988,135 @@ void cuda_maxvect(MatGPU &mat, MatGPU &vect, size_t dim) {
   _aggregate(mat, vect, Aggs::Max(), UnaryOp::Identity(), BinaryOp::Second(), axis);  
 }
 
+
+/* ------- Sergey Demyanov ------- */
+
+/* ------- Image jittering ------- */
+
+template<int B_Y, int B_X, int imgsPerThread, int filtersPerThread>
+__global__ void kTransform(float* imgs, float* targets, int imgSizeX, int imgSizeY, int outputsX, int outputsY,
+                           int numFilters, int numImages, float *shift_mat, float *scale_mat, float *mirror_mat, float *angle_mat, float defval) {
+                           
+  const int numImgBlocks = DIVUP(numImages,B_X*imgsPerThread);
+  const int numFilterBlocks = DIVUP(numFilters, B_Y*filtersPerThread);
+  const int outputIdxX = blockIdx.x / numImgBlocks;
+  const int outputIdxY = blockIdx.y / numFilterBlocks;
+  const int blockImgIdx = (blockIdx.x % numImgBlocks) * B_X * imgsPerThread;
+  const int blockFilterIdx = (blockIdx.y % numFilterBlocks) * B_Y * filtersPerThread;
+  const int myFilterIdx = (blockFilterIdx + threadIdx.y*filtersPerThread);
+  if (myFilterIdx >= numFilters) {
+      return;
+  }
+  
+  const int outputIdx = outputIdxY * outputsX + outputIdxX;
+  const int numOutputs = outputsX * outputsY;
+  const int imgPixels = imgSizeX * imgSizeY;
+  
+  const int imgIdx = blockImgIdx + threadIdx.x;
+  
+  imgs += myFilterIdx * imgPixels * numImages + imgIdx;
+  targets += (myFilterIdx * numOutputs + outputIdx) * numImages + imgIdx;
+  
+  float prod[filtersPerThread][imgsPerThread];
+    
+  const float m1 = (float) imgSizeX / 2 - 0.5;
+  const float m2 = (float) imgSizeY / 2 - 0.5;  
+  const float n1 = (float) outputsX / 2 - 0.5;
+  const float n2 = (float) outputsY / 2 - 0.5;
+    
+  // #pragma unroll
+  for (int i = 0; i < imgsPerThread; i++) {
+    const int curImgIdx = imgIdx + i * B_X;
+    if (curImgIdx < numImages) {
+      const float angcos = (float) cos(angle_mat[curImgIdx]);
+      const float angsin = (float) sin(angle_mat[curImgIdx]);    
+      const float xi1 = (outputIdxX - n1) * scale_mat[curImgIdx]; // scale[0];
+      const float xi2 = (outputIdxY - n2) * scale_mat[curImgIdx + numImages]; //scale[1];
+      float x1 = xi1 * angcos - xi2 * angsin + m1 + shift_mat[curImgIdx]; //shift[0];
+      float x2 = xi1 * angsin + xi2 * angcos + m2 + shift_mat[curImgIdx + numImages]; //shift[1];
+      if (mirror_mat[curImgIdx] > 0.5) x1 = imgSizeX - 1 - x1;
+      if (mirror_mat[curImgIdx + numImages] > 0.5) x2 = imgSizeY - 1 - x2;
+      const int xf1 = (int) x1;
+      const int xf2 = (int) x2;
+      if (0 <= xf1 && xf1 + 1 < imgSizeX &&
+          0 <= xf2 && xf2 + 1 < imgSizeY) {
+        const int imgPx11 = xf2 * imgSizeX + xf1;
+        const int imgPx21 = xf2 * imgSizeX + xf1 + 1;
+        const int imgPx12 = (xf2 + 1) * imgSizeX + xf1;
+        const int imgPx22 = (xf2 + 1) * imgSizeX + xf1 + 1;
+        for (int f = 0; f < filtersPerThread; f++) {
+          const int imgInd11 = (f * imgPixels + imgPx11) * numImages + i * B_X;
+          const int imgInd21 = (f * imgPixels + imgPx21) * numImages + i * B_X;
+          const int imgInd12 = (f * imgPixels + imgPx12) * numImages + i * B_X;
+          const int imgInd22 = (f * imgPixels + imgPx22) * numImages + i * B_X;
+          const float vl = (x1 - xf1) * imgs[imgInd21] + (xf1 + 1 - x1) * imgs[imgInd11];
+          const float vh = (x1 - xf1) * imgs[imgInd22] + (xf1 + 1 - x1) * imgs[imgInd12];
+          prod[f][i] = (x2 - xf2) * vh + (xf2 + 1 - x2) * vl;
+        }
+      } else {
+        for (int f = 0; f < filtersPerThread; f++) {
+          prod[f][i] = defval;
+        }
+      }      
+    }
+  }
+  
+  #pragma unroll
+  for (int i = 0; i < imgsPerThread; i++) {
+      if (imgIdx + i * B_X < numImages) {
+          #pragma unroll
+          for (int f = 0; f < filtersPerThread; f++) {
+              targets[f * numOutputs * numImages + i * B_X] = prod[f][i];
+          }
+      }
+  }
+}
+
+
+void _transformActs(const MatGPU &images, MatGPU &target, 
+                    size_t imgSize1, size_t imgSize2,
+                    size_t targSize1, size_t targSize2,
+                    const MatGPU &shift_mat, const MatGPU &scale_mat, 
+                    const MatGPU &mirror_mat, const MatGPU &angle_mat, float defval) {
+                    
+  int imgSizeX = (int) imgSize1;    
+  int imgSizeY = (int) imgSize2;    
+  int imgPixels = imgSizeX * imgSizeY;
+  int outputsX = (int) targSize1;
+  int outputsY = (int) targSize2;
+  int targPixels = outputsX * outputsY;    
+
+  
+  int numImages = images.size1_;
+  mexAssert(images.size2_ % imgPixels == 0, "ta2");
+  int numFilters = images.size2_ / imgPixels;
+  
+  mexAssert(target.size1_ == numImages, "ta1");
+  mexAssert(target.size2_ == targPixels * numFilters, "ta3");
+  
+  cudaStream_t stream = MatGPU::_defaultStream;
+  
+  int filtersPerThread = 1;
+  int imgsPerThread = numImages % 128 == 0 ? 4 : numImages % 64 == 0 ? 2 : 1;
+  dim3 threads(32, 4);
+  dim3 blocks(DIVUP(numImages,32*imgsPerThread) * outputsX, DIVUP(numFilters, 4 * filtersPerThread) * outputsY);
+  
+  if (imgsPerThread == 4) {
+    kTransform<4, 32, 4, 1><<<blocks, threads, 0, stream>>>
+      (images.data_, target.data_, imgSizeX, imgSizeY, outputsX, outputsY, numFilters, numImages, 
+       shift_mat.data_, scale_mat.data_, mirror_mat.data_, angle_mat.data_, defval);       
+  } else if (imgsPerThread == 2) {
+    kTransform<4, 32, 2, 1><<<blocks, threads, 0, stream>>>
+      (images.data_, target.data_, imgSizeX, imgSizeY, outputsX, outputsY, numFilters, numImages, 
+       shift_mat.data_, scale_mat.data_, mirror_mat.data_, angle_mat.data_, defval);
+  } else {
+    kTransform<4, 32, 1, 1><<<blocks, threads, 0, stream>>>
+      (images.data_, target.data_, imgSizeX, imgSizeY, outputsX, outputsY, numFilters, numImages, 
+       shift_mat.data_, scale_mat.data_, mirror_mat.data_, angle_mat.data_, defval);
+  }
+  mexAssert(cudaGetLastError() == cudaSuccess, "_transformActs: kernel execution failed");                        
+}
+
 /* ------- Total matrix aggregation ------- */
 
 

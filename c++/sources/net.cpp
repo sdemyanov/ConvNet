@@ -34,7 +34,7 @@ Net::Net() {
 }
 
 void Net::InitRand(size_t seed) {
-  std::srand(seed);  
+  MatCPU::InitRand(seed);
   #if COMP_REGIME == 2 // GPU    
     MatGPU::InitRand(seed);
   #endif
@@ -102,6 +102,7 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
     if (params_.shuffle_) {
       Shuffle(data_, labels_);      
     }
+    StartTimer();    
     size_t offset = 0;
     Mat data_batch, labels_batch, pred_batch;      
     for (size_t batch = 0; batch < numbatches; ++batch) {        
@@ -111,7 +112,7 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       data_batch.resize(batchsize, data_.size2());
       labels_batch.resize(batchsize, labels_.size2());      
       SubSet(data_, data_batch, offset, true);      
-      SubSet(labels_, labels_batch, offset, true);          
+      SubSet(labels_, labels_batch, offset, true);
       ftype error1;      
       InitActiv(data_batch);
       Forward(pred_batch, 1);            
@@ -123,8 +124,9 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       if (params_.verbose_ == 2) {
         mexPrintInt("Epoch", epoch + 1);        
         mexPrintInt("Batch", batch + 1);        
-      }           
-    } // batch       
+      }
+    } // batch  
+    MeasureTime("totaltime");
     if (params_.verbose_ == 1) {
       mexPrintInt("Epoch", epoch + 1);
     }        
@@ -187,24 +189,25 @@ void Net::InitNorm() {
 
 void Net::InitActiv(const Mat &data) {
   mexAssert(layers_.size() >= 2 , "The net is not initialized");
+  first_layer_ = 0;
   layers_[0]->activ_mat_.attach(data);
   layers_[0]->activ_mat_.Validate();
 }
 
 void Net::Forward(Mat &pred, int passnum) {
-  //mexPrintMsg("Forward pass for layer", layers_[0]->type_);  
-  layers_[0]->Forward(NULL, passnum);  
-  for (size_t i = 1; i < layers_.size(); ++i) {
+  if (first_layer_ == 0) {
+    //mexPrintMsg("Forward pass for layer", layers_[0]->type_);  
+    layers_[0]->Forward(NULL, passnum);  
+    layers_[0]->CalcWeights(NULL, passnum);
+  }
+  for (size_t i = first_layer_; i < layers_.size(); ++i) {
+    if (layers_[i]->type_ == "j") first_layer_ = i;
     //mexPrintMsg("Forward pass for layer", layers_[i]->type_);  
     layers_[i]->Forward(layers_[i-1], passnum);    
-    layers_[i]->Nonlinear(passnum);      
+    layers_[i]->Nonlinear(passnum);
     if (utIsInterruptPending()) {
       mexAssert(false, "Ctrl-C Detected. END");
     }
-    /*
-    for (int j = 0; j < 5; ++j) {
-      //mexPrintMsg("activ_mat_", layers_[i]->activ_mat_(0, j)); 
-    } */
   }
   pred.attach(layers_.back()->activ_mat_);  
   //mexPrintMsg("Forward pass finished");
@@ -212,7 +215,7 @@ void Net::Forward(Mat &pred, int passnum) {
 
 void Net::Backward() {
   int passnum = 2;
-  for (size_t i = layers_.size() - 1; i > 0; --i) {    
+  for (size_t i = layers_.size() - 1; i > first_layer_; --i) {
     //mexPrintMsg("Backward pass for layer", layers_[i]->type_);    
     if (layers_[i]->function_ != "soft" || params_.lossfun_ != "logreg") {
       // special case, final derivaties are already computed in InitDeriv
@@ -221,9 +224,11 @@ void Net::Backward() {
     layers_[i]->CalcWeights(layers_[i-1], passnum);
     layers_[i]->Backward(layers_[i-1]);
   }
-  //mexPrintMsg("Backward pass for layer", layers_[0]->type_);  
-  layers_[0]->CalcWeights(NULL, passnum);
-  layers_[0]->Backward(NULL);  
+  if (first_layer_ == 0) {
+    //mexPrintMsg("Backward pass for layer", layers_[0]->type_);  
+    layers_[0]->CalcWeights(NULL, passnum);
+    layers_[0]->Backward(NULL);  
+  }
   //mexPrintMsg("Backward pass finished");  
 }
 
@@ -316,10 +321,8 @@ void Net::ReadLabels(const mxArray *mx_labels) {
   if (params_.balance_) {  
     MatCPU labels_mean(1, classes_num);
     Mean(labels_norm, labels_mean, 1);
-    for (size_t i = 0; i < classes_num; ++i) {
-      mexAssert(labels_mean(0, i) > 0,
-        "Balancing impossible: one of the classes is not presented");      
-    }
+    mexAssert(!labels_mean.hasZeros(), 
+      "Balancing impossible: one of the classes is not presented");
     MatCPU cpucoeffs(1, classes_num);
     cpucoeffs.assign(1);
     cpucoeffs /= labels_mean;

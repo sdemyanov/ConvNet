@@ -41,6 +41,7 @@ void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
     mexAssert(1 <= outputmaps, "Outputmaps on the 'i' layer must be greater or equal to 1");
     outputmaps_ = (size_t) outputmaps;    
   }
+  length_prev_ = outputmaps_;
   mexAssert(mexIsField(mx_layer, "mapsize"), "The first layer must contain the 'mapsize' field");
   std::vector<ftype> mapsize = mexGetVector(mexGetField(mx_layer, "mapsize"));  
   mexAssert(mapsize.size() == numdim_, "Input mapsize length must be 2");  
@@ -69,39 +70,17 @@ void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
 }
 
 void LayerInput::Forward(Layer *prev_layer, int passnum) {  
-  batchsize_ = activ_mat_.size1();
   
   if (passnum == 3) return;
   
+  batchsize_ = activ_mat_.size1();  
   if (is_mean_) {
     activ_mat_.AddVect(mean_weights_.get(), 1);
   }
   if (is_maxdev_) {
     activ_mat_.MultVect(maxdev_weights_.get(), 1);
   }
-  activ_mat_.Validate();  
-  
-  /*
-  mexPrintMsg("INPUT");    
-  Mat m;
-  m.attach(activ_mat_);
-  mexPrintMsg("s1", m.size1());    
-  mexPrintMsg("s2", m.size2()); 
-  mexPrintMsg("totalsum", m.sum());    
-  Mat versum = Sum(m, 1);
-  for (int i = 0; i < 5; ++i) {
-    mexPrintMsg("versum", versum(0, i));    
-  }
-  Mat horsum = Sum(m, 2);
-  for (int i = 0; i < 5; ++i) {
-    mexPrintMsg("horsum", horsum(i, 0));    
-  }  
-  for (int i = 0; i < 5; ++i) {
-    mexPrintMsg("Horizontal", m(0, i));    
-  }
-  for (int i = 0; i < 5; ++i) {
-    mexPrintMsg("Vertical", m(i, 0));    
-  } */
+  activ_mat_.Validate();
 }
 
 void LayerInput::InitWeights(Weights &weights, size_t &offset, bool isgen) {  

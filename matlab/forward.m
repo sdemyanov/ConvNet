@@ -13,12 +13,9 @@ for l = 1 : n   %  for each layer
       layers{l}.a = layers{l}.a .* repmat(layers{l}.sw, [1 1 1 batchsize]);
     end;
     
-  elseif strcmp(layers{l}.type, 'n')
-    layers{l}.a = layers{l-1}.a + repmat(layers{l}.w(:, :, :, 1), [1 1 1 batchsize]);
-    if (layers{l}.is_dev == 1)
-      layers{l}.a = layers{l}.a .* repmat(layers{l}.w(:, :, :, 2), [1 1 1 batchsize]);
-    end;
- 
+  elseif strcmp(layers{l}.type, 'j')
+    assert(0, 'Jittering is not implemented in Matlab version');
+    
   elseif strcmp(layers{l}.type, 'c')    
     if (passnum == 0 || passnum == 1)
       layers{l}.a = repmat(permute(layers{l}.b, [3 4 1 2]), [layers{l}.mapsize 1 batchsize]);      

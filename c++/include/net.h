@@ -26,7 +26,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 class Net {
   
 private:
-  std::vector<Layer*> layers_;  
+  std::vector<Layer*> layers_;
+  size_t first_layer_;
   Weights weights_;
   Params params_;
   MatCPU data_, labels_;

@@ -22,18 +22,17 @@ for l = 1 : n
       end        
     end;
     if (passnum == 2)
-      layers{l}.db = squeeze(sum(sum(sum(layers{l}.d, 4), 2), 1)) / batchsize;    
+      layers{l}.db = squeeze(sum(sum(sum(layers{l}.d, 4), 2), 1)) / batchsize;
+      layers{l}.db = layers{l}.db * layers{l}.biascoef;      
       layers{l}.db(-layers{l}.eps < layers{l}.db & layers{l}.db < layers{l}.eps) = 0;
       layers{l}.dk(-layers{l}.eps < layers{l}.dk & layers{l}.dk < layers{l}.eps) = 0;    
     end;
-    %disp('calc_weights');
-    %disp(sum(layers{l}.dk(:)));
-    %disp(layers{l}.dk(1, 1:5, 1, 1));
 
   elseif strcmp(layers{l}.type, 'f')
     if (passnum == 2)
       layers{l}.dw = layers{l}.d' * layers{l}.ai / batchsize;
-      layers{l}.db = mean(layers{l}.d, 1);    
+      layers{l}.db = mean(layers{l}.d, 1);
+      layers{l}.db = layers{l}.db * layers{l}.biascoef;      
       layers{l}.db(-layers{l}.eps < layers{l}.db & layers{l}.db < layers{l}.eps) = 0;
       layers{l}.dw(-layers{l}.eps < layers{l}.dw & layers{l}.dw < layers{l}.eps) = 0;    
     end;

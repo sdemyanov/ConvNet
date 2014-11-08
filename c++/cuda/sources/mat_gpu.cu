@@ -140,7 +140,7 @@ ftype MatGPU::operator () (size_t i, size_t j) const {
   delete [] val_ptr;
   return val;
 }
-
+/*
 ftype MatGPU::operator () (size_t ind) const {
   ftype *val_ptr = new ftype [1];
   CUDA_CALL(cudaMemcpy(val_ptr, &data(ind), sizeof(ftype), cudaMemcpyDeviceToHost));
@@ -154,7 +154,7 @@ MatGPU MatGPU::operator () (size_t ind) {
   val_mat.attach(&data(ind), 1, 1);
   return val_mat;
 }
-
+*/
 size_t MatGPU::getNumDataBytes() const {
   return size1_ * size2_ * sizeof(ftype);
 }
@@ -294,6 +294,32 @@ MatGPU& MatGPU::reorder(bool order, bool real) {
   return *this;
 }
 
+MatGPU& MatGPU::attach(const MatGPU &a) {
+  return attach(a.data_, a.size1_, a.size2_, a.stride_, a.order_);
+}
+
+MatGPU& MatGPU::attach(const MatGPU &a, size_t offset, size_t size1, size_t size2, bool order) {  
+  mexAssert(a.size1_ == 1 || a.size2_ == 1, "In MatGPU::attach with offset one of sizes should be 1");
+  mexAssert(offset + size1 * size2 <= a.size1_ * a.size2_, 
+            "In MatGPU::attach the sizes don't correspond each other");
+  return attach(a.data_ + offset, size1, size2, a.stride_, order);    
+}
+
+MatGPU& MatGPU::attach(ftype *ptr, size_t size1, size_t size2) {
+  return attach(ptr, size1, size2, 1, kDefaultOrder);
+}
+
+MatGPU& MatGPU::attach(ftype *ptr, size_t size1, size_t size2, size_t stride, bool order) {  
+  //mexAssert(order == false, "In MatGPU::attach order should be always false");  
+  clear();
+  data_ = ptr;
+  size1_ = size1;
+  size2_ = size2;  
+  stride_ = stride;    
+  order_ = order;
+  return *this;
+}
+
 MatGPU& MatGPU::clear() {
   //mexPrintMsg("Array clear");
   if (texture_ != 0) {
@@ -360,6 +386,12 @@ MatGPU& MatGPU::rand() {
   return *this;
 }
 
+MatGPU& MatGPU::randnorm() {
+  mexAssert(stride_ == 1, "In MatGPU::randnorm stride_ should be 1");
+  CURAND_CALL(curandGenerateNormal(_randGen, data_, size1_ * size2_, 0, 1));
+  return *this;
+}
+
 MatGPU& MatGPU::operator += (const MatGPU &a) {
   cuda_addmat(*this, a);
   return *this;
@@ -415,6 +447,11 @@ MatGPU& MatGPU::Log() {
   return *this;
 }
 
+MatGPU& MatGPU::Exp() {
+  cuda_exp(*this);
+  return *this;
+}
+
 MatGPU& MatGPU::Sigmoid() {
   cuda_sigmoid(*this);
   return *this;
@@ -431,7 +468,7 @@ MatGPU& MatGPU::SoftMax() {
   maxvect.resize(size1_, 1);
   cuda_maxvect(*this, maxvect, 2);
   this->AddVect(maxvect *= -1, 2);
-  cuda_exp(*this);
+  this->Exp();
   swapWithBuffer(sumvect, -2);  
   sumvect.resize(size1_, 1);
   Sum(*this, sumvect, 2);  
@@ -647,6 +684,66 @@ void Prod(const MatGPU &a, bool a_tr, const MatGPU &b, bool b_tr, MatGPU &c) {
   CUBLAS_CALL(cublasSgemm(handle, a_op, b_op, as1, bs2, as2,
                          &scale_prod, a.data_, a.size1_, b.data_, b.size1_,
                          &scale_cur, c.data_, c.size1_));
+}
+
+void TransformActs(const MatGPU &images, MatGPU &targets, 
+                   const std::vector<size_t> &prev_mapsize, const std::vector<size_t> &mapsize,
+                   const std::vector<ftype> &shift, const std::vector<ftype> &scale, 
+                   const std::vector<bool> &mirror, ftype angle, ftype defval) {
+      
+  size_t numdim = 2;
+  mexAssert(shift.size() == numdim && scale.size() == numdim && mirror.size() == numdim,
+    "In TransformActs one of the vectors has the wrong size");
+  
+  size_t batchsize = images.size1();
+  MatGPU shift_mat, scale_mat, mirror_mat, angle_mat;  
+  
+  MatGPU::swapWithBuffer(shift_mat, -3);
+  shift_mat.resize(batchsize, numdim);
+  shift_mat.assign(0);
+  
+  MatGPU::swapWithBuffer(scale_mat, -4);
+  scale_mat.resize(batchsize, numdim);
+  scale_mat.assign(1);
+  
+  MatGPU::swapWithBuffer(mirror_mat, -5);
+  mirror_mat.resize(batchsize, numdim);
+  mirror_mat.assign(0);
+  
+  MatGPU::swapWithBuffer(angle_mat, -6);
+  angle_mat.resize(batchsize, 1);
+  angle_mat.assign(0);
+  
+  MatGPU dim_vect;
+  mexAssert(kDefaultOrder == false, "In TransformActs the default order should be false");  
+  for (size_t j = 0; j < numdim; ++j) {    
+    if (shift[j] > 0) {
+      dim_vect.attach(shift_mat.data_ + batchsize * j, batchsize, 1);
+      (dim_vect.rand() *= 2) -= 1;
+      dim_vect *= shift[j];
+    }
+    if (scale[j] > 1) {
+      dim_vect.attach(scale_mat.data_ + batchsize * j, batchsize, 1);
+      (dim_vect.rand() *= 2) -= 1;
+      (dim_vect *= log(scale[j])).Exp();    
+    }
+    if (mirror[j] == true) {
+      dim_vect.attach(mirror_mat.data_ + batchsize * j, batchsize, 1);
+      dim_vect.rand();    
+    }    
+  } 
+  if (angle > 0) {
+    ((angle_mat.rand() *= 2) -= 1) *= kPi * angle;
+  }
+  
+  _transformActs(images, targets,
+                 prev_mapsize[0], prev_mapsize[1], mapsize[0], mapsize[1], 
+                 shift_mat, scale_mat, mirror_mat, angle_mat, defval);  
+                 
+  MatGPU::swapWithBuffer(shift_mat, -3);
+  MatGPU::swapWithBuffer(scale_mat, -4);
+  MatGPU::swapWithBuffer(mirror_mat, -5);
+  MatGPU::swapWithBuffer(angle_mat, -6);
 }
 
 // filter functions
