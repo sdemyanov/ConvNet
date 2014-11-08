@@ -54,8 +54,8 @@ layers - the structure of CNN. Sets up as cell array, with each element represen
 - s - scaling layer. Reduces the map size by pooling. Must contain the "scale" field, that is also a vector with 2 integer values. May additionally contain 'stride' field, that determines the distance between neighbouring blocks in each dimension. By default is equal to 'scale'.
 
 - f - fully connected layer. Must contain the "length" field that defines the number of its outputs. The last layer must have this type. For the last layer the length must coincide with the number of classes. May also contain the following additional fields:  
-1) "dropout" - determines the probability of dropping the activations on this layer. Cannot be used on the last layer. Should not be too large, otherwise it drops everything.
-2) 'initstd' - the same as for convolutional layers. The default value is 0.1.
+1) "dropout" - determines the probability of dropping the activations on this layer. Cannot be used on the last layer. Should not be too large, otherwise it drops everything.  
+2) 'initstd' - the same as for convolutional layers. The default value is 0.1.  
 3) 'biascoef' - the same as for convolutional layers.
 
 All layers except "i" may contain the "function" field, that defines their action. For:
