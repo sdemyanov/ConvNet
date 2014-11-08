@@ -42,7 +42,7 @@ test_y = single(TestY(1:kTestNum, :));
 
 clear params;
 params.seed = 0;
-params.numepochs = 10;
+params.numepochs = 1;
 params.alpha = 0.1;
 params.momentum = 0.9;
 params.lossfun = 'logreg';
@@ -53,7 +53,7 @@ norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
 
 % !!! IMPORTANT NOTICES FOR GPU VERSION !!!
 % Outputmaps number should be divisible on 16
-% Use only the default value of batchsize = 128
+% For speed use only the default value of batchsize = 128
 
 % This structure gives pretty good results on MNIST after just several epochs
 
@@ -71,7 +71,7 @@ layers = {
 
 rng(params.seed);
 weights = single(genweights(layers, params.seed, funtype));
-EpochNum = 1;
+EpochNum = 10;
 errors = zeros(EpochNum, 1);
 for i = 1 : EpochNum
   disp(['Epoch: ' num2str((i-1) * params.numepochs) + 1])
@@ -82,6 +82,6 @@ for i = 1 : EpochNum
   errors(i) = err;
   params.alpha = params.alpha * 0.95;
 end;
-%plot(errors);
+plot(errors);
 disp('Done!');
 
