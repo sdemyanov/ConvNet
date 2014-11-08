@@ -34,6 +34,7 @@ Net::Net() {
 }
 
 void Net::InitRand(size_t seed) {
+  std::srand(seed);
   MatCPU::InitRand(seed);
   #if COMP_REGIME == 2 // GPU    
     MatGPU::InitRand(seed);
