@@ -4,7 +4,7 @@ contact: sergey@demyanov.net
 
 http://www.demyanov.net
 
-!!! IMPORTANT UPDATE !!! The GPU version is available now!
+!!! IMPORTANT UPDATE !!! The GPU version is available now!  
 !!! HOWEVER !!! Currently it works only on devices with the compute capability >= 3.0
 
 This library has been written as a part of my project on facial expression analysis. It contains the implementation of convolitional neural nets for Matlab, written on Matlab, C++ and CUDA for CPU and GPU processing. All versions work identically. The GPU version uses kernels from Alex Krizhevsky's library [cuda-convnet2](https://code.google.com/p/cuda-convnet2/), so it is _really_ fast. In some cases it is about 400 times faster than CPU version.
