@@ -41,13 +41,13 @@ test_x = single(TestX(:, :, 1:kTestNum));
 test_y = single(TestY(1:kTestNum, :));
 
 clear params;
-params.seed = 0;
-params.numepochs = 1;
+params.epochs = 1;
 params.alpha = 0.1;
 params.momentum = 0.9;
 params.lossfun = 'logreg';
 params.shuffle = 1;
-dropout = 0.5;
+params.seed = 0;
+dropout = 0;
 
 norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
 
@@ -59,8 +59,8 @@ norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
 
 layers = {
   struct('type', 'i', 'mapsize', kXSize(1:2), 'outputmaps', kXSize(3), 'mean', 0)
-  struct('type', 'j', 'mapsize', [28 28], 'shift', [2 2], ...
-         'scale', [1.15 1.15], 'angle', 0.15, 'defval', 0)
+  struct('type', 'j', 'mapsize', [28 28], 'shift', [1 1], ...
+         'scale', [1.40 1.40], 'angle', 0.10, 'defval', 0)
   struct('type', 'c', 'filtersize', [4 4], 'outputmaps', 32)
   struct('type', 's', 'scale', [3 3], 'function', 'max', 'stride', [2 2])
   struct('type', 'c', 'filtersize', [5 5], 'outputmaps', 64, 'padding', [2 2])
@@ -69,12 +69,11 @@ layers = {
   struct('type', 'f', 'length', kOutputs, 'function', 'soft')
 };
 
-rng(params.seed);
-weights = single(genweights(layers, params.seed, funtype));
+weights = single(genweights(layers, params, funtype));
 EpochNum = 10;
 errors = zeros(EpochNum, 1);
 for i = 1 : EpochNum
-  disp(['Epoch: ' num2str((i-1) * params.numepochs) + 1])
+  disp(['Epoch: ' num2str((i-1) * params.epochs) + 1])
   [weights, trainerr] = cnntrain(layers, weights, params, train_x, train_y, funtype);  
   disp([num2str(mean(trainerr(:, 1))) ' loss']);  
   [err, bad, pred] = cnntest(layers, weights, params, test_x, test_y, funtype);  

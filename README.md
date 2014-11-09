@@ -5,6 +5,7 @@ contact: sergey@demyanov.net
 http://www.demyanov.net
 
 !!! IMPORTANT UPDATE !!! The GPU version is available now!
+!!! HOWEVER !!! Currently it works only on devices with the compute capability >= 3.0
 
 This library has been written as a part of my project on facial expression analysis. It contains the implementation of convolitional neural nets for Matlab, written on Matlab, C++ and CUDA for CPU and GPU processing. All versions work identically. The GPU version uses kernels from Alex Krizhevsky's library [cuda-convnet2](https://code.google.com/p/cuda-convnet2/), so it is _really_ fast. In some cases it is about 400 times faster than CPU version.
 
@@ -44,7 +45,8 @@ layers - the structure of CNN. Sets up as cell array, with each element represen
 2) 'scale' - specifies the maximum scale in each dimension. Must be more than 1. The image scales with the random factors from [1/x x].  
 3) 'mirror' - binary vector, that determines if the image might be mirrored in a particular dimension or not.  
 4) 'angle' - scalar, that specifies the maximum angle of rotation. Must be from [0, 1]. The value 1 corresponds to 180 degrees.  
-5) 'defval' - specifies the value that is used when the transformed image lies outside the borders of the original image. If this value is not specified, the transformed value should be always inside the original one, otherwise there will be an error. This layer is not implemented in Matlab version.
+5) 'defval' - specifies the value that is used when the transformed image lies outside the borders of the original image. If this value is not specified, the transformed value should be always inside the original one, otherwise there will be an error. This layer is not implemented in Matlab version.  
+On the test set the images are just centrally cropped to the size 'mapsize', like there were no additional parameters.
 
 - c - convolutional layer. Must contain the "filtersize" field, that identifies the filter size. Must not be greater than the size of maps on the previous layer. Must also contain the "outputmaps" field, that is the number of maps for each objects on this layer. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m * n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions. May contain the following additional fields:  
 1) 'padding' - specifies the size of zero padding around the maps for each dimension. The default value is 0.  
@@ -65,15 +67,15 @@ All layers except "i" may contain the "function" field, that defines their actio
 params - define the learning process. It is a structure with the following fields. If some of them are absent, the value by default is taken.
 - seed - any non-negative integer, that allows to repeat the same random numbers. Default is 0.
 - batchsize - defines the size of batches. Default is 128.
-- numepochs - the number of repeats the training procedure with different batch splits. Default is 1.
-- alpha - defines the learning rate speed. Default is 1. Can also be the vector of the length 'numepochs'. Then an individual rate for each epoch will be used.
-- momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0. Can also be the vector of the length 'numepochs'. Then an individual momentum for each epoch will be used.
+- epochs - the number of repeats the training procedure with different batch splits. Default is 1.
+- alpha - defines the learning rate speed. Default is 1. Can also be the vector of the length 'epochs'. Then an individual rate for each epoch is used.
+- momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0. Can also be the vector of the length 'epochs'. Then an individual momentum for each epoch is used.
 - adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
 - maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively. Default is 1.
 - balance - boolean variable. Balances errors according to the class appearance frequencies. Useful for highly unbalanced datasets. Default is 0.
 - lossfun - string. Specifies the employed loss function. Must be eigher "squared" or "logreg", that correspond to sum of squared differences and negative log likelihood respectively. If you use "logreg", it is better to use "softmax" nonlinear function on the last layer and reduce the learning rate about 10 times. The default value is "squared".
 - shuffle - determines whether the input dataset will be shuffled or not. If it is set to 0, the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Otherwise, it should be 1. Default is 0.
-- verbose - determines output info during learning. For 0 there is no output, for 1 it prints only number of epochs, for 2 it prints both numbers of epoch and batch. Default is 0.
+- verbose - determines output info during learning. For 0 there is no output, for 1 it prints only number of current epoch, for 2 it prints both numbers of epoch and batch. Default is 0.
 
 weights - the weights vector obtained from genweights or cnntrain, that is used for weights initialization. Can be used for testing or continuing the training procedure. 
 

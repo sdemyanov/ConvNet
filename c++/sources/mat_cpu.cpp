@@ -907,14 +907,9 @@ bool MatCPU::hasZeros() const {
   return false;
 }
 
-/* we write in a vertical order, because it is used only 
-   in mexSetMatrix, which creates a matrix for Matlab */
 void MatCPU::write(ftype *vect) const {
-  mexAssert(!kMatlabOrder, "matlabTrans should be always false");  
-  size_t ind = 0;
-  for (size_t j = 0; j < size2_; ++j) {
-    for (size_t i = 0; i < size1_; ++i) {      
-      vect[ind++] = data(i, j);      
-    }
-  }  
+  size_t ind = 0;  
+  for (size_t i = 0; i < size1_ * size2_; ++i) {      
+      vect[ind++] = data(i);      
+  } 
 }

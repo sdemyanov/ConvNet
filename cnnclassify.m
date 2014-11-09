@@ -11,7 +11,7 @@ if (strcmp(type, 'cpu') || strcmp(type, 'gpu'))
 elseif strcmp(type, 'matlab')
   pred = classify_mat(layers, weights, params, test_x);  
 else
-  error('"%s" - wrong type, must be either "mexfun" or "matlab"', type);
+  error('"%s" - wrong type, must be either "cpu", "gpu" or "matlab"', type);
 end;
 t = toc;
 disp(['Total classification time: ' num2str(t)]);

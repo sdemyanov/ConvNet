@@ -36,9 +36,8 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
     "Number of input and/or output arguments is not correct!" );
   
   Net net;
-  net.InitLayers(IN_L);  
-  net.InitWeights(IN_W);  
+  net.InitLayers(IN_L); 
+  net.InitWeights(IN_W);
   net.InitParams(IN_P);
-  net.Classify(IN_X, OUT_Y);
-  
+  net.Classify(IN_X, OUT_Y);  
 }

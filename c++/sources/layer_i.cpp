@@ -49,7 +49,7 @@ void LayerInput::Init(const mxArray *mx_layer, Layer *prev_layer) {
   length_ = outputmaps_;
   size_t numel = 1;
   for (size_t i = 0; i < numdim_; ++i) {    
-    mexAssert(1 <= mapsize[i], "Mapsize on the 'i' layer must be greater or equal to 1");
+    mexAssert(1 <= mapsize[i], "Mapsize on the 'i' layer must be positive");
     mapsize_[i] = (size_t) mapsize[i];
     length_ *= mapsize_[i];
     numel *= mapsize_[i];

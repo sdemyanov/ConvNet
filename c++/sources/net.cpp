@@ -83,7 +83,8 @@ void Net::InitLayers(const mxArray *mx_layers) {
 
 void Net::InitParams(const mxArray *mx_params) {
   //mexPrintMsg("Start params initialization...");
-  params_.Init(mx_params);  
+  params_.Init(mx_params);
+  InitRand(params_.seed_);  
   //mexPrintMsg("Params initialization finished");
 }
 
@@ -96,18 +97,16 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
   
   size_t train_num = data_.size1();
   size_t numbatches = DIVUP(train_num, params_.batchsize_);
-  trainerrors_.resize(params_.numepochs_, 2);
+  trainerrors_.resize(params_.epochs_, 2);
   trainerrors_.assign(0);
-  InitRand(params_.seed_);
-  for (size_t epoch = 0; epoch < params_.numepochs_; ++epoch) {    
+  for (size_t epoch = 0; epoch < params_.epochs_; ++epoch) {    
     if (params_.shuffle_) {
       Shuffle(data_, labels_);      
     }
     StartTimer();    
     size_t offset = 0;
     Mat data_batch, labels_batch, pred_batch;      
-    for (size_t batch = 0; batch < numbatches; ++batch) {        
-    
+    for (size_t batch = 0; batch < numbatches; ++batch) {
       size_t batchsize = MIN(train_num - offset, params_.batchsize_);      
       UpdateWeights(epoch, false);
       data_batch.resize(batchsize, data_.size2());
@@ -158,7 +157,7 @@ void Net::Classify(const mxArray *mx_data, mxArray *&mx_pred) {
       mexPrintInt("Batch", batch + 1);        
     }      
   }
-  labels_.reorder(kDefaultOrder, true);
+  labels_.reorder(kMatlabOrder, true);
   mx_pred = mexSetMatrix(labels_);  
   //mexPrintMsg("Classification finished");
 }

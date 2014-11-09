@@ -1,6 +1,6 @@
-function weights = genweights_mat(layers, seed)
+function weights = genweights_mat(layers, params)
 
-rng(seed);
+rng(params.seed);
 layers = cnnsetup(layers, 1);
 weights = getweights(layers);
 

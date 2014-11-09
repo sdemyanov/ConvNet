@@ -40,7 +40,7 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   Net net;
   net.InitLayers(IN_L);
   net.InitWeights(IN_W);
-  net.InitParams(IN_P);
+  net.InitParams(IN_P);  
   net.Train(IN_X, IN_Y);  
   net.GetWeights(OUT_W);
   net.GetErrors(OUT_E);

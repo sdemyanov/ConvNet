@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Params::Params() {
   batchsize_ = 128;
-  numepochs_ = 1;
+  epochs_ = 1;
   alpha_.assign(1, 1);
   momentum_.assign(1, 0);
   adjustrate_ = 0;
@@ -43,12 +43,12 @@ void Params::Init(const mxArray *mx_params) {
     mexAssert(batchsize_ > 0, "Batchsize must be positive");
   }
   if (mexIsField(mx_params, "numepochs")) {    
-    numepochs_ = (size_t) mexGetScalar(mexGetField(mx_params, "numepochs"));    
-    mexAssert(numepochs_ > 0, "Numepochs must be positive");
+    epochs_ = (size_t) mexGetScalar(mexGetField(mx_params, "numepochs"));    
+    mexAssert(epochs_ > 0, "Numepochs must be positive");
   }
   if (mexIsField(mx_params, "alpha")) {    
     alpha_ = mexGetVector(mexGetField(mx_params, "alpha"));
-    mexAssert(alpha_.size() == 1 || alpha_.size() == numepochs_,
+    mexAssert(alpha_.size() == 1 || alpha_.size() == epochs_,
       "Wrong length of the alpha vector");
     for (size_t i = 0; i < alpha_.size(); ++i) {
       mexAssert(alpha_[i] >= 0, "alpha must be nonnegative");
@@ -56,7 +56,7 @@ void Params::Init(const mxArray *mx_params) {
   }
   if (mexIsField(mx_params, "momentum")) {    
     momentum_ = mexGetVector(mexGetField(mx_params, "momentum"));
-    mexAssert(momentum_.size() == 1 || momentum_.size() == numepochs_,
+    mexAssert(momentum_.size() == 1 || momentum_.size() == epochs_,
       "Wrong length of the momentum vector");
     for (size_t i = 0; i < momentum_.size(); ++i) {
       mexAssert(0 <= momentum_[i] && momentum_[i] < 1, "Momentum is out of range [0, 1)");

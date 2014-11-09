@@ -36,7 +36,7 @@ void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
   mapsize_.resize(numdim_);
   length_ = outputmaps_;
   for (size_t i = 0; i < numdim_; ++i) {
-    mexAssert(mapsize[i] <= prev_layer->mapsize_[i], "In 'j' layer new mapsize cannot be larger than the old one");    
+    mexAssert(1 <= mapsize[i], "In 'j' layer mapsize must be positive");    
     mapsize_[i] = (size_t) mapsize[i];
     length_ *= mapsize_[i];
   }

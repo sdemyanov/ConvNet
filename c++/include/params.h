@@ -26,7 +26,7 @@ class Params {
 
 public:
   size_t batchsize_;
-  size_t numepochs_;
+  size_t epochs_;
   std::vector<ftype> alpha_;
   std::vector<ftype> momentum_;
   ftype adjustrate_;

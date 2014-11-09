@@ -45,7 +45,7 @@ bool mexIsCell(const mxArray *mx_array) {
 }
 
 bool mexIsField(const mxArray *mx_array, const char *fieldname) {
-	mexAssert(mexIsStruct(mx_array), "In 'mexGetField' the array in not a cell array");  
+	mexAssert(mexIsStruct(mx_array), "In 'mexIsField' the array in not a struct");  
 	const mxArray* mx_field = mxGetField(mx_array, 0, fieldname);
 	return (mx_field != NULL);  
 }
@@ -63,7 +63,7 @@ const mxArray* mexGetCell(const mxArray *mx_array, size_t ind) {
 }
 
 const mxArray* mexGetField(const mxArray *mx_array, const char *fieldname) {	  
-  mexAssert(mexIsStruct(mx_array), "In 'mexGetField' the array in not a cell array");
+  mexAssert(mexIsStruct(mx_array), "In 'mexGetField' the array in not a struct");
   const mxArray* mx_field = mxGetField(mx_array, 0, fieldname);	  
   std::string fieldname_str(fieldname); 
 	mexAssert(mx_field != NULL, fieldname + std::string(" field missing!!\n"));  
@@ -179,7 +179,9 @@ mxArray* mexSetVector(const std::vector<ftype> &vect) {
 mxArray* mexSetMatrix(const MatCPU &mat) {			
   mxArray *mx_array = mexNewMatrix(mat.size1(), mat.size2());  
 	ftype *pdata = (ftype*) mxGetData(mx_array);  
-  mat.write(pdata);  
+  mexAssert(mat.order() == kMatlabOrder, 
+    "In mexSetMatrix the order should coincide with kMatlabOrder");
+  mat.write(pdata);
   return mx_array;  
 }
 

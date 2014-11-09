@@ -38,6 +38,7 @@ private:
   
   void ReadData(const mxArray *mx_data);
   void ReadLabels(const mxArray *mx_labels);  
+  void InitRand(size_t seed);  
   void InitNorm();
   void InitActiv(const Mat &data_batch);
   void Forward(Mat &pred, int passnum);  
@@ -48,7 +49,6 @@ private:
 public:
   Net();
   ~Net();
-  void InitRand(size_t seed);
   void InitLayers(const mxArray *mx_layers);
   void InitParams(const mxArray *mx_params);
   void Train(const mxArray *mx_data, const mxArray *mx_labels);
