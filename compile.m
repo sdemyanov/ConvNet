@@ -13,15 +13,6 @@ kCudaFolder = fullfile(kCPUFolder, 'cuda');
 kCudaInclude = fullfile(kCudaFolder, 'include');
 kCudaSource = fullfile(kCudaFolder, 'sources');
 
-kBuildFolder = fullfile(kCPUFolder, 'build');
-if (~exist(kBuildFolder, 'dir'))
-  mkdir(kBuildFolder);
-end;
-kObjFolder = fullfile(kBuildFolder, 'obj');
-if (~exist(kObjFolder, 'dir'))
-  mkdir(kObjFolder);
-end;
-
 targets = {'cnntrain_mex.cpp', ...
            'classify_mex.cpp', ...
            'genweights_mex.cpp'};
@@ -33,6 +24,10 @@ else
 end;
 
 cppfiles = fullfile(kCppSource, '*.cpp');
+kObjFolder = fullfile(kCPUFolder, 'obj');
+if (~exist(kObjFolder, 'dir'))
+  mkdir(kObjFolder);
+end;
 
 % generating c++ object files
 if (regime == 0) % single thread CPU
@@ -40,7 +35,7 @@ if (regime == 0) % single thread CPU
       ['-I' kCppInclude], ...
       '-outdir', kObjFolder, ...
       '-largeArrayDims');
-elseif (regime == 1)
+elseif (regime == 1) % multithread CPU
   mex(['"' cppfiles '"'], '-c', ...      
       ['-I' kCppInclude], ...
       '-outdir', kObjFolder, ...
@@ -71,9 +66,17 @@ elseif (isunix)
   cppfiles = fullfile(kObjFolder, '*.o');
 end;
 
+% generating mex files
+
+kBuildFolder = fullfile(kCPUFolder, 'build');
+if (~exist(kBuildFolder, 'dir'))
+  mkdir(kBuildFolder);
+end;
 if (regime ~= 2) % CPU
   kBuildFolder = fullfile(kBuildFolder, 'cpu');  
-  % generating mex files
+  if (~exist(kBuildFolder, 'dir'))
+    mkdir(kBuildFolder);
+  end;
   if (~exist('indices', 'var'))
     indices = 1:numel(targets);
   end;
@@ -95,7 +98,7 @@ elseif (regime == 2) % GPU
   if (ispc)
     kVSFolder = getenv('VS100COMNTOOLS');
     if (isempty(kVSFolder)) 
-      assert(0, 'Install Visual Studio and/or setup the path to its "Tools" in the "VS100COMNTOOLS" variable using "setenv"');
+      assert(0 == 1, 'Install Visual Studio and/or setup the path to its "Tools" in the "VS100COMNTOOLS" variable using "setenv"');
       %setenv('VS100COMNTOOLS', 'C:\Program Files (x86)\Microsoft Visual Studio 11.0\Common7\Tools\');
     end;    
   end;
@@ -104,12 +107,14 @@ elseif (regime == 2) % GPU
     kCudaLib = fullfile(kCudaPath, 'lib', 'Win32'); 
   elseif (strcmp(arch, 'PCWIN64'))
     kCudaLib = fullfile(kCudaPath, 'lib', 'x64'); 
-  end;
-  
+  end;  
   copyfile(fullfile(kCudaFolder, '*.xml'), kMainFolder, 'f');  
   cudafiles = fullfile(kCudaSource, '*.cu');  
-  kBuildFolder = fullfile(kBuildFolder, 'gpu');  
-  % generating mex files  
+  
+  kBuildFolder = fullfile(kBuildFolder, 'gpu');
+  if (~exist(kBuildFolder, 'dir'))
+    mkdir(kBuildFolder);
+  end;  
   for i = 1 : numel(indices)
     mexfile = fullfile(kCPUFolder, targets{indices(i)});
     mex(mexfile, ['"' cudafiles '"'], ['"' cppfiles '"'], ...      
@@ -125,7 +130,5 @@ elseif (regime == 2) % GPU
   delete(fullfile(kMainFolder, '*.xml'));
   
 end;
-
-%cd(curfolder);
 
 end

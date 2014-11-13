@@ -10,9 +10,15 @@ funtype = 'gpu';
 disp(funtype);
 
 if (strcmp(funtype, 'gpu') || strcmp(funtype, 'cpu'))  
-  kBuildFolder = './c++/build';
-  copyfile(fullfile(kBuildFolder, funtype, '*.mexw64'), kBuildFolder, 'f');
-  addpath(kBuildFolder);
+  kMexFolder = './c++/build';
+  kBuildFolder = fullfile(kMexFolder, funtype);
+  if (ispc)
+    mexfiles = fullfile(kBuildFolder, '*.mexw64');
+  elseif (isunix)  
+    mexfiles = fullfile(kBuildFolder, '*.mexa64');
+  end;
+  copyfile(mexfiles, kMexFolder, 'f');
+  addpath(kMexFolder);
 end;
 addpath('./matlab');
 addpath('./data');
@@ -58,7 +64,7 @@ norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
 % This structure gives pretty good results on MNIST after just several epochs
 
 layers = {
-  struct('type', 'i', 'mapsize', kXSize(1:2), 'outputmaps', kXSize(3), 'mean', 0)
+  struct('type', 'i', 'mapsize', kXSize(1:2), 'outputmaps', kXSize(3))
   struct('type', 'j', 'mapsize', [28 28], 'shift', [1 1], ...
          'scale', [1.40 1.40], 'angle', 0.10, 'defval', 0)
   struct('type', 'c', 'filtersize', [4 4], 'outputmaps', 32)
@@ -73,7 +79,7 @@ weights = single(genweights(layers, params, funtype));
 EpochNum = 10;
 errors = zeros(EpochNum, 1);
 for i = 1 : EpochNum
-  disp(['Epoch: ' num2str((i-1) * params.epochs) + 1])
+  disp(['Epoch: ' num2str((i-1) * params.epochs + 1)])
   [weights, trainerr] = cnntrain(layers, weights, params, train_x, train_y, funtype);  
   disp([num2str(mean(trainerr(:, 1))) ' loss']);  
   [err, bad, pred] = cnntest(layers, weights, params, test_x, test_y, funtype);  

@@ -81,7 +81,7 @@ weights - the weights vector obtained from genweights or cnntrain, that is used 
 
 funtype - defines the actual function that is used. Can be either "gpu", "cpu" or "matlab". While "matlab" is slower, it is easier to do some debugging and see the intermediate results.
 
-TECHNICAL DETAILS
+COMPILATION
 
 If you cannot use the binaries for C++ CPU and GPU versions, you need to compile them by yourself. The compilation options are defined in the file "settings.h". Here they are:
 
@@ -94,22 +94,39 @@ If you cannot use the binaries for C++ CPU and GPU versions, you need to compile
 
 - PRECISION_EPS. Equal to 1e-6 by default. For consistency purposes all values that are less than it are assigned to 0. In Matlab it is defined in cnnsetup.m.
 
-In order to compile you need to run 'compile' script in the main folder. Run in with the single parameter that specifies the regime. IMPORTANT! Make sure you have the same value in the "settings.h". If they do not correspond, you might get either compilation errors or the GPU version that is performed on CPU. You may also specify the second parameter that identifies the particular files. Use 1 for 'cnntrain', 2 for 'classify', 3 for 'genweights'.
+There are two ways to compile "mex" files. First of them is to run the 'compile' script in the main folder. Run in with the single parameter that specifies the regime. IMPORTANT! Make sure you have the same value in the "settings.h". If they do not correspond, you might get either compilation errors or the GPU version that is performed on CPU. You may also specify the second parameter that identifies the particular files. Use 1 for 'cnntrain', 2 for 'classify', 3 for 'genweights'. While the compilation process takes just several seconds for CPU version, it takes several minutes to compile the GPU version. Please, be patient. If there is an error, you will see red messages.
 
-While the compilation process takes just several seconds for CPU version, it takes several minutes to compile the GPU version. Please, be patient. If there is an error, you will see red messages.
+Alternatively, if you need just a GPU version, you can use the Makefile in Linux, or try to use my project for Visual Studio 2012 in Windows.
 
-GPU COMPILATION DETAILS
 
-The GPU compilation is tricky and might take some efforts to do it. I'll describe some details for Windows users, as I believe that Linux users can solve these problems by themselves :) First of all, run 'mex -setup' in order to check that you have a proper C++ compiler. If not, install it. You need either a full version of Visual Studio or an express version with Microsoft SDK, that are free. Of course, you need to install CUDA as well. Download it from NVIDIA site. The CUDA settings for 'mex' are located in file with the name like "mex_CUDA_win64.xml". Read more on the mathworks [website](http://www.mathworks.com.au/help/distcomp/run-mex-functions-containing-cuda-code.html#btrgjh3-1). You must have this file in your Matlab folder. The one that works for me is located in "./c++/cuda" folder. Adjust your Microsoft SDK and CUDA folders, CUDA computation capability and other options there. Make sure you have proper values of environment variables 'CUDA_PATH' and 'VS100COMNTOOLS'. You can do it using functions 'getenv' and 'setenv'. If you don't do it, you might get an error "No supported compiler or SDK was found". You might also get an error about the file 'vcvars64.bat'. In this case use the one that is located in "./c++/cuda" folder. Adjust the path in it as well. After that you should be able to compile.
+COMPILATION FOR WINDOWS
 
-FOR LINUX USERS
+- Using 'compile' script.  
+While CPU compilation is easy, the GPU compilation is tricky and might take some efforts to do it.
+First of all, run 'mex -setup' in order to check that you have a proper C++ compiler. If not, install it. You need either a full version of Visual Studio or an express version with Microsoft SDK, that are free. Of course, you need to install CUDA as well. Download it from NVIDIA site. The CUDA settings for 'mex' are located in file with the name like "mex_CUDA_win64.xml". Read more on the mathworks [website](http://www.mathworks.com.au/help/distcomp/run-mex-functions-containing-cuda-code.html#btrgjh3-1). You must have this file in your Matlab folder. The one that works for me is located in "./c++/cuda" folder. Adjust your Microsoft SDK and CUDA folders, CUDA computation capability and other options there. Make sure you have proper values of environment variables 'CUDA_PATH' and 'VS100COMNTOOLS'. You can do it using functions 'getenv' and 'setenv'. If you don't do it, you might get an error "No supported compiler or SDK was found". You might also get an error about the file 'vcvars64.bat'. In this case use the one that is located in "./c++/cuda" folder. Adjust the path in it as well. After that you should be able to compile.
 
-- The code uses c++11 features, so the compiler must understand them. In Windows it was tested with Microsoft SDK 7.1, in Ubuntu with g++ 4.7. Note, that it is possible to use g++ 4.7 only in Matlab R2013b or later. However, it does not understand c++11 by default. To enable c++11 features in Linux, you need to do the following:
-1). Copy the settings file "MatlabRoot"/bin/mexopts.sh to ~/.matlab/"MatlabVersion",
-2). Find and change the line "CXXFLAGS='-ansi -D_GNU_SOURCE'" to "CXXFLAGS='-std=c++11 -D_GNU_SOURCE'"
-Now you can compile the code.
+- Using Visual Studio project.  
+This is a project to compile 'cnntrain_mex'. Add all '.h', '.cpp' and '.cu' files, adjust paths in Include and Libraries fields, and enjoy incremental compilation every time you change just one single file. Create similar project with the same settings to compile 'classify' and 'genweights'.
 
-- Random numbers are used for generating weights, shuffling batches and dropout. Thus, if want to get identical resutls in both Matlab and C++ versions, you need to use the same initial weights, do not use shuffling and set dropout to 0. Note, that these versions produce different random numbers for the same seeds.
+
+COMPILATION FOR LINUX
+
+- Using 'compile' script.  
+If you want to compile via "compile" script, which uses "mex" function, first you need to specify your compiler. This how you do it:  
+1) Install the version of "gcc" and "g++", supported by your version of Matlab,  
+2) Copy the settings file "MatlabRoot"/bin/mexopts.sh to ~/.matlab/"MatlabVersion",  
+3) In this file change the values "CC" and "CXX" to these versions, like "CXX='g++-4.7'.  
+
+The code uses c++11 features, so the compiler must understand them. Usually "g++" does not understand c++11 by default. To enable c++11 features, you also need to:  
+4) Find and change the line "CXXFLAGS='-ansi -D_GNU_SOURCE'" to "CXXFLAGS='-std=c++11 -D_GNU_SOURCE'"  
+
+- Using Makefile.  
+In order to compile the GPU version, adjust the paths in the './c++/Makefile' file and run "make". That should be enough.
+
+
+NOTICE
+
+Random numbers are used for generating weights, shuffling batches and dropout. Thus, if want to get identical resutls in all Matlab and C++ versions, you need to use the same initial weights, do not use shuffling and set dropout to 0. Note, that these versions produce different random numbers for the same seeds.
 
 ACKNOLEDGEMENTS
 
