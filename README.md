@@ -116,12 +116,12 @@ If you want to compile via "compile" script, which uses "mex" function, first yo
 1) Install the version of "gcc" and "g++", supported by your version of Matlab,  
 2) Copy the settings file "MatlabRoot"/bin/mexopts.sh to ~/.matlab/"MatlabVersion",  
 3) In this file change the values "CC" and "CXX" to these versions, like "CXX='g++-4.7'.  
-
-The code uses c++11 features, so the compiler must understand them. Usually "g++" does not understand c++11 by default. To enable c++11 features, you also need to:  
-4) Find and change the line "CXXFLAGS='-ansi -D_GNU_SOURCE'" to "CXXFLAGS='-std=c++11 -D_GNU_SOURCE'"  
+4) Find and change the line "CXXFLAGS='-ansi -D_GNU_SOURCE'" to "CXXFLAGS='-std=c++11 -D_GNU_SOURCE'". The code uses c++11 features, so you need to make "g++" to understand them.
 
 - Using Makefile.  
-In order to compile the GPU version, adjust the paths in the './c++/Makefile' file and run "make". That should be enough.
+In order to compile the GPU version, adjust the paths in the './c++/Makefile' file and run "make". That should be enough.  
+
+If you have problems with loading '.so' files, make sure you have CUDA library folder (usually '/usr/local/cuda/lib64') in the variable LD_LIBRARY_PATH. You can check it by the Matlab 'getevn' command.
 
 
 NOTICE
