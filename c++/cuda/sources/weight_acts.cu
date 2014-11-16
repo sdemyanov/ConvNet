@@ -1685,7 +1685,7 @@ void _weightActs(MatGPU& images, MatGPU& hidActs, MatGPU& targets,
     mexAssert(numFilters % (16 * numGroups) == 0, "wa3");    
     mexAssert(targets.size2_ % (outputModuleChunks * numFilterColors) == 0, "wa8");
     int filterPixels = (int) targets.size2_ / (outputModuleChunks * numFilterColors);
-    int filterSize = (int) sqrt(filterPixels);
+    int filterSize = (int) sqrt((double) filterPixels);
     mexAssert(filterSize * filterSize == filterPixels, "wa7");    
     
     mexAssert(paddingStart <= 0, "wa9");

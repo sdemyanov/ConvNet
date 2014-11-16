@@ -34,7 +34,7 @@ Net::Net() {
 }
 
 void Net::InitRand(size_t seed) {
-  std::srand(seed);
+  std::srand((unsigned int) seed);
   MatCPU::InitRand(seed);
   #if COMP_REGIME == 2 // GPU    
     MatGPU::InitRand(seed);
@@ -122,16 +122,16 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       UpdateWeights(epoch, true); 
       offset += batchsize;
       if (params_.verbose_ == 2) {
-        mexPrintInt("Epoch", epoch + 1);        
-        mexPrintInt("Batch", batch + 1);        
+        mexPrintInt("Epoch", (int) epoch + 1);
+        mexPrintInt("Batch", (int) batch + 1);
       }
     } // batch  
     MeasureTime("totaltime");
     if (params_.verbose_ == 1) {
-      mexPrintInt("Epoch", epoch + 1);
+      mexPrintInt("Epoch", (int) epoch + 1);
     }        
   } // epoch  
-  trainerrors_ /= numbatches;
+  trainerrors_ /= (ftype) numbatches;
   //mexPrintMsg("Training finished");
 }
 
@@ -154,7 +154,7 @@ void Net::Classify(const mxArray *mx_data, mxArray *&mx_pred) {
     SubSet(labels_, pred_batch, offset, false);    
     offset += batchsize;
     if (params_.verbose_ == 2) {
-      mexPrintInt("Batch", batch + 1);        
+      mexPrintInt("Batch", (int) batch + 1);
     }      
   }
   labels_.reorder(kMatlabOrder, true);
@@ -328,7 +328,7 @@ void Net::ReadLabels(const mxArray *mx_labels) {
     cpucoeffs /= labels_mean;
     classcoefs_.resize(1, classes_num);
     classcoefs_ = cpucoeffs;
-    classcoefs_ /= classes_num;
+    classcoefs_ /= (ftype) classes_num;
   }
   labels_.resize(samples_num, classes_num);
   labels_.reorder(true, false); // order_ == true;

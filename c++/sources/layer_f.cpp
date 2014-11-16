@@ -26,7 +26,7 @@ LayerFull::LayerFull() {
   dropout_ = 0;
   numdim_ = 1;
   batchsize_ = 0;
-  init_std_ = 0.1;
+  init_std_ = (ftype) 0.1;
   bias_coef_ = 1;
 }  
   
@@ -104,7 +104,7 @@ void LayerFull::CalcWeights(Layer *prev_layer, int passnum) {
     biases_.der() *= bias_coef_;
     biases_.der().Validate();
   }
-  weights_der /= batchsize_;
+  weights_der /= (ftype) batchsize_;
   weights_der.Validate();
 }
 

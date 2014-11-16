@@ -1085,11 +1085,10 @@ void _transformActs(const MatGPU &images, MatGPU &target,
   int outputsX = (int) targSize1;
   int outputsY = (int) targSize2;
   int targPixels = outputsX * outputsY;    
-
   
-  int numImages = images.size1_;
+  int numImages = (int) images.size1_;
   mexAssert(images.size2_ % imgPixels == 0, "ta2");
-  int numFilters = images.size2_ / imgPixels;
+  int numFilters = (int) images.size2_ / imgPixels;
   
   mexAssert(target.size1_ == numImages, "ta1");
   mexAssert(target.size2_ == targPixels * numFilters, "ta3");
@@ -1179,7 +1178,7 @@ float cuda_sum(const MatGPU &mat) {
   partsums.resize(ELTWISE_FLAT_THREADS_X, 1);
   MatGPU::swapWithBuffer(totalsum, 1);
   totalsum.resize(1, 1);
-  _totalSum<<<blocks_number, ELTWISE_FLAT_THREADS_X, 0, stream>>>
+  _totalSum<<<(unsigned int) blocks_number, ELTWISE_FLAT_THREADS_X, 0, stream>>>
     (mat.data_, partsums.data_, numElements);
   _totalSum<<<1, ELTWISE_FLAT_THREADS_X, 0, stream>>>
     (partsums.data_, totalsum.data_, blocks_number);

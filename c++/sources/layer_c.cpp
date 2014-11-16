@@ -24,7 +24,7 @@ LayerConv::LayerConv() {
   function_ = "relu";  
   batchsize_ = 0;
   sum_width_ = 1;
-  init_std_ = 0.01;
+  init_std_ = (ftype) 0.01;
   bias_coef_ = 1;
 }
 
@@ -195,10 +195,10 @@ void LayerConv::CalcWeights(Layer *prev_layer, int passnum) {
     deriv_mat_.reshape(deriv_mat_.size1() * deriv_mat_.size2() / outputmaps_, outputmaps_);
     Sum(deriv_mat_, biases_.der(), 1);
     deriv_mat_.reshape(batchsize_, deriv_mat_.size1() * deriv_mat_.size2() / batchsize_);        
-    (biases_.der() /= batchsize_) *= bias_coef_;
+    (biases_.der() /= (ftype) batchsize_) *= bias_coef_;
     biases_.der().Validate();
   }
-  weights_der /= batchsize_;  
+  weights_der /= (ftype) batchsize_;  
   weights_der.Validate();   
 }
 

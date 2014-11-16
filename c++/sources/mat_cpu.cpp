@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 std::default_random_engine MatCPU::_generator;
   
 void MatCPU::InitRand(size_t seed) {
-  _generator.seed(seed);
+  _generator.seed((unsigned long) seed);
 }
 
 /*
@@ -324,7 +324,7 @@ MatCPU& MatCPU::Sign() {
 
 MatCPU& MatCPU::Sqrt() {
   for (size_t i = 0; i < size1_ * size2_; ++i) {
-    data(i) = sqrt(data(i));
+    data(i) = (ftype) sqrt((double) data(i));
   }
   return *this;
 }
@@ -517,7 +517,7 @@ MatCPU& MatCPU::Normalize(ftype norm) {
     for (size_t j = 0; j < size2_; ++j) {
       curnorm += dptr[j] * dptr[j];
     }
-    curnorm = sqrt(curnorm);
+    curnorm = (ftype) sqrt((double) curnorm);
     if (curnorm > kEps) {
       for (size_t j = 0; j < size2_; ++j) {
         dptr[j] *= (norm / curnorm);
@@ -564,9 +564,9 @@ void Sum(const MatCPU &a, MatCPU &vect, size_t dim) {
 void Mean(const MatCPU &a, MatCPU &vect, size_t dim) {  
   Sum(a, vect, dim);  
   if (dim == 1) {
-    vect /= a.size1_;    
+    vect /= (ftype) a.size1_;
   } else if (dim == 2) {    
-    vect /= a.size2_;        
+    vect /= (ftype) a.size2_;
   } else {
     mexAssert(false, "In MatCPU Mean the dimension parameter must be either 1 or 2");
   }
@@ -765,10 +765,10 @@ void Filter(const MatCPU &image, const MatCPU &filter,
 void Transform(const MatCPU &image, const std::vector<ftype> &shift,
                const std::vector<ftype> &scale, const std::vector<bool> &mirror, 
                ftype angle, ftype defval, MatCPU &transformed) {
-  ftype m1 = (ftype) image.size1_ / 2 - 0.5;
-  ftype m2 = (ftype) image.size2_ / 2 - 0.5;  
-  ftype n1 = (ftype) transformed.size1_ / 2 - 0.5;
-  ftype n2 = (ftype) transformed.size2_ / 2 - 0.5;
+  ftype m1 = (ftype) image.size1_ / 2 - (ftype) 0.5;
+  ftype m2 = (ftype) image.size2_ / 2 - (ftype) 0.5;
+  ftype n1 = (ftype) transformed.size1_ / 2 - (ftype) 0.5;
+  ftype n2 = (ftype) transformed.size2_ / 2 - (ftype) 0.5;
   ftype angcos = cos(angle);
   ftype angsin = sin(angle);
   for (size_t i = 0; i < transformed.size1_; ++i) {

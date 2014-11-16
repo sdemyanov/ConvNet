@@ -639,9 +639,9 @@ void Sum(MatGPU &a, MatGPU &vect, size_t dim) {
 void Mean(MatGPU &a, MatGPU &vect, size_t dim) {
   Sum(a, vect, dim);  
   if (dim == 1) {    
-    vect /= a.size1_;    
+    vect /= (ftype) a.size1_;    
   } else if (dim == 2) {    
-    vect /= a.size2_;    
+    vect /= (ftype) a.size2_;    
   } else {
     mexAssert(false, "In MatGPU Mean the dimension parameter must be either 1 or 2");
   }  
@@ -681,9 +681,9 @@ void Prod(const MatGPU &a, bool a_tr, const MatGPU &b, bool b_tr, MatGPU &c) {
   cublasHandle_t handle = MatGPU::_cublasHandle;
   const ftype scale_prod = 1.0, scale_cur = 0.0;    
   CUBLAS_CALL(cublasSetStream(handle, stream));
-  CUBLAS_CALL(cublasSgemm(handle, a_op, b_op, as1, bs2, as2,
-                         &scale_prod, a.data_, a.size1_, b.data_, b.size1_,
-                         &scale_cur, c.data_, c.size1_));
+  CUBLAS_CALL(cublasSgemm(handle, a_op, b_op, (int) as1, (int) bs2, (int) as2,
+                         &scale_prod, a.data_, (int) a.size1_, b.data_, (int) b.size1_,
+                         &scale_cur, c.data_, (int) c.size1_));
 }
 
 void TransformActs(const MatGPU &images, MatGPU &targets, 

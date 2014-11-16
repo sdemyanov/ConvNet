@@ -88,7 +88,7 @@ void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
       if (angle_inn > angle_) {
         maxcos = cos(kPi * (angle_inn - angle_));
       }    
-      ftype maxrad = sqrt(maxsize[0]*maxsize[0] + maxsize[1]*maxsize[1]);  
+      ftype maxrad = sqrt((double) maxsize[0]*maxsize[0] + maxsize[1]*maxsize[1]);  
       maxsize[0] = maxrad * maxsin;
       maxsize[1] = maxrad * maxcos;    
     }
@@ -96,10 +96,10 @@ void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
     for (size_t i = 0; i < numdim_; ++i) { 
       oldmapsize[i] = (ftype) prev_layer->mapsize_[i];
     }
-    ftype min0 = (oldmapsize[0]/2 - 0.5) - maxsize[0]/2 - shift_[0];
-    ftype max0 = (oldmapsize[0]/2 - 0.5) + maxsize[0]/2 + shift_[0];
-    ftype min1 = (oldmapsize[1]/2 - 0.5) - maxsize[1]/2 - shift_[1];
-    ftype max1 = (oldmapsize[1]/2 - 0.5) + maxsize[1]/2 + shift_[1];
+    ftype min0 = ((ftype) oldmapsize[0] / 2 - (ftype) 0.5) - (ftype) maxsize[0] / 2 - shift_[0];
+    ftype max0 = ((ftype) oldmapsize[0] / 2 - (ftype) 0.5) + (ftype) maxsize[0] / 2 + shift_[0];
+    ftype min1 = ((ftype) oldmapsize[1] / 2 - (ftype) 0.5) - (ftype) maxsize[1] / 2 - shift_[1];
+    ftype max1 = ((ftype) oldmapsize[1] / 2 - (ftype) 0.5) + (ftype) maxsize[1] / 2 + shift_[1];
     if (!(0 <= min0 && max0 < oldmapsize[0] && 0 <= min1 && max1 < oldmapsize[1])) {
       mexPrintMsg("min1", min0); mexPrintMsg("max1", max0);
       mexPrintMsg("min2", min1); mexPrintMsg("max2", max1);    

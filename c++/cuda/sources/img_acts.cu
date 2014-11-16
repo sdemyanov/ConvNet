@@ -1057,7 +1057,7 @@ void _imgActs(MatGPU& hidActs, MatGPU& filters, MatGPU& targets,
     mexAssert(numFilters % (16*numGroups) == 0, "ia3");
     mexAssert(filters.size2_ % numFilterColors == 0, "ia8");
     int filterPixels = (int) filters.size2_ / numFilterColors;
-    int filterSize = (int) sqrt(filterPixels);
+    int filterSize = (int) sqrt((double) filterPixels);
     mexAssert(filterSize * filterSize == filterPixels, "ia7");
     
     mexAssert(paddingStart <= 0, "ia9");    

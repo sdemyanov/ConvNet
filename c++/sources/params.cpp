@@ -72,10 +72,10 @@ void Params::Init(const mxArray *mx_params) {
     mincoef_ = 1 / maxcoef_;    
   }
   if (mexIsField(mx_params, "balance")) {    
-    balance_ = (bool) mexGetScalar(mexGetField(mx_params, "balance"));    
+    balance_ = (mexGetScalar(mexGetField(mx_params, "balance")) > 0);    
   }
   if (mexIsField(mx_params, "shuffle")) {    
-    shuffle_ = (bool) mexGetScalar(mexGetField(mx_params, "shuffle"));    
+    shuffle_ = (mexGetScalar(mexGetField(mx_params, "shuffle")) > 0);    
   }
   if (mexIsField(mx_params, "lossfun")) {
     lossfun_ = mexGetString(mexGetField(mx_params, "lossfun"));

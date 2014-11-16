@@ -1198,7 +1198,7 @@ void _filterActs(MatGPU& images, MatGPU& filters, MatGPU& targets,
     mexAssert(numFilters % (16 * numGroups) == 0, "fa3");
     mexAssert(filters.size2_ % numFilterColors == 0, "fa8");
     int filterPixels = (int) filters.size2_ / numFilterColors;
-    int filterSize = (int) sqrt(filterPixels);
+    int filterSize = (int) sqrt((double) filterPixels);
     mexAssert(filterSize * filterSize == filterPixels, "fa7");    
     
     mexAssert(paddingStart <= 0, "fa9");
