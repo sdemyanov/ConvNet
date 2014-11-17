@@ -136,3 +136,7 @@ ACKNOLEDGEMENTS
 
 - The original Matlab code was created by [Rasmus Berg Palm](dtu.academia.edu/RasmusBergPalm) and can be found in his [DeepLearnToolbox](https://github.com/rasmusbergpalm/DeepLearnToolbox). The Matlab version basically remained the same structure as there.
  
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/sdemyanov/convnet/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
