@@ -17,9 +17,29 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _MEM_ORDER_H_
-#define _MEM_ORDER_H_
+#ifndef _LAYER_N_H_
+#define _LAYER_N_H_
 
+#include "layer.h"
 
+class LayerNorm : public Layer {
+  
+public:  
+  LayerNorm();
+  ~LayerNorm() {};  
+  void Init(const mxArray *mx_layer, Layer *prev_layer);
+  void Forward(Layer *prev_layer, int passnum);
+  void Backward(Layer *prev_layer);
+  void CalcWeights(Layer *prev_layer, int passnum) {};
+  void InitWeights(Weights &weights, size_t &offset, bool isgen) {};
+  void GetWeights(Mat &weights, size_t &offset) const {};
+  size_t NumWeights() const { return 0; };
+  
+private:
+  size_t normsize_;
+  ftype scale_;
+  ftype pow_;
+  
+};
 
 #endif

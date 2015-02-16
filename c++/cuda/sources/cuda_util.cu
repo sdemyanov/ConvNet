@@ -562,16 +562,10 @@ __global__ void kColVectorOp(float* mat, float* vec, float* tgtMat,
 }
 
 template <class Op> 
-void _applyBinaryV(MatGPU &mat, const MatGPU &vect, const MatGPU &mask, size_t dim, Op op) {  
+void _applyBinaryV(MatGPU &mat, const MatGPU &vect, size_t dim, Op op) {  
 
   mexAssert(mat.data_ != vect.data_, "av1");
   mexAssert(mat.stride_ == 1 && vect.stride_ == 1, "av2");
-  if (!mask.empty()) {
-    mexAssert(false, "Mask for _applyBinaryV is not implemented yet");
-    mexAssert(mask.stride_ == 1, "av3");
-    mexAssert(mat.size1_ == mask.size1_ && mat.size2_ == mask.size2_,
-              "In '_applyBinaryV' the size of mask matrix is incorrect");     
-  }
   
   int width = (int) mat.size1_;
   int height = (int) mat.size2_;
@@ -581,33 +575,26 @@ void _applyBinaryV(MatGPU &mat, const MatGPU &vect, const MatGPU &mask, size_t d
   
   if (dim == 1) {
     mexAssert(vect.size1_ == 1 && vect.size2_ == mat.size2_, "In '_applyBinaryV' the sizes don't correspond");
-    if (mask.empty()) {
-      dim3 blocks(std::min(512, DIVUP(width, ADD_VEC_THREADS_X)), std::min(NUM_BLOCKS_MAX, DIVUP(height, ADD_VEC_THREADS_Y)));
-      kColVectorOp<Op><<<blocks, threads, 0, stream>>>(mat.data_, vect.data_, mat.data_, width, height, width, width, op);
-    } else {      
-      mexAssert(false, "not implemented yet");
-    }    
+    dim3 blocks(std::min(512, DIVUP(width, ADD_VEC_THREADS_X)), std::min(NUM_BLOCKS_MAX, DIVUP(height, ADD_VEC_THREADS_Y)));
+    kColVectorOp<Op><<<blocks, threads, 0, stream>>>(mat.data_, vect.data_, mat.data_, width, height, width, width, op);
   }   
   else if (dim == 2) {
     /* actually not used, but let it be here just in case */
     mexAssert(vect.size1_ == mat.size1_ && vect.size2_ == 1, "In '_applyBinaryV' the sizes don't correspond");
-    if (mask.empty()) {      
-      dim3 blocks(std::min(NUM_BLOCKS_MAX, DIVUP(width, ADD_VEC_THREADS_X)), std::min(NUM_BLOCKS_MAX, DIVUP(height, ADD_VEC_THREADS_Y)));
-      kRowVectorOp<Op><<<blocks, threads, 0, stream>>>(mat.data_, vect.data_, mat.data_, width, height, width, width, op);    
-    } else {      
-    }    
+    dim3 blocks(std::min(NUM_BLOCKS_MAX, DIVUP(width, ADD_VEC_THREADS_X)), std::min(NUM_BLOCKS_MAX, DIVUP(height, ADD_VEC_THREADS_Y)));
+    kRowVectorOp<Op><<<blocks, threads, 0, stream>>>(mat.data_, vect.data_, mat.data_, width, height, width, width, op);    
   } else {
     mexAssert(false, "_applyBinaryV the dimension parameter must be either 1 or 2");
   }
   mexAssert(cudaGetLastError() == cudaSuccess, "_applyBinaryV: kernel execution failed");
 }
 
-void cuda_addvect(MatGPU &mat, const MatGPU &vect, const MatGPU &mask, size_t dim) {
-  _applyBinaryV(mat, vect, mask, dim, BinaryOp::Add());
+void cuda_addvect(MatGPU &mat, const MatGPU &vect, size_t dim) {
+  _applyBinaryV(mat, vect, dim, BinaryOp::Add());
 }
 
-void cuda_multvect(MatGPU &mat, const MatGPU &vect, const MatGPU &mask, size_t dim) {
-  _applyBinaryV(mat, vect, mask, dim, BinaryOp::Multiply());
+void cuda_multvect(MatGPU &mat, const MatGPU &vect, size_t dim) {
+  _applyBinaryV(mat, vect, dim, BinaryOp::Multiply());
 }
 
 /*
@@ -988,6 +975,332 @@ void cuda_maxvect(MatGPU &mat, MatGPU &vect, size_t dim) {
   _aggregate(mat, vect, Aggs::Max(), UnaryOp::Identity(), BinaryOp::Second(), axis);  
 }
 
+/* ------------- CrossMapResponseNormLayer ------------- */
+
+/*
+ * Block size B_YxB_X
+ * blockIdx.x determines pixel.x, image idx in batches of B_X*imgsPerThread
+ * blockIdx.y determines pixel.y, filter idx in batches of B_Y
+ *
+ * So each block does one pixel for some number of images/filters.
+ *
+ * threadIdx.x determines img idx
+ * threadIdx.y determines filter idx
+ *
+ * imgs:        (numFilters, imgPixels, numImages)
+ * meanDiffs:   (numFilters, imgPixels, numImages)
+ * denoms:      (numFilters, imgPixels, numImages) (out)
+ * target:      (numFilters, imgPixels, numImages) (out)
+ *
+ * numImages must be divisible by B_X*imgsPerThread if checkCaseBounds is false
+ * numFilters must be divisible by B_Y
+ */
+template<int B_Y, int B_X, int imgsPerThread, bool checkCaseBounds, bool blocked>
+__global__ void kFCNorm(cudaTextureObject_t imgs, cudaTextureObject_t meanDiffs, float* target, const int imgSize,
+                          const int numFilters, const int numImages, const int sizeF,
+                          const float addScale, const float powScale, const float minDiv) {
+    const int imgPixels = imgSize * imgSize;
+    const int numImgBlocks = DIVUP(numImages, B_X*imgsPerThread);
+    const int numFilterBlocks = numFilters/B_Y;
+    const int pxIdxX = blockIdx.x / numImgBlocks;
+    const int pxIdxY = blockIdx.y / numFilterBlocks;
+    const int blockImgIdx = (blockIdx.x % numImgBlocks) * B_X * imgsPerThread;
+    const int filterIdx = (blockIdx.y % numFilterBlocks) * B_Y + threadIdx.y;
+    
+    const int pxIdx = pxIdxY * imgSize + pxIdxX;
+
+    
+    const int imgIdx = blockImgIdx + threadIdx.x;
+    const int imgOffset = ((filterIdx) * imgPixels + pxIdx) * numImages + imgIdx;
+    const int meanDiffsOffset = pxIdx * numImages + imgIdx;
+//    imgs += ((filterIdx) * imgPixels + pxIdx) * numImages + imgIdx;
+//    meanDiffs += pxIdx * numImages + imgIdx;
+    target += ((filterIdx) * imgPixels + pxIdx) * numImages + imgIdx;
+    
+    float prod[imgsPerThread];
+    #pragma unroll
+    for (int i = 0; i < imgsPerThread; i++) {
+        if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
+            prod[i] = 0;
+        }
+    }
+
+    const int startF = blocked ? (filterIdx / sizeF) * sizeF : -sizeF/2 + filterIdx;
+    const int loopStartF = blocked ? startF : MAX(0, startF);
+    const int loopEndF = MIN(numFilters, startF + sizeF);
+ 
+    for (int f = loopStartF; f < loopEndF; ++f) {
+        #pragma unroll
+        for (int i = 0; i < imgsPerThread; i++) {
+            if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
+                float val = tex1Dfetch<float>(meanDiffs, meanDiffsOffset + f * imgPixels * numImages + i * B_X);
+                prod[i] += val * val;
+            }
+        }
+    }
+
+    #pragma unroll
+    for (int i = 0; i < imgsPerThread; i++) {
+        if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
+            prod[i] = minDiv + addScale * prod[i];
+            target[i * B_X] = tex1Dfetch<float>(imgs, imgOffset + i * B_X) * __powf(prod[i], -powScale);
+        }
+    }
+}
+
+/*
+ * Block size B_YxB_X
+ * blockIdx.x determines pixel.x, image idx in batches of B_X*imgsPerThread
+ * blockIdx.y determines pixel.y, filter idx in batches of B_Y
+ *
+ * So each block does one output pixel for some number of images/filters.
+ *
+ * threadIdx.x determines img idx
+ * threadIdx.y determines filter idx
+ *
+ * outGrads:        (numFilters, imgPixels, numImages)
+ * denoms:          (numFilters, imgPixels, numImages)
+ * inputs:          (numFilters, imgPixels, numImages)
+ * acts:            (numFilters, imgPixels, numImages)
+ * target:          (numFilters, imgPixels, numImages)
+ *
+ * numImages must be divisible by B_X*imgsPerThread
+ * numFilters must be divisible by B_Y
+ *
+ * TODO: this is pretty wasteful of computation. a lot of threads basically compute the same products.
+ */
+template<int B_Y, int B_X, int imgsPerThread, bool add, bool checkCaseBounds, bool blocked>
+//__launch_bounds__(128,16)
+__global__ void kFRNormUndo2(cudaTextureObject_t outGrads, cudaTextureObject_t inputs, cudaTextureObject_t acts, float* target, const int imgSize, const int numFilters, const int numImages, const int sizeF, const float addScale, const float powScale, const float minDiv, const float scaleTargets, const float scaleOutputs) {
+    const int numImgBlocks = DIVUP(numImages,B_X*imgsPerThread);
+    const int numFilterBlocks = numFilters/B_Y;
+
+    const int pxIdxX = blockIdx.x / numImgBlocks;
+    const int pxIdxY = blockIdx.y / numFilterBlocks;
+    const int blockImgIdx = (blockIdx.x % numImgBlocks) * B_X * imgsPerThread;
+    const int filterIdx = (blockIdx.y % numFilterBlocks) * B_Y + threadIdx.y;
+
+    const int imgPixels = imgSize * imgSize;
+    const int pxIdx = pxIdxY * imgSize + pxIdxX;
+    const int imgIdx = blockImgIdx + threadIdx.x;
+
+    const int inpOffset = pxIdx * numImages + imgIdx;
+    const int outOffset = ((filterIdx) * imgPixels + pxIdx) * numImages + imgIdx;
+
+    target += outOffset;
+
+    float prod[imgsPerThread];
+    float denoms[imgsPerThread];
+
+    #pragma unroll
+    for (int i = 0; i < imgsPerThread; i++) {
+        prod[i] = 0;
+        denoms[i] = 0;
+    }
+
+    int startF = blocked ? (filterIdx / sizeF) * sizeF : -sizeF + sizeF/2 + 1 + filterIdx;
+    int loopStartF = blocked ? startF : MAX(0, startF);
+    int loopEndF = MIN(numFilters, startF + sizeF);
+
+    for (int f = loopStartF; f < loopEndF; ++f) {
+        #pragma unroll
+        for (int i = 0; i < imgsPerThread; i++) {
+            if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
+                // If an input is zero, then we shuldn't divide by it.
+                const float grad = tex1Dfetch<float>(outGrads, inpOffset + f * imgPixels * numImages + i * B_X);
+                const float act = tex1Dfetch<float>(acts, inpOffset + f * imgPixels * numImages + i * B_X);
+                const float inp = tex1Dfetch<float>(inputs, inpOffset + f * imgPixels * numImages + i * B_X) + (act == 0);
+                prod[i] += grad * act * __powf(__fdividef(act, inp), 1.0f/powScale);
+            }
+        }
+    }
+
+    startF = blocked ? (filterIdx / sizeF) * sizeF : -sizeF/2 + filterIdx;
+    loopStartF = blocked ? startF : MAX(0, startF);
+    loopEndF = MIN(numFilters, startF + sizeF);
+
+    for (int f = loopStartF; f < loopEndF; ++f) {
+        #pragma unroll
+        for (int i = 0; i < imgsPerThread; i++) {
+            if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
+                float val = tex1Dfetch<float>(inputs, inpOffset + f * imgPixels * numImages + i * B_X);
+                denoms[i] += val * val;
+            }
+        }
+    }
+
+    if (!add) {
+        #pragma unroll
+        for (int i = 0; i < imgsPerThread; i++) {
+            if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
+                const float inp = tex1Dfetch<float>(inputs, outOffset + i * B_X);
+                const float out = tex1Dfetch<float>(outGrads, outOffset + i * B_X);
+                denoms[i] = addScale * denoms[i] + minDiv;
+                prod[i] = (-2 * powScale * addScale * inp * prod[i] + out * __powf(denoms[i], -powScale));
+                target[i * B_X] = prod[i];
+            }
+        }
+    } else {
+        #pragma unroll
+        for (int i = 0; i < imgsPerThread; i++) {
+            if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
+                const float inp = tex1Dfetch<float>(inputs, outOffset + i * B_X);
+                const float out = tex1Dfetch<float>(outGrads, outOffset + i * B_X);
+                denoms[i] = addScale * denoms[i] + minDiv;
+                prod[i] = (-2 * powScale * addScale * inp * prod[i] + out * __powf(denoms[i], -powScale));
+                target[i * B_X] = scaleTargets * target[i * B_X] + scaleOutputs * prod[i];
+            }
+        }
+    }
+}
+
+/*
+ * images:      (numFilters, imgPixels, numImages)
+ * meanDiffs:   (numFilters, imgPixels, numImages)
+ * denoms:      (numFilters, imgPixels, numImages) (out)
+ * target:      (numFilters, imgPixels, numImages) (out)
+
+ * Note: at present, I have no code to compute the meanDiffs. So it should be set
+ * to be equal to images. In other words, this isn't really doing contrast normalization,
+ * just response normalization.
+ */
+void _convContrastNormCrossMap(MatGPU& images, MatGPU& meanDiffs, MatGPU& target,
+                              size_t imgSize1, size_t imgSize2, size_t normsize, float addScale, float powScale) {
+                              
+    bool blocked = false;
+    float minDiv = 1.0f;
+
+    int sizeF = (int) normsize;
+    int imgSizeX = (int) imgSize1;    
+    int imgSizeY = (int) imgSize2;
+    mexAssert(imgSizeX == imgSizeY, "In cmrnorm layer the images should be squared");    
+    int imgSize = imgSizeX;
+    int imgPixels = imgSizeX * imgSizeY;
+    
+    int numImages = (int) images.size1_;
+    mexAssert(images.size2_ % imgPixels == 0, "cnc1");    
+    int numFilters = (int) images.size2_ / imgPixels;    
+    
+    mexAssert(meanDiffs.size1_ == images.size1_, "cnc2");
+    mexAssert(meanDiffs.size2_ == images.size2_, "cnc3");
+    
+    mexAssert(target.size1_ == images.size1_, "cnc5");
+    mexAssert(target.size2_ == images.size2_, "cnc6");
+                             
+    mexAssert(0 < sizeF && sizeF <= numFilters, "cnc4");
+    mexAssert(numFilters % 16 == 0, "Number of outputmaps should be divisible by 16");
+    
+    cudaStream_t stream = MatGPU::_defaultStream;
+
+    bool checkCaseBounds = numImages % 128 != 0;
+
+    dim3 threads(32, 4);
+    dim3 blocks(DIVUP(numImages,32*4) * imgSize, (numFilters / 4) * imgSize);    
+    if (blocked) {
+        if (checkCaseBounds) {
+            cudaFuncSetCacheConfig(kFCNorm<4, 32, 4, true, true>, cudaFuncCachePreferL1);
+            kFCNorm<4, 32, 4, true, true><<<blocks, threads, 0, stream>>>(images.getTextureObject(), meanDiffs.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv);
+        } else {
+            cudaFuncSetCacheConfig(kFCNorm<4, 32, 4, false, true>, cudaFuncCachePreferL1);
+            kFCNorm<4, 32, 4, false, true><<<blocks, threads, 0, stream>>>(images.getTextureObject(), meanDiffs.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv);
+        }
+    } else {
+        if (checkCaseBounds) {
+            cudaFuncSetCacheConfig(kFCNorm<4, 32, 4, true, false>, cudaFuncCachePreferL1);
+            kFCNorm<4, 32, 4, true, false><<<blocks, threads, 0, stream>>>(images.getTextureObject(), meanDiffs.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv);
+        } else {
+            cudaFuncSetCacheConfig(kFCNorm<4, 32, 4, false, false>, cudaFuncCachePreferL1);
+            kFCNorm<4, 32, 4, false, false><<<blocks, threads, 0, stream>>>(images.getTextureObject(), meanDiffs.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv);
+        }
+    }
+    mexAssert(cudaGetLastError() == cudaSuccess, "convContrastNormCrossMap: kernel execution failed");    
+}
+
+/*
+ * outGrads:    (numFilters, imgPixels, numImages)
+ * denoms:      (numFilters, imgPixels, numImages)
+ * inputs:      (numFilters, imgPixels, numImages)
+ * acts:        (numFilters, imgPixels, numImages)
+ * target:      (numFilters, imgPixels, numImages)
+ *
+ * THIS WILL OVERWRITE THE ACTS MATRIX.
+ */
+void _convResponseNormCrossMapUndo(MatGPU& images, MatGPU& acts, MatGPU& outGrads, MatGPU& target, 
+                                  size_t imgSize1, size_t imgSize2, size_t normsize, float addScale, float powScale) {
+                         
+    bool blocked = false;
+    float scaleTargets = 0.0f;
+    float scaleOutput = 1.0f;
+    float minDiv = 1.0f;
+
+    int sizeF = (int) normsize;
+    int imgSizeX = (int) imgSize1;    
+    int imgSizeY = (int) imgSize2;
+    mexAssert(imgSizeX == imgSizeY, "In cmrnorm layer the images should be squared");    
+    int imgSize = imgSizeX;
+    int imgPixels = imgSizeX * imgSizeY;
+    
+    int numImages = (int) outGrads.size1_;
+    mexAssert(outGrads.size2_ % imgPixels == 0, "cnc_undo1");    
+    int numFilters = (int) outGrads.size2_ / imgPixels;    
+    
+    mexAssert(images.size1_ == outGrads.size1_, "cnc_undo2");
+    mexAssert(images.size2_ == outGrads.size2_, "cnc_undo3");
+    
+    mexAssert(acts.size1_ == outGrads.size1_, "cnc_undo4");
+    mexAssert(acts.size2_ == outGrads.size2_, "cnc_undo5");
+        
+    mexAssert(target.size1_ == outGrads.size1_, "cnc_undo6");
+    mexAssert(target.size2_ == outGrads.size2_, "cnc_undo7");    
+    
+    mexAssert(0 < sizeF && sizeF <= numFilters, "cnc_undo8");
+    mexAssert(numFilters % 16 == 0, "Number of outputmaps should be divisible by 16");
+    
+    cudaStream_t stream = MatGPU::_defaultStream;
+
+    dim3 threads2 = dim3(32, 4);
+    dim3 blocks2 = dim3(DIVUP(numImages,32*4) * imgSize, (numFilters / 4) * imgSize);
+
+    bool checkCaseBounds = (numImages % 128) != 0;
+    if (blocked) {
+        if (scaleTargets == 0 && scaleOutput == 1) {
+            if (checkCaseBounds) {
+                cudaFuncSetCacheConfig(kFRNormUndo2<4, 32, 4, false, true, true>, cudaFuncCachePreferL1);
+                kFRNormUndo2<4, 32, 4, false, true, true><<<blocks2, threads2, 0, stream>>>(outGrads.getTextureObject(), images.getTextureObject(), acts.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv, scaleTargets, scaleOutput);
+            } else {
+                cudaFuncSetCacheConfig(kFRNormUndo2<4, 32, 4, false, false, true>, cudaFuncCachePreferL1);
+                kFRNormUndo2<4, 32, 4, false, false, true><<<blocks2, threads2, 0, stream>>>(outGrads.getTextureObject(), images.getTextureObject(), acts.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv, scaleTargets, scaleOutput);
+            }
+        } else {
+            if (checkCaseBounds) {
+                cudaFuncSetCacheConfig(kFRNormUndo2<4, 32, 4, true, true, true>, cudaFuncCachePreferL1);
+                kFRNormUndo2<4, 32, 4, true, true, true><<<blocks2, threads2, 0, stream>>>(outGrads.getTextureObject(), images.getTextureObject(), acts.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv, scaleTargets, scaleOutput);
+            } else {
+                cudaFuncSetCacheConfig(kFRNormUndo2<4, 32, 4, true, false, true>, cudaFuncCachePreferL1);
+                kFRNormUndo2<4, 32, 4, true, false, true><<<blocks2, threads2, 0, stream>>>(outGrads.getTextureObject(), images.getTextureObject(), acts.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv, scaleTargets, scaleOutput);
+            }
+        }
+    } else {
+        if (scaleTargets == 0 && scaleOutput == 1) {
+            if (checkCaseBounds) {
+                cudaFuncSetCacheConfig(kFRNormUndo2<4, 32, 4, false, true, false>, cudaFuncCachePreferL1);
+                kFRNormUndo2<4, 32, 4, false, true, false><<<blocks2, threads2, 0, stream>>>(outGrads.getTextureObject(), images.getTextureObject(), acts.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv, scaleTargets, scaleOutput);
+            } else {
+                cudaFuncSetCacheConfig(kFRNormUndo2<4, 32, 4, false, false, false>, cudaFuncCachePreferL1);
+                kFRNormUndo2<4, 32, 4, false, false, false><<<blocks2, threads2, 0, stream>>>(outGrads.getTextureObject(), images.getTextureObject(), acts.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv, scaleTargets, scaleOutput);
+            }
+        } else {
+            if (checkCaseBounds) {
+                cudaFuncSetCacheConfig(kFRNormUndo2<4, 32, 4, true, true, false>, cudaFuncCachePreferL1);
+                kFRNormUndo2<4, 32, 4, true, true, false><<<blocks2, threads2, 0, stream>>>(outGrads.getTextureObject(), images.getTextureObject(), acts.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv, scaleTargets, scaleOutput);
+            } else {
+                cudaFuncSetCacheConfig(kFRNormUndo2<4, 32, 4, true, false, false>, cudaFuncCachePreferL1);
+                kFRNormUndo2<4, 32, 4, true, false, false><<<blocks2, threads2, 0, stream>>>(outGrads.getTextureObject(), images.getTextureObject(), acts.getTextureObject(), target.data_, imgSize, numFilters, numImages, sizeF, addScale, powScale, minDiv, scaleTargets, scaleOutput);
+            }
+        }
+    }
+    mexAssert(cudaGetLastError() == cudaSuccess, "convResponseNormCrossMapUndo: kernel execution failed");
+}
 
 /* ------- Sergey Demyanov ------- */
 
@@ -1036,24 +1349,40 @@ __global__ void kTransform(float* imgs, float* targets, int imgSizeX, int imgSiz
       float x2 = xi1 * angsin + xi2 * angcos + m2 + shift_mat[curImgIdx + numImages]; //shift[1];
       if (mirror_mat[curImgIdx] > 0.5) x1 = imgSizeX - 1 - x1;
       if (mirror_mat[curImgIdx + numImages] > 0.5) x2 = imgSizeY - 1 - x2;
-      const int xf1 = (int) x1;
-      const int xf2 = (int) x2;
-      if (0 <= xf1 && xf1 + 1 < imgSizeX &&
-          0 <= xf2 && xf2 + 1 < imgSizeY) {
-        const int imgPx11 = xf2 * imgSizeX + xf1;
-        const int imgPx21 = xf2 * imgSizeX + xf1 + 1;
-        const int imgPx12 = (xf2 + 1) * imgSizeX + xf1;
-        const int imgPx22 = (xf2 + 1) * imgSizeX + xf1 + 1;
+      /* hack for MNIST starts */
+      /*
+      x1 = MAX(x1, 0);
+      x1 = MIN(x1, imgSizeX - 1);
+      x2 = MAX(x2, 0);
+      x2 = MIN(x2, imgSizeY - 1);
+      */
+      /* hack for MNIST ends */
+      if (0 <= x1 && x1 <= imgSizeX - 1 &&
+          0 <= x2 && x2 <= imgSizeY - 1) {
+        const int xu1 = (int) x1;
+        const int xu2 = (int) x2;      
+        const int xp1 = MIN(xu1 + 1, imgSizeX - 1);
+        const int xp2 = MIN(xu2 + 1, imgSizeY - 1);
+        const int imgPx11 = xu2 * imgSizeX + xu1;
+        const int imgPx21 = xu2 * imgSizeX + xp1;
+        const int imgPx12 = xp2 * imgSizeX + xu1;
+        const int imgPx22 = xp2 * imgSizeX + xp1;
         for (int f = 0; f < filtersPerThread; f++) {
           const int imgInd11 = (f * imgPixels + imgPx11) * numImages + i * B_X;
           const int imgInd21 = (f * imgPixels + imgPx21) * numImages + i * B_X;
           const int imgInd12 = (f * imgPixels + imgPx12) * numImages + i * B_X;
           const int imgInd22 = (f * imgPixels + imgPx22) * numImages + i * B_X;
-          const float vl = (x1 - xf1) * imgs[imgInd21] + (xf1 + 1 - x1) * imgs[imgInd11];
-          const float vh = (x1 - xf1) * imgs[imgInd22] + (xf1 + 1 - x1) * imgs[imgInd12];
-          prod[f][i] = (x2 - xf2) * vh + (xf2 + 1 - x2) * vl;
+          const float vl = (x1 - (float) xu1) * imgs[imgInd21] + ((float) xu1 + 1 - x1) * imgs[imgInd11];
+          const float vh = (x1 - (float) xu1) * imgs[imgInd22] + ((float) xu1 + 1 - x1) * imgs[imgInd12];
+          prod[f][i] = (x2 - (float) xu2) * vh + ((float) xu2 + 1 - x2) * vl;
         }
       } else {
+        /* if (xf1 < 0) {
+        } else if (imgSizeX <= xf1 + 1) {
+        }
+        if (xf2 < 0) {
+        } else if (imgSizeY <= xf2 + 1) {
+        } */
         for (int f = 0; f < filtersPerThread; f++) {
           prod[f][i] = defval;
         }
@@ -1084,7 +1413,7 @@ void _transformActs(const MatGPU &images, MatGPU &target,
   int imgPixels = imgSizeX * imgSizeY;
   int outputsX = (int) targSize1;
   int outputsY = (int) targSize2;
-  int targPixels = outputsX * outputsY;    
+  int targPixels = outputsX * outputsY;
   
   int numImages = (int) images.size1_;
   mexAssert(images.size2_ % imgPixels == 0, "ta2");

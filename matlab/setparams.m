@@ -12,6 +12,9 @@ end;
 if (~isfield(params, 'alpha'))
   params.alpha = 1;  
 end;
+if (~isfield(params, 'beta'))
+  params.beta = 0;  
+end;
 if (~isfield(params, 'momentum'))
   params.momentum = 0;
 end;

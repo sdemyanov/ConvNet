@@ -1029,13 +1029,20 @@ conv_img_acts_manycolor_preloadfh_ty_4_tx_32_c_12_ff_16_fh_16(cudaTextureObject_
  * to make them work fast. 
  */
 void _imgActs(MatGPU& hidActs, MatGPU& filters, MatGPU& targets,
-              size_t imgSize1, size_t imgSize2, size_t padding) {
+              size_t imgSize1, size_t imgSize2, 
+              size_t filtSize, size_t padding, bool conv) {
     
     // targets sizes
     int imgSizeX = (int) imgSize1;
     int imgSizeY = (int) imgSize2;
+    int filterSize = (int) filtSize;
     int paddingStart = -(int) padding;  
     
+    mexAssert(paddingStart <= 0, "ia9");    
+    int numModulesY = imgSizeY - 2 * paddingStart + 1 - filterSize;
+    int numModulesX = imgSizeX - 2 * paddingStart + 1 - filterSize;    
+    int numModules = numModulesY * numModulesX;
+        
     int moduleStride = 1;
     int numGroups = 1;
     float scaleTargets = 0;
@@ -1049,21 +1056,17 @@ void _imgActs(MatGPU& hidActs, MatGPU& filters, MatGPU& targets,
     mexAssert(targets.size2_ % imgPixels == 0, "ia5");
     int numImgColors = (int) targets.size2_ / imgPixels;    
     mexAssert(numImgColors % numGroups == 0, "ia4");
-    mexAssert(numGroups > 1 || (numImgColors > 0 && (numImgColors <= 3 || numImgColors % 2 == 0)), "ia1");    
-        
+    mexAssert(numGroups > 1 || (numImgColors > 0 && (numImgColors <= 3 || numImgColors % 2 == 0)), "ia1");
+    
     int numFilterColors = numImgColors / numGroups;
     mexAssert(numGroups == 1 || numFilterColors % 4 == 0, "ia2");
     int numFilters = (int) filters.size1_;
-    mexAssert(numFilters % (16*numGroups) == 0, "ia3");
-    mexAssert(filters.size2_ % numFilterColors == 0, "ia8");
-    int filterPixels = (int) filters.size2_ / numFilterColors;
-    int filterSize = (int) sqrt((double) filterPixels);
+    mexAssert(numFilters % (16*numGroups) == 0, "Number of outputmaps should be divisible by 16");
+    int filterModuleMult = conv ? 1 : numModules;    
+    mexAssert(filters.size2_ % (filterModuleMult * numFilterColors) == 0, "ia8");
+    int filterPixels = (int) filters.size2_ / (filterModuleMult * numFilterColors);
     mexAssert(filterSize * filterSize == filterPixels, "ia7");
     
-    mexAssert(paddingStart <= 0, "ia9");    
-    int numModulesY = imgSizeY - 2 * paddingStart + 1 - filterSize;
-    int numModulesX = imgSizeX - 2 * paddingStart + 1 - filterSize;    
-    int numModules = numModulesY * numModulesX;
     mexAssert(hidActs.size1_ == numImages, "ia14");
     mexAssert(hidActs.size2_ == numFilters * numModules, "ia13");
     
@@ -1100,7 +1103,7 @@ void _imgActs(MatGPU& hidActs, MatGPU& filters, MatGPU& targets,
     if (checkCaseBounds == false) {
         if (numFilterColors % 8 == 0) {
             if (numFilterColors % 64 == 0) {
-                mexAssert(numFilters % (32*numGroups) == 0, "ia16");
+                mexAssert(numFilters % (32*numGroups) == 0, "Do not use less than 32 outputmaps after >= 64 outputmaps");
                 // this code assumes we hvae 32 filters because it uses filter cache of 32!
                 if (numImages % 128 == 0) {
                     cudaFuncSetCacheConfig(conv_img_acts_manycolor_preloadfh_ty_8_tx_32_c_8_ff_32_fh_16_tex< 8, 32, 4, 8, 32, 16, false, false, true >, cudaFuncCachePreferShared);

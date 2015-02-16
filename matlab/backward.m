@@ -19,7 +19,7 @@ for l = n : -1 : 1
     end;
   end;
   
-  if strcmp(layers{l}.type, 'c')
+  elseif strcmp(layers{l}.type, 'c')
     d_cur = layers{l}.d;    
     if (layers{l}.padding(1) > 0 || layers{l}.padding(2) > 0)
       ds = size(layers{l}.d); ds(end+1:4) = 1;
@@ -40,6 +40,8 @@ for l = n : -1 : 1
       end        
     end;
     layers{l-1}.d(-layers{l-1}.eps < layers{l-1}.d & layers{l-1}.d < layers{l-1}.eps) = 0;
+    %disp(sum(layers{l-1}.d(:)));
+    %disp(layers{l-1}.d(1, 1:5, 1, 1));
 
   elseif strcmp(layers{l}.type, 's')    
     sc = [layers{l}.scale 1 1];
@@ -88,8 +90,7 @@ for l = n : -1 : 1
       layers{l-1}.d = reshape(layers{l}.di', [layers{l-1}.mapsize layers{l-1}.outputmaps batchsize]);
     end;
     layers{l-1}.d(-layers{l-1}.eps < layers{l-1}.d & layers{l-1}.d < layers{l-1}.eps) = 0;
-  end;    
-  
+  end;  
 end
     
 end

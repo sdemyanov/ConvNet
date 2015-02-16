@@ -6,6 +6,9 @@ batchsize = size(layers{1}.a, 4); % number of examples in the minibatch
 for l = 1 : n   %  for each layer
   
   if strcmp(layers{l}.type, 'i')
+    if (passnum == 3)
+      continue;
+    end;   
     if (isfield(layers{l}, 'mean'))
       layers{l}.a = layers{l}.a + repmat(layers{l}.mw, [1 1 1 batchsize]);      
     end;
@@ -14,8 +17,14 @@ for l = 1 : n   %  for each layer
     end;
     
   elseif strcmp(layers{l}.type, 'j')
-    assert(0 == 1, 'Jittering is not implemented in Matlab version');
+    assert(0, 'Jittering is not implemented in Matlab version');
     
+  elseif strcmp(layers{l}.type, 'n')
+    layers{l}.a = layers{l-1}.a + repmat(layers{l}.w(:, :, :, 1), [1 1 1 batchsize]);
+    if (layers{l}.is_dev == 1)
+      layers{l}.a = layers{l}.a .* repmat(layers{l}.w(:, :, :, 2), [1 1 1 batchsize]);
+    end;
+ 
   elseif strcmp(layers{l}.type, 'c')    
     if (passnum == 0 || passnum == 1)
       layers{l}.a = repmat(permute(layers{l}.b, [3 4 1 2]), [layers{l}.mapsize 1 batchsize]);      
@@ -36,8 +45,14 @@ for l = 1 : n   %  for each layer
           filtn(a_prev(:, :, j, :), layers{l}.k(:, :, j, i), 'valid');        
       end    
     end
-    layers{l}.a(-layers{l}.eps < layers{l}.a & layers{l}.a < layers{l}.eps) = 0;   
-
+    layers{l}.a(-layers{l}.eps < layers{l}.a & layers{l}.a < layers{l}.eps) = 0;
+    %{
+    disp(layers{l-1}.a(1, 1:5, 1, 1));
+    disp(layers{l}.k(1, 1:4, 1, 1));
+    disp(layers{l}.k(1:4, 1, 1, 1));
+    disp(layers{l}.a(1, 1:5, 1, 1));    
+    %}
+    
   elseif strcmp(layers{l}.type, 's')
     sc = [layers{l}.scale 1 1];
     st = [layers{l}.stride 1 1];
@@ -85,11 +100,19 @@ for l = 1 : n   %  for each layer
     %  concatenate all end layer feature maps into vector
     if strcmp(layers{l-1}.type, 'f')          
       layers{l}.ai = layers{l-1}.a;      
-    else      
+    else
+      %a_trans = permute(layers{l-1}.a, [4 1 2 3]);
+      %disp('prev_layer->activ_mat');
+      %disp(a_trans(1, 1:5, 1, 1));
+      %disp('weights');
+      %disp(layers{l}.w(1, 1:5));
       layers{l}.ai = reshape(layers{l-1}.a, layers{l}.weightsize(2), batchsize)';      
     end;
     if (passnum == 0 || passnum == 1)
-      layers{l}.a = bsxfun(@plus, layers{l}.ai * layers{l}.w', layers{l}.b);    
+      layers{l}.a = bsxfun(@plus, layers{l}.ai * layers{l}.w', layers{l}.b);      
+    elseif (passnum == 3)
+      a = layers{l}.a;
+      layers{l}.a = layers{l}.ai * layers{l}.w';      
     end;
     if (layers{l}.dropout > 0) % dropout
       if (passnum == 1) % training 1
@@ -97,7 +120,9 @@ for l = 1 : n   %  for each layer
         dropmat(dropmat < layers{l}.dropout) = 0;
         dropmat(dropmat > 0) = 1;
         layers{l}.dropmat = dropmat;
-        layers{l}.a = layers{l}.a .* dropmat;      
+        layers{l}.a = layers{l}.a .* dropmat;
+      elseif (passnum == 3)
+        layers{l}.a = layers{l}.a .* dropmat;
       elseif (passnum == 0) % testing
         layers{l}.a = layers{l}.a * (1 - layers{l}.dropout);        
       end;    

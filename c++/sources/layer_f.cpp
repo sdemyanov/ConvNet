@@ -58,6 +58,9 @@ void LayerFull::Init(const mxArray *mx_layer, Layer *prev_layer) {
 
 void LayerFull::Forward(Layer *prev_layer, int passnum) {
   batchsize_ = prev_layer->batchsize_;
+  if (passnum == 3) {
+    Swap(activ_mat_, first_mat_);    
+  }
   activ_mat_.resize(batchsize_, length_);
   Prod(prev_layer->activ_mat_, false, weights_.get(), true, activ_mat_);    
   if (passnum == 0 || passnum == 1) {
@@ -76,7 +79,30 @@ void LayerFull::Forward(Layer *prev_layer, int passnum) {
       activ_mat_ *= (1 - dropout_);      
     }    
   }
-  activ_mat_.Validate();  
+  activ_mat_.Validate();
+  /*
+  if (print == 1) {
+  mexPrintMsg("FULL");    
+  Mat m;
+  m.attach(activ_mat_);
+  mexPrintMsg("s1", m.size1());    
+  mexPrintMsg("s2", m.size2()); 
+  mexPrintMsg("totalsum", m.sum());    
+  Mat versum = Sum(m, 1);
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("versum", versum(0, i));    
+  }
+  Mat horsum = Sum(m, 2);
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("horsum", horsum(i, 0));    
+  }  
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("Horizontal", m(0, i));    
+  }
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("Vertical", m(i, 0));    
+  }
+  }*/
 }
 
 void LayerFull::Backward(Layer *prev_layer) {
@@ -97,6 +123,8 @@ void LayerFull::CalcWeights(Layer *prev_layer, int passnum) {
   Mat weights_der;
   if (passnum == 2) {
     weights_der.attach(weights_.der());
+  } else if (passnum == 3) {
+    weights_der.attach(weights_.der2());
   }
   Prod(deriv_mat_, true, prev_layer->activ_mat_, false, weights_der);
   if (passnum == 2) {
@@ -115,7 +143,7 @@ void LayerFull::InitWeights(Weights &weights, size_t &offset, bool isgen) {
   if (isgen) {
     weights_.get().randnorm() *= init_std_;
   }
-  biases_.Attach(weights, offset, 1, length_, kMatlabOrder);  
+  biases_.Attach(weights, offset, 1, length_, kMatlabOrder); // reorder if necessary
   offset += length_;
   if (isgen) {
     biases_.get().assign(0);
@@ -125,7 +153,7 @@ void LayerFull::InitWeights(Weights &weights, size_t &offset, bool isgen) {
 void LayerFull::GetWeights(Mat &weights, size_t &offset) const {
   Mat weights_mat;
   weights_mat.attach(weights, offset, length_, length_prev_, kMatlabOrder);
-  weights_mat = weights_.get();
+  weights_mat = weights_.get(); // reorder if necessary
   offset += length_ * length_prev_;
   
   Mat biases_mat;

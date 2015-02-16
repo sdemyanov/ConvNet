@@ -41,6 +41,7 @@ private:
   std::vector<bool> mirror_;
   ftype angle_;  
   ftype defval_; // default value to fill in if the new image is out of the original one
+  bool randtest_;
   
 };
 

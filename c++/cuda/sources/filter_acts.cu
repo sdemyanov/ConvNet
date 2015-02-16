@@ -1170,17 +1170,23 @@ __global__ void filterActs_YxX_sparse2(float* images, float* filters, float* tar
  * to make them work fast. 
  */
 void _filterActs(MatGPU& images, MatGPU& filters, MatGPU& targets,
-                          size_t imgSize1, size_t imgSize2, size_t padding) {
+                          size_t imgSize1, size_t imgSize2, 
+                          size_t filtSize, size_t padding, bool conv) {
                  
     int imgSizeX = (int) imgSize1;
     int imgSizeY = (int) imgSize2;
+    int filterSize = (int) filtSize;
     int paddingStart = -(int) padding;
+    
+    mexAssert(paddingStart <= 0, "fa9");
+    int numModulesY = imgSizeY - 2 * paddingStart + 1 - filterSize;
+    int numModulesX = imgSizeX - 2 * paddingStart + 1 - filterSize;    
+    int numModules = numModulesY * numModulesX;    
                    
     int moduleStride = 1;
     int numGroups = 1;
     float scaleTargets = 0;
     float scaleOutput = 1;
-    bool conv = true;
     
     mexAssert(images.stride_ == 1 && filters.stride_ == 1 && targets.stride_ == 1,
             "In _filterActs one of strides is not 1");   
@@ -1195,19 +1201,15 @@ void _filterActs(MatGPU& images, MatGPU& filters, MatGPU& targets,
     int numFilterColors = numImgColors / numGroups;
     mexAssert(numGroups == 1 || numFilterColors % 4 == 0, "fa2");    
     int numFilters = (int) filters.size1_;
-    mexAssert(numFilters % (16 * numGroups) == 0, "fa3");
-    mexAssert(filters.size2_ % numFilterColors == 0, "fa8");
-    int filterPixels = (int) filters.size2_ / numFilterColors;
-    int filterSize = (int) sqrt((double) filterPixels);
+    mexAssert(numFilters % (16 * numGroups) == 0, "Number of outputmaps should be divisible by 16");
+    int filterModuleMult = conv ? 1 : numModules;    
+    mexAssert(filters.size2_ % (filterModuleMult * numFilterColors) == 0, "fa8");
+    int filterPixels = (int) filters.size2_ / (filterModuleMult * numFilterColors);
     mexAssert(filterSize * filterSize == filterPixels, "fa7");    
     
-    mexAssert(paddingStart <= 0, "fa9");
-    int numModulesY = imgSizeY - 2 * paddingStart + 1 - filterSize;
-    int numModulesX = imgSizeX - 2 * paddingStart + 1 - filterSize;    
-    int numModules = numModulesY * numModulesX;
     mexAssert(targets.size1_ == numImages, "fa14");
     mexAssert(targets.size2_ == numFilters * numModules, "fa13");
-    
+        
     int imgsPerThread = numImages % 128 == 0 ? 4 : numImages % 64 == 0 ? 2 : 1;
     int filtersPerThread, threadsY = 4;
     int numFiltersPerGroup = numFilters / numGroups;

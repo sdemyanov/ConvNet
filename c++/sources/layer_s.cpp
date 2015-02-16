@@ -30,7 +30,7 @@ void LayerScal::Init(const mxArray *mx_layer, Layer *prev_layer) {
   mexAssert(prev_layer->type_ != "f", "The 's' type layer cannot be after 'f' type layer");
   numdim_ = prev_layer->numdim_;
   outputmaps_ = prev_layer->outputmaps_;
-  length_prev_ = prev_layer->length_prev_;
+  length_prev_ = prev_layer->length_prev_; // not used
   mexAssert(mexIsField(mx_layer, "scale"), "The 's' type layer must contain the 'scale' field");
   std::vector<ftype> scale = mexGetVector(mexGetField(mx_layer, "scale"));  
   mexAssert(scale.size() == numdim_, "Length of the scale vector and maps dimensionality must coincide");
@@ -114,30 +114,7 @@ void LayerScal::Forward(Layer *prev_layer, int passnum) {
                        prev_layer->mapsize_, scale_[0], stride_[0], false);          
       }
     }
-  #endif  
-  /*
-  if (print == 1) {
-  mexPrintMsg("SCALE");    
-  Mat m;
-  m.attach(activ_mat_);
-  mexPrintMsg("s1", m.size1());    
-  mexPrintMsg("s2", m.size2()); 
-  mexPrintMsg("totalsum", m.sum());    
-  Mat versum = Sum(m, 1);
-  for (int i = 0; i < 5; ++i) {
-    mexPrintMsg("versum", versum(0, i));    
-  }
-  Mat horsum = Sum(m, 2);
-  for (int i = 0; i < 5; ++i) {
-    mexPrintMsg("horsum", horsum(i, 0));    
-  }  
-  for (int i = 0; i < 5; ++i) {
-    mexPrintMsg("Horizontal", m(0, i));    
-  }
-  for (int i = 0; i < 5; ++i) {
-    mexPrintMsg("Vertical", m(i, 0));    
-  }
-  }*/
+  #endif
 }
 
 void LayerScal::Backward(Layer *prev_layer) {    

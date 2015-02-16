@@ -21,8 +21,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LayerJitt::LayerJitt() {
   type_ = "j";
-  function_ = "none";
+  function_ = "none";  
   batchsize_ = 0;
+  randtest_ = false;
 }  
   
 void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
@@ -68,7 +69,7 @@ void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
   if (mexIsField(mx_layer, "angle")) {
     angle_ = mexGetScalar(mexGetField(mx_layer, "angle"));    
     mexAssert(0 <= angle_ && angle_ <= 1, "Angle in 'j' layer must be between 0 and 1");    
-  }  
+  }
   defval_ = 0;
   if (mexIsField(mx_layer, "defval")) {
     defval_ = mexGetScalar(mexGetField(mx_layer, "defval"));    
@@ -88,7 +89,7 @@ void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
       if (angle_inn > angle_) {
         maxcos = cos(kPi * (angle_inn - angle_));
       }    
-      ftype maxrad = sqrt((double) maxsize[0]*maxsize[0] + maxsize[1]*maxsize[1]);  
+      ftype maxrad = (ftype) sqrt((double) (maxsize[0]*maxsize[0] + maxsize[1]*maxsize[1]));  
       maxsize[0] = maxrad * maxsin;
       maxsize[1] = maxrad * maxcos;    
     }
@@ -106,22 +107,33 @@ void LayerJitt::Init(const mxArray *mx_layer, Layer *prev_layer) {
       mexAssert(false, "For these jitter parameters the new image is out of the original image");
     }
   }
+  if (mexIsField(mx_layer, "randtest")) {
+    randtest_ = (mexGetScalar(mexGetField(mx_layer, "randtest")) > 0);    
+  }
 } 
 
 void LayerJitt::Forward(Layer *prev_layer, int passnum) {
   
   if (passnum == 3) return;
   
-  // for testing just central cropping
-  if (passnum == 0) {
-    shift_.assign(numdim_, 0);
-    scale_.assign(numdim_, 1);
-    mirror_.assign(numdim_, false);
-    angle_ = 0;
-  }
-  
   batchsize_ = prev_layer->batchsize_;  
   activ_mat_.resize(batchsize_, length_);
+
+  if (passnum == 0) {
+    if (mapsize_[0] == prev_layer->mapsize_[0] && 
+        mapsize_[1] == prev_layer->mapsize_[1]) {
+      activ_mat_ = prev_layer->activ_mat_;      
+      return;
+    }
+    if (randtest_ == false) {
+      // do just central cropping    
+      shift_.assign(numdim_, 0);
+      scale_.assign(numdim_, 1);
+      mirror_.assign(numdim_, false);
+      angle_ = 0;
+    }    
+  }
+
   #if COMP_REGIME != 2  
     std::vector< std::vector<Mat> > prev_activ, activ;    
     InitMaps(prev_layer->activ_mat_, prev_layer->mapsize_, prev_activ);
@@ -156,6 +168,18 @@ void LayerJitt::Forward(Layer *prev_layer, int passnum) {
     TransformActs(prev_layer->activ_mat_, activ_mat_, prev_layer->mapsize_,
                   mapsize_, shift_, scale_, mirror_, angle_, defval_);
   #endif
+  /*
+  Mat immean(batchsize_, 1);
+  Mean(prev_layer->activ_mat_, immean, 2);
+  immean *= -1;
+  activ_mat_.AddVect(immean, 2);
+  */
+  /*
+  Mat pixmean(1, length_);
+  Mean(activ_mat_, pixmean, 1);
+  pixmean *= -1;
+  activ_mat_.AddVect(pixmean, 1);
+  */
   activ_mat_.Validate();  
   /*
   for (int i = 0; i < 5; ++i) {

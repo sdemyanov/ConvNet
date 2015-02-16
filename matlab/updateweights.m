@@ -10,6 +10,11 @@ if (length(params.alpha) == 1)
 else
   alpha = params.alpha(epoch);
 end;
+if (length(params.beta) == 1)
+  beta = params.beta;
+else
+  beta = params.beta(epoch);
+end;
 
 for l = 1 : numel(layers)
   
@@ -17,7 +22,8 @@ for l = 1 : numel(layers)
     if (regime == 0)      
       dw = momentum * layers{l}.dwp;      
     else
-      dw = alpha * layers{l}.dw;
+      dw = alpha * layers{l}.dw + beta * layers{l}.dw2;
+      layers{l}.dw2(:) = 0;
       signs = layers{l}.dw .* layers{l}.dwp;
       layers{l}.gw(signs > 0) = layers{l}.gw(signs > 0) + params.adjustrate;
       layers{l}.gw(signs <= 0) = layers{l}.gw(signs <= 0) * (1 - params.adjustrate);
@@ -34,7 +40,8 @@ for l = 1 : numel(layers)
     if (regime == 0)  
       dk = momentum * layers{l}.dkp;          
     else      
-      dk = alpha * layers{l}.dk;
+      dk = alpha * layers{l}.dk + beta * layers{l}.dk2;
+      layers{l}.dk2(:) = 0;
       signs = dk .* layers{l}.dkp;          
       layers{l}.gk(signs > 0) = layers{l}.gk(signs > 0) + params.adjustrate;
       layers{l}.gk(signs <= 0) = layers{l}.gk(signs <= 0) * (1 - params.adjustrate);
@@ -53,7 +60,8 @@ for l = 1 : numel(layers)
     if (regime == 0)  
       db = momentum * layers{l}.dbp;      
     else
-      db = alpha * layers{l}.db;
+      db = alpha * layers{l}.db + beta * layers{l}.db2;
+      layers{l}.db2(:) = 0;
       signs = db .* layers{l}.dbp;      
       layers{l}.gb(signs > 0) = layers{l}.gb(signs > 0) + params.adjustrate;
       layers{l}.gb(signs <= 0) = layers{l}.gb(signs <= 0) * (1 - params.adjustrate);

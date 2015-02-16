@@ -49,6 +49,7 @@ test_y = single(TestY(1:kTestNum, :));
 clear params;
 params.epochs = 1;
 params.alpha = 0.1;
+params.beta = 0.0002;
 params.momentum = 0.9;
 params.lossfun = 'logreg';
 params.shuffle = 1;

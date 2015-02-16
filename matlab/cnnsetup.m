@@ -13,6 +13,26 @@ for l = 1 : n   %  layer
     outputmaps = layers{l}.outputmaps;
     mapsize = layers{l}.mapsize; 
   
+  elseif strcmp(layers{l}.type, 'n') % normalization    
+    layers{l}.w = single(zeros([mapsize outputmaps 2]));    
+    layers{l}.w(:, :, :, 2) = single(ones([mapsize outputmaps]));
+    if (isfield(layers{l}, 'mean'))
+      layers{l}.w(:, :, :, 1) = -layers{l}.mean;
+    end;
+    layers{l}.is_dev = 1;
+    if (isfield(layers{l}, 'stdev'))
+      if (ischar(layers{l}.stdev) && strcmp(layers{l}.stdev, 'no'))
+        layers{l}.is_dev = 0;
+        layers{l}.w(:, :, :, 2) = [];
+      else
+        layers{l}.w(:, :, :, 2) = 1 ./ layers{l}.stdev;
+      end;
+    end;    
+    layers{l}.dw = single(zeros(size(layers{l}.w)));
+    layers{l}.dw2 = single(zeros(size(layers{l}.w)));
+    layers{l}.dwp = single(zeros(size(layers{l}.w)));
+    layers{l}.gw = single(ones(size(layers{l}.w)));
+  
   elseif strcmp(layers{l}.type, 'j') % scaling
     assert(isfield(layers{l}, 'mapsize'), 'The "j" type layer must contain the "mapsize" field');    
     mapsize = layers{l}.mapsize;    
@@ -37,7 +57,7 @@ for l = 1 : n   %  layer
       layers{l}.function = 'relu';
     end;
     if (~strcmp(layers{l}.function, 'sigm') && ...
-       ~strcmp(layers{l}.function, 'relu')) % REctified Linear Unit        
+       ~strcmp(layers{l}.function, 'relu')) % REctified Linear Unit
       error('"%s" - unknown function for the layer %d', layers{l}.function, l);
     end;
     if (~isfield(layers{l}, 'padding'))
@@ -50,8 +70,12 @@ for l = 1 : n   %  layer
       layers{l}.biascoef = 1;
     end;
     
+    %fan_in = outputmaps * layers{l}.filtersize(1) *  layers{l}.filtersize(2);
+    %fan_out = layers{l}.outputmaps * layers{l}.filtersize(1) * layers{l}.filtersize(2);
+    %rand_coef = 2 * sqrt(6 / (fan_in + fan_out));
     layers{l}.k = single(zeros([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
     layers{l}.dk = single(zeros([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
+    layers{l}.dk2 = single(zeros([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
     layers{l}.dkp = single(zeros([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
     layers{l}.gk = single(ones([layers{l}.filtersize outputmaps layers{l}.outputmaps]));
     if (isgen)
@@ -61,6 +85,7 @@ for l = 1 : n   %  layer
     end;
     layers{l}.b = single(zeros(layers{l}.outputmaps, 1));
     layers{l}.db = single(zeros(layers{l}.outputmaps, 1));    
+    layers{l}.db2 = single(zeros(layers{l}.outputmaps, 1));    
     layers{l}.dbp = single(zeros(layers{l}.outputmaps, 1));
     layers{l}.gb = single(ones(layers{l}.outputmaps, 1));
     mapsize = mapsize + 2*layers{l}.padding - layers{l}.filtersize + 1;
@@ -94,16 +119,18 @@ for l = 1 : n   %  layer
     end;
     layers{l}.weightsize = weightsize; 
     if (isgen)
-      layers{l}.w = single(randn(weightsize) * layers{l}.initstd);
+      layers{l}.w = single(randn(weightsize) * layers{l}.initstd);      
     else
       layers{l}.w = single(zeros(weightsize));
     end;
     layers{l}.dw = single(zeros(weightsize));
+    layers{l}.dw2 = single(zeros(weightsize));
     layers{l}.dwp = single(zeros(weightsize));
     layers{l}.gw = single(ones(weightsize));
 
     layers{l}.b = single(zeros(1, weightsize(1)));
     layers{l}.db = single(zeros(1, weightsize(1)));    
+    layers{l}.db2 = single(zeros(1, weightsize(1)));    
     layers{l}.dbp = single(zeros(1, weightsize(1)));
     layers{l}.gb = single(ones(1, weightsize(1)));      
     mapsize = [0 0];

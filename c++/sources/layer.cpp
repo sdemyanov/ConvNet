@@ -40,5 +40,15 @@ void Layer::Nonlinear(int passnum) {
     } else if (function_ == "relu") {        
       deriv_mat_.CondAssign(activ_mat_, false, 0, 0);
     }    
-  }
+  } else if (passnum == 3) { // third pass
+    if (function_ == "soft") {
+      activ_mat_.SoftDer(first_mat_);
+      activ_mat_.Validate();
+    } else if (function_ == "sigm") {
+      activ_mat_.SigmDer(first_mat_);
+      activ_mat_.Validate();
+    } else if (function_ == "relu") {
+      activ_mat_.CondAssign(first_mat_, false, 0, 0);
+    }    
+  }  
 }

@@ -25,12 +25,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // COMP_REGIME = 2 -> GPU
 #define COMP_REGIME 2
 
+// USE_CUDNN = -1 -> NOT APPLICABLE
+// USE_CUDNN = 0 -> NO
+// USE_CUDNN = 1 -> YES
+#define USE_CUDNN 0
+
 // PRECISION = 1 -> float
 // PRECISION = 2 -> double
 #define PRECISION 1
 // GPU version is only for float values
 #if COMP_REGIME == 2  
   #define PRECISION 1
+#else
+  #define USE_CUDNN -1
 #endif
 
 #if PRECISION == 1

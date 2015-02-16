@@ -241,8 +241,8 @@ void _convLocalAvgUndo(MatGPU& avgGrads, MatGPU& targets,
     int imgSizeY = (int) imgSize2;    
     int imgPixels = imgSizeX * imgSizeY;
     int startX = 0;
+    int outputsX = DIVUP(imgSizeX, strideX);    
     int outputsY = DIVUP(imgSizeY, strideX);
-    int outputsX = DIVUP(imgSizeX, strideX);
     int outputs = outputsX * outputsY;
     ftype scaleTargets = 0;
     ftype scaleOutput = 1;
@@ -257,7 +257,7 @@ void _convLocalAvgUndo(MatGPU& avgGrads, MatGPU& targets,
     mexAssert(targets.size1_ == numImages, "au2");    
     mexAssert(targets.size2_ == imgPixels * numFilters, "au3");    
                       
-    mexAssert(numFilters % 16 == 0, "au4");
+    mexAssert(numFilters % 16 == 0, "Number of outputmaps should be divisible by 16");
     mexAssert(strideX <= subsX, "au5");
     
     int imgsPerThread = numImages % 128 == 0 ? 4 : numImages % 64 == 0 ? 2 : 1;
@@ -346,7 +346,7 @@ void _convLocalMaxUndo(MatGPU& images, MatGPU& maxActs, MatGPU& maxGrads, MatGPU
     mexAssert(maxActs.size1_ == maxGrads.size1_ &&
               maxActs.size2_ == maxGrads.size2_, "mu5");
               
-    mexAssert(numFilters % 16 == 0, "mu6");
+    mexAssert(numFilters % 16 == 0, "Number of outputmaps should be divisible by 16");
     mexAssert(strideX <= subsX, "mu7");
     
     int imgsPerThread = numImages % 128 == 0 ? 4 : numImages % 64 == 0 ? 2 : 1;

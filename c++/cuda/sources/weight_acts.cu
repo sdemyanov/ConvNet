@@ -1654,16 +1654,23 @@ __global__ void conv_weight_acts_mc_mf_kepler_preload_ty_8_tx_32_f_4_c_8_r_16(cu
  * to make them work fast. 
  */
 void _weightActs(MatGPU& images, MatGPU& hidActs, MatGPU& targets,
-                 size_t imgSize1, size_t imgSize2, size_t padding,
+                 size_t imgSize1, size_t imgSize2, 
+                 size_t filtSize, size_t padding,
                  size_t chunks_num, size_t sum_width) {
                   
     // activation sizes
     int imgSizeX = (int) imgSize1;
     int imgSizeY = (int) imgSize2;
+    int filterSize = (int) filtSize;
     int paddingStart = -(int) padding;
     int outputModuleChunks = (int) chunks_num;
     int sumWidth = (int) sum_width;    
     
+    mexAssert(paddingStart <= 0, "wa9");
+    int numModulesX = imgSizeX - 2 * paddingStart + 1 - filterSize;    
+    int numModulesY = imgSizeY - 2 * paddingStart + 1 - filterSize;
+    int numModules = numModulesY * numModulesX;
+        
     int moduleStride = 1;
     int numGroups = 1;
     float scaleTargets = 0;
@@ -1676,23 +1683,18 @@ void _weightActs(MatGPU& images, MatGPU& hidActs, MatGPU& targets,
     int imgPixels = imgSizeX * imgSizeY;    
     mexAssert(images.size2_ % imgPixels == 0, "wa5");
     int numImgColors = (int) images.size2_ / imgPixels;   
-    mexAssert(numImgColors % numGroups == 0, "wa4");        
+    mexAssert(numImgColors % numGroups == 0, "wa4");
     mexAssert(numGroups > 1 || (numImgColors > 0 && (numImgColors <= 3 || numImgColors % 4 == 0)), "wa1");
     
     int numFilterColors = numImgColors / numGroups;
-    mexAssert(numGroups == 1 || numFilterColors % 16 == 0, "wa2");
+    mexAssert(numGroups == 1 || numFilterColors % 16 == 0, "Number of outputmaps should be divisible by 16");
     int numFilters = (int) targets.size1_;
     mexAssert(numFilters % (16 * numGroups) == 0, "wa3");    
     mexAssert(targets.size2_ % (outputModuleChunks * numFilterColors) == 0, "wa8");
     int filterPixels = (int) targets.size2_ / (outputModuleChunks * numFilterColors);
-    int filterSize = (int) sqrt((double) filterPixels);
     mexAssert(filterSize * filterSize == filterPixels, "wa7");    
     
-    mexAssert(paddingStart <= 0, "wa9");
-    int numModulesX = imgSizeX - 2 * paddingStart + 1 - filterSize;    
-    int numModulesY = imgSizeY - 2 * paddingStart + 1 - filterSize;
-    int numModules = numModulesY * numModulesX;
-    mexAssert(hidActs.size1_ == numImages, "wa14");
+    mexAssert(hidActs.size1_ == numImages, "wa14");    
     mexAssert(hidActs.size2_ == numFilters * numModules, "wa13");
     
     int chunks_x = (int) DIVUP(numModulesX, sumWidth);

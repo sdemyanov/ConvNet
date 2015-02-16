@@ -44,6 +44,7 @@ private:
   size_t sum_width_;
   ftype init_std_;
   ftype bias_coef_;
+  bool unshared_;
   
 };
 

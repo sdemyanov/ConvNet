@@ -179,9 +179,15 @@ mxArray* mexSetVector(const std::vector<ftype> &vect) {
 mxArray* mexSetMatrix(const MatCPU &mat) {			
   mxArray *mx_array = mexNewMatrix(mat.size1(), mat.size2());  
 	ftype *pdata = (ftype*) mxGetData(mx_array);  
-  mexAssert(mat.order() == kMatlabOrder, 
-    "In mexSetMatrix the order should coincide with kMatlabOrder");
-  mat.write(pdata);
+  //mexAssert(mat.order() == kMatlabOrder, 
+  //  "In mexSetMatrix the order should coincide with kMatlabOrder");
+  if (mat.order () == kMatlabOrder) {
+    mat.write(pdata);
+  } else {
+    MatCPU mr(mat.size1(), mat.size2());
+    mr = mat;
+    mr.write(pdata);
+  }
   return mx_array;  
 }
 

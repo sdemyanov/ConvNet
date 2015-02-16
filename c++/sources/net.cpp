@@ -21,12 +21,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "layer_i.h"
 #include "layer_j.h"
 #include "layer_c.h"
+#include "layer_n.h"
 #include "layer_s.h"
 #include "layer_f.h"
 
 Net::Net() {
-  mexAssert(kDefaultOrder == false, "kDefaultOrder should be false");  
-  mexAssert(kMapsOrder == kDefaultOrder, "kMapsOrder should be also false");  
+  //mexAssert(kDefaultOrder == false, "kDefaultOrder should be false");  
+  mexAssert(kMapsOrder == false, "kMapsOrder should be false");  
   #if COMP_REGIME == 2 // GPU        
     mexAssert(PRECISION == 1, "In the GPU version PRECISION should be 1");    
     MatGPU::CudaInit();
@@ -61,6 +62,8 @@ void Net::InitLayers(const mxArray *mx_layers) {
       layers_[i] = new LayerJitt();
     } else if (layer_type == "c") {      
       layers_[i] = new LayerConv();
+    } else if (layer_type == "n") {
+      layers_[i] = new LayerNorm();
     } else if (layer_type == "s") {
       layers_[i] = new LayerScal();
     } else if (layer_type == "f") {
@@ -84,7 +87,7 @@ void Net::InitLayers(const mxArray *mx_layers) {
 void Net::InitParams(const mxArray *mx_params) {
   //mexPrintMsg("Start params initialization...");
   params_.Init(mx_params);
-  InitRand(params_.seed_);  
+  InitRand(params_.seed_);
   //mexPrintMsg("Params initialization finished");
 }
 
@@ -99,33 +102,47 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
   size_t numbatches = DIVUP(train_num, params_.batchsize_);
   trainerrors_.resize(params_.epochs_, 2);
   trainerrors_.assign(0);
-  for (size_t epoch = 0; epoch < params_.epochs_; ++epoch) {    
+  Mat data_batch, labels_batch, pred_batch;
+  for (size_t epoch = 0; epoch < params_.epochs_; ++epoch) {
+    ftype beta;
+    if (params_.beta_.size() == 1) {
+      beta = params_.beta_[0];
+    } else {
+      beta = params_.beta_[epoch];
+    }
+    //print = 1;
     if (params_.shuffle_) {
       Shuffle(data_, labels_);      
     }
-    StartTimer();    
+    StartTimer();
+    //MatGPU::StartCudaTimer();
     size_t offset = 0;
-    Mat data_batch, labels_batch, pred_batch;      
-    for (size_t batch = 0; batch < numbatches; ++batch) {
+    for (size_t batch = 0; batch < numbatches; ++batch) {        
       size_t batchsize = MIN(train_num - offset, params_.batchsize_);      
       UpdateWeights(epoch, false);
       data_batch.resize(batchsize, data_.size2());
       labels_batch.resize(batchsize, labels_.size2());      
       SubSet(data_, data_batch, offset, true);      
       SubSet(labels_, labels_batch, offset, true);
-      ftype error1;      
+      ftype error1, error2;
       InitActiv(data_batch);
       Forward(pred_batch, 1);            
       InitDeriv(labels_batch, error1);
       trainerrors_(epoch, 0) += error1;
       Backward();
+      InitDeriv2(error2);
+      trainerrors_(epoch, 1) += error2;
+      if (beta > 0) {
+        Forward(pred_batch, 3);
+      }
       UpdateWeights(epoch, true); 
       offset += batchsize;
       if (params_.verbose_ == 2) {
         mexPrintInt("Epoch", (int) epoch + 1);
         mexPrintInt("Batch", (int) batch + 1);
       }
-    } // batch  
+    } // batch       
+    //MatGPU::MeasureCudaTime("totaltime");
     MeasureTime("totaltime");
     if (params_.verbose_ == 1) {
       mexPrintInt("Epoch", (int) epoch + 1);
@@ -142,23 +159,43 @@ void Net::Classify(const mxArray *mx_data, mxArray *&mx_pred) {
   size_t test_num = data_.size1();
   labels_.resize(test_num, layers_.back()->length_);  
   labels_.reorder(true, false);
+  MatCPU curlabels;
+  if (params_.test_epochs_ > 1) {
+    curlabels.resize(test_num, layers_.back()->length_);
+    curlabels.reorder(true, false);
+    labels_.assign(0);
+  } else {
+    curlabels.attach(labels_);
+  }
   size_t numbatches = DIVUP(test_num, params_.batchsize_);
-  size_t offset = 0;
   Mat data_batch, pred_batch;    
-  for (size_t batch = 0; batch < numbatches; ++batch) {
-    size_t batchsize = MIN(test_num - offset, params_.batchsize_);
-    data_batch.resize(batchsize, data_.size2());
-    SubSet(data_, data_batch, offset, true);    
-    InitActiv(data_batch);
-    Forward(pred_batch, 0);            
-    SubSet(labels_, pred_batch, offset, false);    
-    offset += batchsize;
-    if (params_.verbose_ == 2) {
-      mexPrintInt("Batch", (int) batch + 1);
-    }      
+  for (size_t epoch = 0; epoch < params_.test_epochs_; ++epoch) {
+    size_t offset = 0;
+    for (size_t batch = 0; batch < numbatches; ++batch) {
+      size_t batchsize = MIN(test_num - offset, params_.batchsize_);
+      data_batch.resize(batchsize, data_.size2());
+      SubSet(data_, data_batch, offset, true);    
+      InitActiv(data_batch);
+      Forward(pred_batch, 0);            
+      SubSet(curlabels, pred_batch, offset, false);    
+      offset += batchsize;
+      if (params_.verbose_ == 2) {
+        mexPrintInt("Test epoch", (int) epoch + 1);
+        mexPrintInt("Test batch", (int) batch + 1);
+      }      
+    }
+    if (params_.test_epochs_ > 1) {
+      labels_ += curlabels;
+    }
+    if (params_.verbose_ == 1) {
+      mexPrintInt("Test epoch", (int) epoch + 1);
+    }
+  }
+  if (params_.test_epochs_ > 1) {
+    labels_ /= (ftype) params_.test_epochs_;
   }
   labels_.reorder(kMatlabOrder, true);
-  mx_pred = mexSetMatrix(labels_);  
+  mx_pred = mexSetMatrix(labels_);
   //mexPrintMsg("Classification finished");
 }
 
@@ -204,6 +241,7 @@ void Net::Forward(Mat &pred, int passnum) {
     if (layers_[i]->type_ == "j") first_layer_ = i;
     //mexPrintMsg("Forward pass for layer", layers_[i]->type_);  
     layers_[i]->Forward(layers_[i-1], passnum);    
+    layers_[i]->CalcWeights(layers_[i-1], passnum);
     layers_[i]->Nonlinear(passnum);
     if (utIsInterruptPending()) {
       mexAssert(false, "Ctrl-C Detected. END");
@@ -211,6 +249,31 @@ void Net::Forward(Mat &pred, int passnum) {
   }
   pred.attach(layers_.back()->activ_mat_);  
   //mexPrintMsg("Forward pass finished");
+  /*
+  if (print == 1) {
+  mexPrintMsg("PRED");    
+  Mat m;
+  m.attach(pred);
+  mexPrintMsg("s1", m.size1());    
+  mexPrintMsg("s2", m.size2()); 
+  mexPrintMsg("totalsum", m.sum());    
+  Mat versum(1, m.size2());
+  Sum(m, versum, 1);
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("versum", versum(0, i));    
+  }
+  Mat horsum(m.size1(), 1);
+  Sum(m, horsum, 2);
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("horsum", horsum(i, 0));    
+  }  
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("Horizontal", m(0, i));    
+  }
+  for (int i = 0; i < 5; ++i) {
+    mexPrintMsg("Vertical", m(i, 0));    
+  }
+  } */
 }
 
 void Net::Backward() {
@@ -269,6 +332,18 @@ void Net::InitDeriv(const Mat &labels_batch, ftype &loss) {
   lastlayer->deriv_mat_.Validate(); 
 }
 
+void Net::InitDeriv2(ftype &loss) {
+
+  Layer *firstlayer = layers_[first_layer_];
+  size_t batchsize = firstlayer->batchsize_;
+  size_t length = firstlayer->length_;
+  lossmat2_.resize(batchsize, length);
+  lossmat2_ = firstlayer->deriv_mat_;
+  lossmat2_ *= firstlayer->deriv_mat_;
+  loss = lossmat2_.sum() / (2 * batchsize);
+  firstlayer->activ_mat_.attach(firstlayer->deriv_mat_);  
+}
+
 void Net::UpdateWeights(size_t epoch, bool isafter) {
   weights_.Update(params_, epoch, isafter);  
 }
@@ -299,8 +374,8 @@ void Net::ReadData(const mxArray *mx_data) {
   }  
   ftype *data_ptr = mexGetPointer(mx_data);  
   // transposed array
-  data_.attach(data_ptr, samples_num, mapsize1 * mapsize2 * outputmaps, 1, true);  
-  if (firstlayer->norm_ > 0) {    
+  data_.attach(data_ptr, samples_num, mapsize1 * mapsize2 * outputmaps, 1, true);
+  if (firstlayer->norm_ > 0) {
     MatCPU norm_data(data_.size1(), data_.size2());
     norm_data.reorder(true, false);
     norm_data = data_;
@@ -316,8 +391,8 @@ void Net::ReadLabels(const mxArray *mx_labels) {
   size_t classes_num = labels_dim[1];
   mexAssert(classes_num == layers_.back()->length_,
     "Labels and last layer must have equal number of classes");  
-  MatCPU labels_norm; // order_ == false
-  mexGetMatrix(mx_labels, labels_norm);
+  MatCPU labels_norm;
+  mexGetMatrix(mx_labels, labels_norm); // order_ == kMatlabOrder
   if (params_.balance_) {  
     MatCPU labels_mean(1, classes_num);
     Mean(labels_norm, labels_mean, 1);
@@ -336,6 +411,7 @@ void Net::ReadLabels(const mxArray *mx_labels) {
 }
 
 void Net::InitWeights(const mxArray *mx_weights_in) {
+  //mexPrintMsg("start init weights");
   bool isgen = false;
 	size_t num_weights = NumWeights();  
   MatCPU weights_cpu;
@@ -356,6 +432,7 @@ void Net::InitWeights(const mxArray *mx_weights_in) {
   for (size_t i = 0; i < layers_.size(); ++i) {
     layers_[i]->InitWeights(weights_, offset, isgen);
   }  
+  //mexPrintMsg("finish init weights");
 }
 
 void Net::GetWeights(mxArray *&mx_weights) const {  

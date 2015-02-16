@@ -282,8 +282,8 @@ void _convLocalPool(MatGPU& images, MatGPU& targets,
     int imgSizeY = (int) imgSize2;    
     int imgPixels = imgSizeX * imgSizeY;
     int startX = 0;
+    int outputsX = (int) DIVUP(imgSizeX, stride);    
     int outputsY = (int) DIVUP(imgSizeY, stride);
-    int outputsX = (int) DIVUP(imgSizeX, stride);
     int outputs = outputsX * outputsY;
     
     mexAssert(images.stride_ == 1 && targets.stride_ == 1,
@@ -561,7 +561,7 @@ void _convLocalMaxUndoDer(MatGPU& images, MatGPU&  maxActs, MatGPU& imgGrads, Ma
     mexAssert(maxActs.size1_ == targets.size1_ &&
               maxActs.size2_ == targets.size2_, "mud5");
               
-    mexAssert(numFilters % 16 == 0, "mud6");
+    mexAssert(numFilters % 16 == 0, "Number of outputmaps should be divisible by 16");
     mexAssert(strideX <= subsX, "mud7");
     
     cudaStream_t stream = MatGPU::_defaultStream;

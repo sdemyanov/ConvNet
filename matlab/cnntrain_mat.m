@@ -28,6 +28,11 @@ rng(params.seed);
 numbatches = ceil(train_num/params.batchsize);
 trainerr = zeros(params.numepochs, 2);
 for epoch = 1 : params.numepochs  
+  if (length(params.beta) == 1)
+    beta = params.beta;
+  else
+    beta = params.beta(epoch);
+  end;  
   if (params.shuffle == 0)
     kk = 1:train_num;
   else
@@ -46,10 +51,20 @@ for epoch = 1 : params.numepochs
     
     % second pass
     [layers, loss] = initder(layers, params, batch_y);
-    trainerr(epoch, 1) = trainerr(epoch, 1) + loss;
+    trainerr(epoch, 1) = trainerr(epoch, 1) + loss;    
     %disp(['loss: ' num2str(loss)]);
     layers = backward(layers, params);
     layers = calcweights(layers, 2);
+    
+    % third pass
+    [layers, loss2] = initder2(layers);
+    trainerr(epoch, 2) = trainerr(epoch, 2) + loss2;
+    %disp(['loss2: ' num2str(loss2)]);      
+    if (beta > 0)      
+      [layers, pred2] = forward(layers, 3);          
+      %disp(['pred2: ' num2str(pred2(1,1:5))]);
+      layers = calcweights(layers, 3);      
+    end;
     
     layers = updateweights(layers, params, epoch, 1); % final update
      

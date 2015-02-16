@@ -26,6 +26,7 @@ LayerConv::LayerConv() {
   sum_width_ = 1;
   init_std_ = (ftype) 0.01;
   bias_coef_ = 1;
+  unshared_ = false;
 }
 
 void LayerConv::Init(const mxArray *mx_layer, Layer *prev_layer) {
@@ -47,7 +48,7 @@ void LayerConv::Init(const mxArray *mx_layer, Layer *prev_layer) {
   mexAssert(filtersize.size() == numdim_, "Filters and maps must be the same dimensionality");
   filtersize_.resize(numdim_);    
   for (size_t i = 0; i < numdim_; ++i) {
-    mexAssert(1 <= filtersize[i], "Filtersize on the 'c' layer must be greater or equal to 1");
+    mexAssert(1 <= filtersize[i], "Filtersize on the 'c' layer must be positive");
     filtersize_[i] = (size_t) filtersize[i];    
   }
   #if COMP_REGIME == 2	// GPU
@@ -73,7 +74,7 @@ void LayerConv::Init(const mxArray *mx_layer, Layer *prev_layer) {
     mexAssert(1 <= mapsize_[i], "Mapsize on the 'c' layer must be greater than 1");
     if (mapsize_[i] < minsize_) minsize_ = mapsize_[i];
     length_ *= mapsize_[i];
-  }  
+  }
   if (mexIsField(mx_layer, "sumwidth")) {
     ftype sum_width = mexGetScalar(mexGetField(mx_layer, "sumwidth"));
     mexAssert(1 <= sum_width && sum_width <= minsize_, "Sumwidth must be in the range [0, min(mapsize)]");
@@ -89,11 +90,18 @@ void LayerConv::Init(const mxArray *mx_layer, Layer *prev_layer) {
     bias_coef_ = mexGetScalar(mexGetField(mx_layer, "biascoef"));
     mexAssert(0 <= bias_coef_, "biascoef must be non-negative");  
   }
+  if (mexIsField(mx_layer, "unshared")) {
+    unshared_ = (mexGetScalar(mexGetField(mx_layer, "unshared")) > 0);    
+    if (unshared_) sum_width_ = 1;
+  }
 }
     
 void LayerConv::Forward(Layer *prev_layer, int passnum) {
   batchsize_ = prev_layer->batchsize_;
-  activ_mat_.resize(batchsize_, length_);  
+  if (passnum == 3) {
+    Swap(activ_mat_, first_mat_);    
+  }
+  activ_mat_.resize(batchsize_, length_);
   #if COMP_REGIME != 2
     std::vector< std::vector<Mat> > prev_activ, filters, activ;    
     InitMaps(prev_layer->activ_mat_, prev_layer->mapsize_, prev_activ);
@@ -114,13 +122,17 @@ void LayerConv::Forward(Layer *prev_layer, int passnum) {
     }
   #else // GPU
     FilterActs(prev_layer->activ_mat_, weights_.get(), activ_mat_, 
-               prev_layer->mapsize_, padding_[0]);    
+               prev_layer->mapsize_, filtersize_[0], padding_[0], !unshared_);
   #endif
   if (passnum == 0 || passnum == 1) {
     mexAssert(activ_mat_.order() == false, "activ_mat_.order() should be false");
-    activ_mat_.reshape(activ_mat_.size1() * activ_mat_.size2() / outputmaps_, outputmaps_);
-    activ_mat_.AddVect(biases_.get(), 1);
-    activ_mat_.reshape(batchsize_, activ_mat_.size1() * activ_mat_.size2() / batchsize_);            
+    if (!unshared_) {
+      activ_mat_.reshape(activ_mat_.size1() * activ_mat_.size2() / outputmaps_, outputmaps_);
+      activ_mat_.AddVect(biases_.get(), 1);
+      activ_mat_.reshape(batchsize_, activ_mat_.size1() * activ_mat_.size2() / batchsize_);            
+    } else {
+      activ_mat_.AddVect(biases_.get(), 1);
+    }
   }  
   activ_mat_.Validate();
 }
@@ -151,17 +163,19 @@ void LayerConv::Backward(Layer *prev_layer) {
     }
   #else // GPU       
     ImgActs(deriv_mat_, weights_.get(), prev_layer->deriv_mat_, 
-            prev_layer->mapsize_, padding_[0]);        
+            prev_layer->mapsize_, filtersize_[0], padding_[0], !unshared_);        
   #endif
   prev_layer->deriv_mat_.Validate();
 }
 
 void LayerConv::CalcWeights(Layer *prev_layer, int passnum) {
-  
+
   if (passnum < 2) return;
   Mat weights_der;
   if (passnum == 2) {
     weights_der.attach(weights_.der());
+  } else if (passnum == 3) {
+    weights_der.attach(weights_.der2());    
   }
   #if COMP_REGIME != 2
     std::vector< std::vector<Mat> > prev_activ, filters_der, deriv;
@@ -186,35 +200,47 @@ void LayerConv::CalcWeights(Layer *prev_layer, int passnum) {
         filters_der[i][j] = fil_der;        
       }        
     }    
-  #else // GPU
+  #else // GPU    
     WeightActs(prev_layer->activ_mat_, deriv_mat_, weights_der,
-               prev_layer->mapsize_, padding_[0], filtersize_[0], sum_width_);        
+               prev_layer->mapsize_, filtersize_[0], 
+               padding_[0], sum_width_, !unshared_);        
   #endif
+  weights_der /= (ftype) batchsize_;
+  weights_der.Validate();
   if (passnum == 2) {
     mexAssert(deriv_mat_.order() == false, "deriv_mat_.order() should be false");
-    deriv_mat_.reshape(deriv_mat_.size1() * deriv_mat_.size2() / outputmaps_, outputmaps_);
-    Sum(deriv_mat_, biases_.der(), 1);
-    deriv_mat_.reshape(batchsize_, deriv_mat_.size1() * deriv_mat_.size2() / batchsize_);        
+    if (!unshared_) {
+      deriv_mat_.reshape(batchsize_ * deriv_mat_.size2() / outputmaps_, outputmaps_);
+      Sum(deriv_mat_, biases_.der(), 1);
+      deriv_mat_.reshape(batchsize_, deriv_mat_.size1() * outputmaps_ / batchsize_);        
+    } else {
+      Sum(deriv_mat_, biases_.der(), 1);      
+    }
     (biases_.der() /= (ftype) batchsize_) *= bias_coef_;
     biases_.der().Validate();
-  }
-  weights_der /= (ftype) batchsize_;  
-  weights_der.Validate();   
+  }   
 }
 
 void LayerConv::InitWeights(Weights &weights, size_t &offset, bool isgen) {  
-  size_t numel = 1;
+  size_t num_weights = length_prev_;
   for (size_t i = 0; i < numdim_; ++i) {
-    numel *= filtersize_[i];
+    num_weights *= filtersize_[i];
   }
-  size_t pixel_num = length_prev_ * numel;
-  weights_.Attach(weights, offset, outputmaps_, pixel_num, false);  
-  offset += outputmaps_ * pixel_num;
+  size_t map_length = length_ / outputmaps_;  
+  if (unshared_) {    
+    num_weights *= map_length;
+  }
+  weights_.Attach(weights, offset, outputmaps_, num_weights, false);  
+  offset += outputmaps_ * num_weights;
   if (isgen) {  
     weights_.get().randnorm() *= init_std_;    
   }
-  biases_.Attach(weights, offset, 1, outputmaps_, kMatlabOrder);  
-  offset += outputmaps_;  
+  size_t num_biases = outputmaps_;
+  if (unshared_) {
+    num_biases *= map_length;
+  }
+  biases_.Attach(weights, offset, 1, num_biases, kMatlabOrder);  
+  offset += num_biases;  
   if (isgen) {
     biases_.get().assign(0);
   }
@@ -222,15 +248,16 @@ void LayerConv::InitWeights(Weights &weights, size_t &offset, bool isgen) {
 
 void LayerConv::GetWeights(Mat &weights, size_t &offset) const {
   Mat weights_mat;
-  size_t pixel_num = weights_.get().size2();
-  weights_mat.attach(weights, offset, outputmaps_, pixel_num, false);
+  size_t num_weights = weights_.get().size2();
+  weights_mat.attach(weights, offset, outputmaps_, num_weights, false);
   weights_mat = weights_.get();
-  offset += outputmaps_ * pixel_num;
+  offset += outputmaps_ * num_weights;
   
   Mat biases_mat;
-  biases_mat.attach(weights, offset, 1, outputmaps_, kMatlabOrder);
+  size_t num_biases = biases_.get().size2();
+  biases_mat.attach(weights, offset, 1, num_biases, kMatlabOrder);
   biases_mat = biases_.get();
-  offset += outputmaps_;
+  offset += num_biases;
 }
 
 size_t LayerConv::NumWeights() const {
@@ -238,5 +265,11 @@ size_t LayerConv::NumWeights() const {
   for (size_t i = 0; i < numdim_; ++i) {
     num_weights *= filtersize_[i];
   }
-  return (num_weights + 1) * outputmaps_; // +1 for biases
+  num_weights += 1; // for biases
+  if (unshared_) {
+    num_weights *= length_;
+  } else {
+    num_weights *= outputmaps_; 
+  }
+  return num_weights;
 }

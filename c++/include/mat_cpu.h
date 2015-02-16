@@ -42,8 +42,12 @@ static const bool kMatlabOrder = false;
 static const bool kMapsOrder = false;
 
 // indicates how containers are stored in the memory
-static const bool kDefaultOrder = false;
-
+#if USE_CUDNN == 1
+  static const bool kDefaultOrder = true;
+#else
+  static const bool kDefaultOrder = false;
+#endif
+  
 class MatCPU {
 
 private:
@@ -136,7 +140,6 @@ public:
   MatCPU& CondAdd(const MatCPU &condmat, bool incase, ftype threshold, ftype a);
   MatCPU& CondMult(const MatCPU &condmat, bool incase, ftype threshold, ftype a);
   MatCPU& AddVect(const MatCPU &vect, size_t dim);
-  MatCPU& AddVect(const MatCPU &vect, const MatCPU &mask, size_t dim);
   MatCPU& MultVect(const MatCPU &vect, size_t dim);
   MatCPU& Normalize(ftype norm);
   MatCPU& Validate();

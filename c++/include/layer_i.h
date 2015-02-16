@@ -35,7 +35,7 @@ public:
   void GetWeights(Mat &weights, size_t &offset) const;
   size_t NumWeights() const;
   
-//private:
+public:
   ftype norm_;
   ftype mean_;
   ftype maxdev_;

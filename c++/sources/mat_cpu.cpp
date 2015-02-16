@@ -429,53 +429,23 @@ MatCPU& MatCPU::CondMult(const MatCPU &condmat, bool incase, ftype threshold, ft
 }
 
 MatCPU& MatCPU::AddVect(const MatCPU &vect, size_t dim) {  
-  MatCPU mask;
-  return this->AddVect(vect, mask, dim);
-}
-
-MatCPU& MatCPU::AddVect(const MatCPU &vect, const MatCPU &mask, size_t dim) {  
-
-  if (!mask.empty()) {
-    mexAssert(size1_ == mask.size1_ && size2_ == mask.size2_,
-              "In 'MatCPU::AddVect' the size of mask matrix is incorrect"); 
-  }
 
   if (dim == 1) {
     mexAssert(vect.size1_ == 1, "In 'MatCPU::AddVect' the first dimension must be 1"); 
     mexAssert(size2_ == vect.size2_,
       "In 'MatCPU::AddVect' the second dimension of matrix and length of vector are of the different size");
-    if (mask.empty()) {
-      for (size_t i = 0; i < size1_; ++i) {
-        for (size_t j = 0; j < size2_; ++j) {
-          data(i, j) += vect(0, j);
-        }
+    for (size_t i = 0; i < size1_; ++i) {
+      for (size_t j = 0; j < size2_; ++j) {
+        data(i, j) += vect(0, j);
       }
-    } else {
-      for (size_t i = 0; i < size1_; ++i) {
-        for (size_t j = 0; j < size2_; ++j) {
-          if (mask(i, j) > 0) {
-            data(i, j) += vect(0, j);
-          }
-        }
-      }
-    }    
+    }
   } else if (dim == 2) {
     mexAssert(vect.size2_ == 1, "In 'MatCPU::AddVect' the second dimension must be 1"); 
     mexAssert(size1_ == vect.size1_,
       "In 'MatCPU::AddVect' the first dimension of matrix and length of vector are of the different size");
-    if (mask.empty()) {
-      for (size_t i = 0; i < size1_; ++i) {
-        for (size_t j = 0; j < size2_; ++j) {
-          data(i, j) += vect(i, 0);
-        }
-      }
-    } else {
-      for (size_t i = 0; i < size1_; ++i) {
-        for (size_t j = 0; j < size2_; ++j) {
-          if (mask(i, j) > 0) {
-            data(i, j) += vect(i, 0);
-          }
-        }
+    for (size_t i = 0; i < size1_; ++i) {
+      for (size_t j = 0; j < size2_; ++j) {
+        data(i, j) += vect(i, 0);
       }
     }
   } else {
@@ -781,15 +751,15 @@ void Transform(const MatCPU &image, const std::vector<ftype> &shift,
       if (mirror[1]) x2 = image.size2_ - 1 - x2;
       //mexAssert(0 <= x1 && x1 <= image.size1_-2, "x1 is out of range");
       //mexAssert(0 <= x2 && x2 <= image.size2_-2, "x2 is out of range");      
-      int xf1 = (int) std::floor(x1);
-      int xf2 = (int) std::floor(x2);
-      if (0 <= xf1 && xf1 + 1 < image.size1_ &&
-          0 <= xf2 && xf2 + 1 < image.size2_) {
-        size_t xu1 = (size_t) xf1;
-        size_t xu2 = (size_t) xf2;
-        ftype vl = (x1 - xu1) * image(xu1 + 1, xu2) + (xu1 + 1 - x1) * image(xu1, xu2);
-        ftype vh = (x1 - xu1) * image(xu1 + 1, xu2 + 1) + (xu1 + 1 - x1) * image(xu1, xu2 + 1);
-        transformed(i, j) = (x2 - xu2) * vh + (xu2 + 1 - x2) * vl;
+      if (0 <= x1 && x1 <= image.size1_ - 1 &&
+          0 <= x2 && x2 <= image.size2_ - 1) {
+        size_t xu1 = (size_t) x1;
+        size_t xu2 = (size_t) x2;
+        size_t xp1 = MIN(xu1 + 1, image.size1_ - 1);
+        size_t xp2 = MIN(xu2 + 1, image.size2_ - 1);
+        ftype vl = (x1 - (ftype) xu1) * image(xp1, xu2) + ((ftype) xu1 + 1 - x1) * image(xu1, xu2);
+        ftype vh = (x1 - (ftype) xu1) * image(xp1, xp2) + ((ftype) xu1 + 1 - x1) * image(xu1, xp2);
+        transformed(i, j) = (x2 - (ftype) xu2) * vh + ((ftype) xu2 + 1 - x2) * vl;
       } else {
         transformed(i, j) = defval;
       } 

@@ -53,6 +53,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   }
 #endif
 
+#ifndef CUDNN_CALL
+	#define CUDNN_CALL(fun) { \
+    int my_err_code = (fun); \
+    if (my_err_code != CUDNN_STATUS_SUCCESS) { \
+      char errmsg[100];\
+      sprintf(errmsg, "CUDNN function call failed![%d] %s:%d", my_err_code, __FILE__, __LINE__);\
+      mexAssert(false, errmsg); \
+    } \
+  }
+#endif
+
 // static
 
 cudaEvent_t MatGPU::_start, MatGPU::_stop;
@@ -86,6 +97,10 @@ void MatGPU::swapWithBuffer(MatGPU &mat, int key) {
 curandGenerator_t MatGPU::_randGen;
 cudaStream_t MatGPU::_defaultStream;
 cublasHandle_t MatGPU::_cublasHandle;
+#if USE_CUDNN == 1
+  cudnnHandle_t MatGPU::_cudnnHandle;
+#endif
+
 
 int MatGPU::getDeviceID() {
   int id;
@@ -98,9 +113,12 @@ void MatGPU::CudaInit() {
   int num;  
   mexAssert(cudaGetDeviceCount(&num) == cudaSuccess, "No proper CUDA device is found");
   
-  CURAND_CALL(curandCreateGenerator(&_randGen, CURAND_RNG_PSEUDO_DEFAULT));    
+  #if USE_CUDNN == 1
+    //CUDNN_CALL(cudnnCreate(&_cudnnHandle));
+  #endif
+  CURAND_CALL(curandCreateGenerator(&_randGen, CURAND_RNG_PSEUDO_DEFAULT));
   CUBLAS_CALL(cublasCreate(&_cublasHandle));
-  CUDA_CALL(cudaStreamCreate(&_defaultStream));
+  CUDA_CALL(cudaStreamCreate(&_defaultStream));  
   
   /*
   cudaDeviceProp prop;
@@ -114,7 +132,7 @@ void MatGPU::CudaInit() {
 }
 
 void MatGPU::InitRand(size_t seed) {  
-  CURAND_CALL(curandSetPseudoRandomGeneratorSeed(_randGen, seed));  
+  CURAND_CALL(curandSetPseudoRandomGeneratorSeed(_randGen, seed));
 }
 
 void MatGPU::CudaReset() {
@@ -124,7 +142,10 @@ void MatGPU::CudaReset() {
   
   _buffers.clear();
 
-  CURAND_CALL(curandDestroyGenerator(_randGen));  
+  #if USE_CUDNN == 1
+    //CUDNN_CALL(cudnnDestroy(_cudnnHandle));
+  #endif
+  CURAND_CALL(curandDestroyGenerator(_randGen));
   CUDA_CALL(cudaStreamDestroy(_defaultStream));
   CUBLAS_CALL(cublasDestroy(_cublasHandle));
    
@@ -290,7 +311,18 @@ MatGPU& MatGPU::reshape(size_t size1, size_t size2) {
 }
 
 MatGPU& MatGPU::reorder(bool order, bool real) {
-  mexAssert(order_ == order, "In MatGPU::reorder order should be the same");
+  //mexAssert(order_ == order, "In MatGPU::reorder order should be the same");
+  if (order_ != order) {
+    if (real == true) {
+      MatGPU mr(size1_, size2_);
+      mr.order_ = order;
+      mr = (*this); // reorder
+      order_ = order;
+      (*this) = mr;
+    } else {
+      order_ = order;
+    }
+  }
   return *this;
 }
 
@@ -501,18 +533,12 @@ MatGPU& MatGPU::CondMult(const MatGPU &condmat, bool incase, ftype threshold, ft
 }
 
 MatGPU& MatGPU::AddVect(const MatGPU &vect, size_t dim) {  
-  MatGPU mask;
-  return this->AddVect(vect, mask, dim);
-}
-
-MatGPU& MatGPU::AddVect(const MatGPU &vect, const MatGPU &mask, size_t dim) {  
-  cuda_addvect(*this, vect, mask, dim);
+  cuda_addvect(*this, vect, dim);
   return *this;
 }
 
 MatGPU& MatGPU::MultVect(const MatGPU &vect, size_t dim) {  
-  MatGPU mask;
-  cuda_multvect(*this, vect, mask, dim);
+  cuda_multvect(*this, vect, dim);
   return *this;
 }
 
@@ -535,10 +561,16 @@ MatGPU& MatGPU::operator = (const MatCPU &a) {
   mexAssert(a.size1() == size1_ && a.size2() == size2_,
     "In HostToDevice the sizes of matrices do not correspond");  
   // conversion is to get access to protected members
-  const MatGPU *a_ptr = static_cast<const MatGPU*>(&a);   
-  mexAssert(a_ptr->order_ == order_, "In HostToDevice orders should be the same");
+  const MatGPU *a_ptr = static_cast<const MatGPU*>(&a);
   mexAssert(a_ptr->stride_ == 1 && stride_ == 1, "In HostToDevice strides should be 1");
-  CUDA_CALL(cudaMemcpy(data_, a_ptr->data_, getNumDataBytes(), cudaMemcpyHostToDevice));  
+  if (a.order() == order_) {
+    CUDA_CALL(cudaMemcpy(data_, a_ptr->data_, getNumDataBytes(), cudaMemcpyHostToDevice));
+  } else {
+    MatGPU br(a.size1(), a.size2());
+    br.order_ = a.order();
+    br = a; // previous case
+    (*this) = br; // reorder    
+  }
   return *this;
 }
 
@@ -549,19 +581,22 @@ void DeviceToHost(const MatGPU &b, MatCPU &a) {
     "In DeviceToHost the sizes of matrices do not correspond");  
   // conversion is to get access to protected members  
   const MatGPU *b_ptr = &b;
-  MatGPU *a_ptr = static_cast<MatGPU*>(&a);
-  mexAssert(a_ptr->order_ == b_ptr->order_, "In DeviceToHost orders should be the same");
+  MatGPU *a_ptr = static_cast<MatGPU*>(&a);  
   mexAssert(a_ptr->stride_ == 1 && b_ptr->stride_ == 1, "In HostToDevice strides should be 1");
-  CUDA_CALL(cudaMemcpy(a_ptr->data_, b_ptr->data_, b_ptr->getNumDataBytes(), cudaMemcpyDeviceToHost));  
+  if (a.order() == b.order()) {
+    CUDA_CALL(cudaMemcpy(a_ptr->data_, b_ptr->data_, b_ptr->getNumDataBytes(), cudaMemcpyDeviceToHost));
+  } else {
+    MatGPU br(a.size1(), a.size2());
+    br.order_ = a.order();
+    br = b; // reorder
+    a = br; // previous case    
+  }  
 }
 
 void SubSet(MatCPU &a, MatGPU &b, size_t offset, bool dir) {
   
-  cudaEvent_t start, stop;
-  float elapsedTime;
   if (print >= 3) {
-    cudaEventCreate(&start);
-    cudaEventRecord(start,0);
+    MatGPU::StartCudaTimer();
   }
   
   MatGPU *a_ptr = static_cast<MatGPU*>(&a);
@@ -571,6 +606,7 @@ void SubSet(MatCPU &a, MatGPU &b, size_t offset, bool dir) {
             "In SubSet the sizes don't correspond each other");  
   MatCPU as;
   as.attach(a_ptr->data_ + offset * a_ptr->size2_, b.size1_, b.size2_, 1, true);
+  // we declare additional array here in order to use buffers
   MatGPU br;
   int bufsize = (int) (b.size1_ * b.size2_);
   MatGPU::swapWithBuffer(br, bufsize);
@@ -578,19 +614,15 @@ void SubSet(MatCPU &a, MatGPU &b, size_t offset, bool dir) {
   br.order_ = true;
   if (dir) {        
     br = as; // HostToDevice    
-    b = br; //changes order
+    b = br; //changes the order, if necessary
   } else {
-    br = b; //changes order
+    br = b; //changes the order, if necessary
     DeviceToHost(br, as);
   }
   MatGPU::swapWithBuffer(br, bufsize);
   
   if (print >= 3) {
-    cudaEventCreate(&stop);
-    cudaEventRecord(stop,0);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&elapsedTime, start,stop);
-    mexPrintMsg("SubSet", elapsedTime);
+    MatGPU::MeasureCudaTime("SubSet");
   }
 }
 
@@ -656,34 +688,62 @@ void Trans(const MatGPU &a, MatGPU &b) {
 
 void Prod(const MatGPU &a, bool a_tr, const MatGPU &b, bool b_tr, MatGPU &c) {  
   
-  size_t as1, as2, bs1, bs2;
-  cublasOperation_t a_op, b_op;
-  if (!a_tr) { // a
-    as1 = a.size1_; as2 = a.size2_;
-    a_op = CUBLAS_OP_N;
-  } else { // aT
-    as1 = a.size2_; as2 = a.size1_;    
-    a_op = CUBLAS_OP_T;
-  }
-  if (!b_tr) { //b
-    bs1 = b.size1_; bs2 = b.size2_;
-    b_op = CUBLAS_OP_N;
-  } else { //bT
-    bs1 = b.size2_; bs2 = b.size1_;
-    b_op = CUBLAS_OP_T;
-  }
-
-  mexAssert(as2 == bs1, "In Prod the sizes of matrices do not correspond");   
-  mexAssert(c.size1_ == as1 && c.size2_ == bs2, "In Prod the size of output matrix is wrong"); 
+  mexAssert(a.order_ == b.order_ && b.order_ == c.order_, "In Prod the orders should be the same");
   mexAssert(a.stride_ == 1 && b.stride_ == 1 && c.stride_ == 1, "In Prod one of strides is not 1"); 
   
   cudaStream_t stream = MatGPU::_defaultStream;
   cublasHandle_t handle = MatGPU::_cublasHandle;
   const ftype scale_prod = 1.0, scale_cur = 0.0;    
-  CUBLAS_CALL(cublasSetStream(handle, stream));
-  CUBLAS_CALL(cublasSgemm(handle, a_op, b_op, (int) as1, (int) bs2, (int) as2,
-                         &scale_prod, a.data_, (int) a.size1_, b.data_, (int) b.size1_,
-                         &scale_cur, c.data_, (int) c.size1_));
+  CUBLAS_CALL(cublasSetStream(handle, stream));    
+  
+  size_t as1, as2, bs1, bs2;
+  cublasOperation_t a_op, b_op;    
+  
+  if (a.order_ == false) { // Alex kernels
+    if (!a_tr) { // a
+      as1 = a.size1_; as2 = a.size2_;
+      a_op = CUBLAS_OP_N;
+    } else { // aT
+      as1 = a.size2_; as2 = a.size1_;    
+      a_op = CUBLAS_OP_T;
+    }
+    if (!b_tr) { //b
+      bs1 = b.size1_; bs2 = b.size2_;
+      b_op = CUBLAS_OP_N;
+    } else { //bT
+      bs1 = b.size2_; bs2 = b.size1_;
+      b_op = CUBLAS_OP_T;
+    }
+
+    mexAssert(as2 == bs1, "In Prod the sizes of matrices do not correspond");   
+    mexAssert(c.size1_ == as1 && c.size2_ == bs2, "In Prod the size of output matrix is wrong"); 
+    
+    CUBLAS_CALL(cublasSgemm(handle, a_op, b_op, (int) as1, (int) bs2, (int) as2,
+                           &scale_prod, a.data_, (int) a.size1_, b.data_, (int) b.size1_,
+                           &scale_cur, c.data_, (int) c.size1_));                         
+  } else { // cuDNN kernels
+    if (!a_tr) { // a
+      as1 = a.size2_; as2 = a.size1_;
+      a_op = CUBLAS_OP_T;
+    } else { // aT
+      as1 = a.size1_; as2 = a.size2_;    
+      a_op = CUBLAS_OP_N;
+    }
+    if (!b_tr) { //b
+      bs1 = b.size2_; bs2 = b.size1_;
+      b_op = CUBLAS_OP_T;
+    } else { //bT
+      bs1 = b.size1_; bs2 = b.size2_;
+      b_op = CUBLAS_OP_N;
+    }
+
+    mexAssert(as1 == bs2, "In Prod the sizes of matrices do not correspond");   
+    mexAssert(c.size1_ == as2 && c.size2_ == bs1, "In Prod the size of output matrix is wrong"); 
+    
+    CUBLAS_CALL(cublasSgemm(handle, b_op, a_op, (int) bs1, (int) as2, (int) bs2,
+                           &scale_prod, b.data_, (int) b.size2_, a.data_, (int) a.size2_,
+                           &scale_cur, c.data_, (int) c.size2_));
+  }
 }
 
 void TransformActs(const MatGPU &images, MatGPU &targets, 
@@ -715,17 +775,28 @@ void TransformActs(const MatGPU &images, MatGPU &targets,
   angle_mat.assign(0);
   
   MatGPU dim_vect;
+  //MatGPU randvect(batchsize, 1);
   mexAssert(kDefaultOrder == false, "In TransformActs the default order should be false");  
   for (size_t j = 0; j < numdim; ++j) {    
     if (shift[j] > 0) {
       dim_vect.attach(shift_mat.data_ + batchsize * j, batchsize, 1);
       (dim_vect.rand() *= 2) -= 1;
       dim_vect *= shift[j];
+      /*
+      (randvect.rand() *= 2) -= 1;
+      dim_vect.CondAssign(randvect, false, -0.333, -shift[j]);      
+      dim_vect.CondAssign(randvect, true, 0.333, shift[j]);
+      */
     }
     if (scale[j] > 1) {
       dim_vect.attach(scale_mat.data_ + batchsize * j, batchsize, 1);
       (dim_vect.rand() *= 2) -= 1;
-      (dim_vect *= log(scale[j])).Exp();    
+      (dim_vect *= log(scale[j])).Exp();
+      /*
+      (randvect.rand() *= 2) -= 1;      
+      dim_vect.CondAssign(randvect, false, -0.333, (float) 1 / scale[j]);      
+      dim_vect.CondAssign(randvect, true, 0.333, scale[j]);
+      */
     }
     if (mirror[j] == true) {
       dim_vect.attach(mirror_mat.data_ + batchsize * j, batchsize, 1);
@@ -734,6 +805,11 @@ void TransformActs(const MatGPU &images, MatGPU &targets,
   } 
   if (angle > 0) {
     ((angle_mat.rand() *= 2) -= 1) *= kPi * angle;
+    /*
+    (randvect.rand() *= 2) -= 1;      
+    angle_mat.CondAssign(randvect, false, -0.333, -angle);      
+    angle_mat.CondAssign(randvect, true, 0.333, angle);
+    */
   }
   
   _transformActs(images, targets,
@@ -749,53 +825,48 @@ void TransformActs(const MatGPU &images, MatGPU &targets,
 // filter functions
 
 void FilterActs(MatGPU& images, MatGPU& filters, MatGPU& targets,
-                const std::vector<size_t> &prev_mapsize, size_t padding) {
+                const std::vector<size_t> &prev_mapsize,
+                size_t filterSize, size_t padding, bool conv) {
   
-  cudaEvent_t start, stop;
-  float elapsedTime;
   if (print >= 3) {
-    cudaEventCreate(&start);
-    cudaEventRecord(start,0);
+    MatGPU::StartCudaTimer();
   }
   
-  _filterActs(images, filters, targets,
-              prev_mapsize[0], prev_mapsize[1], padding);  
+  #if USE_CUDNN == 0
+    _filterActs(images, filters, targets, 
+                prev_mapsize[0], prev_mapsize[1], 
+                filterSize, padding, conv);
+  #else
+    
+  #endif
   
   if (print >= 3) {
-    cudaEventCreate(&stop);
-    cudaEventRecord(stop,0);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&elapsedTime, start,stop);
-    mexPrintMsg("FilterActs", elapsedTime);
+    MatGPU::MeasureCudaTime("FilterActs");
   }
 }
 
 void ImgActs(MatGPU& hidActs, MatGPU& filters, MatGPU& targets,
-             const std::vector<size_t> &prev_mapsize, size_t padding) {
+             const std::vector<size_t> &prev_mapsize, 
+             size_t filterSize, size_t padding, bool conv) {
 
-  cudaEvent_t start, stop;
-  float elapsedTime;
   if (print >= 3) {
-    cudaEventCreate(&start);
-    cudaEventRecord(start,0);
+    MatGPU::StartCudaTimer();
   }
              
-  _imgActs(hidActs, filters, targets,
-           prev_mapsize[0], prev_mapsize[1], padding);  
+  _imgActs(hidActs, filters, targets, 
+          prev_mapsize[0], prev_mapsize[1],
+          filterSize, padding, conv);  
   
   if (print >= 3) {
-    cudaEventCreate(&stop);
-    cudaEventRecord(stop,0);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&elapsedTime, start,stop);
-    mexPrintMsg("ImgActs", elapsedTime);
+    MatGPU::MeasureCudaTime("ImgActs");
   }
   
 }
 
 void WeightActs(MatGPU& images, MatGPU& hidActs, MatGPU& targets,
-                const std::vector<size_t> &prev_mapsize, size_t padding, 
-                size_t filtersize, size_t sum_width) {
+                const std::vector<size_t> &prev_mapsize, 
+                size_t filtersize, size_t padding, 
+                size_t sum_width, bool conv) {
   size_t mapsize1 = prev_mapsize[0] + 2 * padding + 1 - filtersize;
   size_t mapsize2 = prev_mapsize[1] + 2 * padding + 1 - filtersize;
   size_t chunks_x = DIVUP(mapsize1, sum_width);
@@ -804,33 +875,26 @@ void WeightActs(MatGPU& images, MatGPU& hidActs, MatGPU& targets,
   
   MatGPU tmpbuf;
   int bufsize = (int) (targets.size1_ * targets.size2_ * chunks_num);
-  if (chunks_num > 1) {
+  if (conv && chunks_num > 1) {
     MatGPU::swapWithBuffer(tmpbuf, bufsize);    
     tmpbuf.resize(targets.size1_, targets.size2_ * chunks_num);    
   } else {
     tmpbuf.attach(targets);
   }
   
-  cudaEvent_t start, stop;
-  float elapsedTime;
   if (print >= 3) {
-    cudaEventCreate(&start);
-    cudaEventRecord(start,0);
+    MatGPU::StartCudaTimer();
   }
   
   _weightActs(images, hidActs, tmpbuf,
               prev_mapsize[0], prev_mapsize[1],
-              padding, chunks_num, sum_width);      
+              filtersize, padding, chunks_num, sum_width);      
   
   if (print >= 3) {
-    cudaEventCreate(&stop);
-    cudaEventRecord(stop,0);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&elapsedTime, start,stop);
-    mexPrintMsg("WeightActs", elapsedTime);
+    MatGPU::MeasureCudaTime("WeightActs");
   }
   
-  if (chunks_num > 1) {
+  if (conv && chunks_num > 1) {
     size_t outputmaps = targets.size1_;  
     tmpbuf.reshape(targets.size1_ * targets.size2_, chunks_num);
     targets.reshape(targets.size1_ * targets.size2_, 1);
@@ -838,7 +902,7 @@ void WeightActs(MatGPU& images, MatGPU& hidActs, MatGPU& targets,
     targets.reshape(outputmaps, targets.size1_ / outputmaps);    
     tmpbuf.reshape(targets.size1_, targets.size2_ * chunks_num);
     MatGPU::swapWithBuffer(tmpbuf, bufsize);    
-  }  
+  }
 }
 
 // scaling functions
@@ -865,6 +929,15 @@ void MaxPoolingUndo(MatGPU& images, MatGPU& maxActs, MatGPU& maxGrads, MatGPU& i
     // maxGrads are targets
     _convLocalMaxUndoDer(images, maxActs, imgGrads, maxGrads, prev_mapsize[0], prev_mapsize[1], scale, stride);    
   }  
+}
+
+void LocalResponseNorm(MatGPU& images, MatGPU& targets,
+                       const std::vector<size_t> &prev_mapsize, size_t normsize, ftype scale, ftype pow) {
+  _convContrastNormCrossMap(images, images, targets, prev_mapsize[0], prev_mapsize[1], normsize, scale, pow);
+}
+void LocalResponseNormUndo(MatGPU& images, MatGPU& maxActs, MatGPU& maxGrads, MatGPU& imgGrads,
+                           const std::vector<size_t> &prev_mapsize, size_t normsize, ftype scale, ftype pow) {
+  _convResponseNormCrossMapUndo(images, maxActs, maxGrads, imgGrads, prev_mapsize[0], prev_mapsize[1], normsize, scale, pow);
 }
 
 // class nonspecific

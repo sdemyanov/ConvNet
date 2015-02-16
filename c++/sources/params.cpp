@@ -22,7 +22,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 Params::Params() {
   batchsize_ = 128;
   epochs_ = 1;
+  test_epochs_ = 1;
   alpha_.assign(1, 1);
+  beta_.assign(1, 0);
   momentum_.assign(1, 0);
   adjustrate_ = 0;
   maxcoef_ = 1;
@@ -35,16 +37,20 @@ Params::Params() {
 }
   
 void Params::Init(const mxArray *mx_params) {
-
-  mexAssert(mexIsStruct(mx_params), "In 'Params::Init' the array in not a struct");  
   
+  mexAssert(mexIsStruct(mx_params), "In 'Params::Init' the array in not a struct");  
+
   if (mexIsField(mx_params, "batchsize")) {    
     batchsize_ = (size_t) mexGetScalar(mexGetField(mx_params, "batchsize"));    
     mexAssert(batchsize_ > 0, "Batchsize must be positive");
   }
-  if (mexIsField(mx_params, "numepochs")) {    
-    epochs_ = (size_t) mexGetScalar(mexGetField(mx_params, "numepochs"));    
-    mexAssert(epochs_ > 0, "Numepochs must be positive");
+  if (mexIsField(mx_params, "epochs")) {    
+    epochs_ = (size_t) mexGetScalar(mexGetField(mx_params, "epochs"));    
+    mexAssert(epochs_ > 0, "Epochs number must be positive");
+  }
+  if (mexIsField(mx_params, "testepochs")) {    
+    test_epochs_ = (size_t) mexGetScalar(mexGetField(mx_params, "testepochs"));    
+    mexAssert(test_epochs_ > 0, "Epochs-test number must be positive");
   }
   if (mexIsField(mx_params, "alpha")) {    
     alpha_ = mexGetVector(mexGetField(mx_params, "alpha"));
@@ -53,6 +59,14 @@ void Params::Init(const mxArray *mx_params) {
     for (size_t i = 0; i < alpha_.size(); ++i) {
       mexAssert(alpha_[i] >= 0, "alpha must be nonnegative");
     }
+  }
+  if (mexIsField(mx_params, "beta")) {    
+    beta_ = mexGetVector(mexGetField(mx_params, "beta"));
+    mexAssert(beta_.size() == 1 || beta_.size() == epochs_,
+      "Wrong length of the beta vector");
+    for (size_t i = 0; i < beta_.size(); ++i) {
+      mexAssert(beta_[i] >= 0, "beta must be nonnegative");      
+    }    
   }
   if (mexIsField(mx_params, "momentum")) {    
     momentum_ = mexGetVector(mexGetField(mx_params, "momentum"));

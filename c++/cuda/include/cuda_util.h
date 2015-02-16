@@ -45,15 +45,10 @@ void cuda_condassign(MatGPU& mat, const MatGPU& condmat, bool incase, float thre
 void cuda_condadd(MatGPU& mat, const MatGPU& condmat, bool incase, float threshold, float val);
 void cuda_condmult(MatGPU& mat, const MatGPU& condmat, bool incase, float threshold, float val);
 
-void cuda_addvect(MatGPU &mat, const MatGPU &vect, const MatGPU &mask, size_t dim);
-void cuda_multvect(MatGPU &mat, const MatGPU &vect, const MatGPU &mask, size_t dim);
+void cuda_addvect(MatGPU &mat, const MatGPU &vect, size_t dim);
+void cuda_multvect(MatGPU &mat, const MatGPU &vect, size_t dim);
 
 void cuda_sumvect(MatGPU &mat, MatGPU &vect, size_t dim);
 void cuda_maxvect(MatGPU &mat, MatGPU &vect, size_t dim);
-
-/*
-__global__
-void cuda_sum(ftype *a, ftype *b, size_t sb, size_t n);
-*/
 
 #endif

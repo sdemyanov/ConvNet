@@ -27,10 +27,12 @@ void Weights::Init(const Mat &weights) {
   weights_.attach(weights);  
   
   weights_der_.resize(size_[0], size_[1]);
+  weights_der2_.resize(size_[0], size_[1]);
   weights_der_prev_.resize(size_[0], size_[1]);
   weights_learn_coefs_.resize(size_[0], size_[1]);  
   
   weights_der_.assign(0);
+  weights_der2_.assign(0);
   weights_der_prev_.assign(0);
   weights_learn_coefs_.assign(1);  
 }
@@ -42,11 +44,13 @@ void Weights::Attach(Weights &weights, size_t offset, size_t size1, size_t size2
   
   weights_.attach(weights.weights_, offset, size1, size2, order);
   weights_der_.attach(weights.weights_der_, offset, size1, size2, order);
+  weights_der2_.attach(weights.weights_der2_, offset, size1, size2, order);
   weights_der_prev_.attach(weights.weights_der_prev_, offset, size1, size2, order);
   weights_learn_coefs_.attach(weights.weights_learn_coefs_, offset, size1, size2, order);  
   
   weights_.reorder(kDefaultOrder, true);
   weights_der_.reorder(kDefaultOrder, false);
+  weights_der2_.reorder(kDefaultOrder, false);
   weights_der_prev_.reorder(kDefaultOrder, false);
   weights_learn_coefs_.reorder(kDefaultOrder, false);
 }
@@ -59,6 +63,11 @@ void Weights::Update(const Params &params, size_t epoch, bool isafter) {
   } else {
     alpha = params.alpha_[epoch];
   }
+  if (params.beta_.size() == 1) {
+    beta = params.beta_[0];
+  } else {
+    beta = params.beta_[epoch];
+  }
   if (params.momentum_.size() == 1) {
     momentum = params.momentum_[0];
   } else {
@@ -70,6 +79,10 @@ void Weights::Update(const Params &params, size_t epoch, bool isafter) {
     weights_der_ *= momentum; 
   } else {
     weights_der_ *= alpha;
+    if (beta > 0) {      
+      weights_der2_ *= beta;
+      weights_der_ += weights_der2_;      
+    }
     if (params.adjustrate_ > 0) {      
       Mat signs = weights_der_prev_;      
       signs *= weights_der_;
@@ -92,6 +105,7 @@ void Weights::Update(const Params &params, size_t epoch, bool isafter) {
 void Weights::Clear() {
   weights_.clear();
   weights_der_.clear();
+  weights_der2_.clear();
   weights_der_prev_.clear();
   weights_learn_coefs_.clear(); 
 }

@@ -28,7 +28,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 class Layer {
   
 public:
-  Mat activ_mat_, deriv_mat_; // activations, derivatives
+  // activations, derivatives, first activations
+  Mat activ_mat_, deriv_mat_, first_mat_; 
   std::vector<size_t> mapsize_;
   size_t numdim_, outputmaps_, batchsize_;  
   size_t length_; // total number of values on the layer in one sample
