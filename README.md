@@ -4,10 +4,13 @@ contact: sergey@demyanov.net
 
 http://www.demyanov.net
 
-!!! IMPORTANT UPDATE !!! The GPU version is available now!  
-!!! HOWEVER !!! Currently it works only on devices with the compute capability >= 3.0
+!!! UPDATE !!! The Invariant Backpropagation Algorithm (IBP) is now implemented.
 
-This library has been written as a part of my project on facial expression analysis. It contains the implementation of convolitional neural nets for Matlab, written on Matlab, C++ and CUDA for CPU and GPU processing. All versions work identically. The GPU version uses kernels from Alex Krizhevsky's library [cuda-convnet2](https://code.google.com/p/cuda-convnet2/), so it is _really_ fast. In some cases it is about 400 times faster than CPU version.
+!!! IMPORTANT !!! The GPU version works only on devices with the compute capability >= 3.0
+
+This library has been written as a part of my PhD project. It contains the implementation of convolitional neural nets for Matlab, written on Matlab, C++ and CUDA for CPU and GPU processing. All versions work identically. The GPU version uses kernels from Alex Krizhevsky's library [cuda-convnet2](https://code.google.com/p/cuda-convnet2/), so it is _really_ fast. In some cases it is about 400 times faster than CPU version.
+
+It also contain the implementation of the Invariant Backpropagation Algorithm (IBP), that allows to train transformation-invariant neural networks. The algorithm is described in the article "Invariant backpropagation: how to train a transformation-invariant neural network".
 
 GENERAL INFORMATION
 
@@ -68,7 +71,8 @@ params - define the learning process. It is a structure with the following field
 - seed - any non-negative integer, that allows to repeat the same random numbers. Default is 0.
 - batchsize - defines the size of batches. Default is 128.
 - epochs - the number of repeats the training procedure with different batch splits. Default is 1.
-- alpha - defines the learning rate speed. Default is 1. Can also be the vector of the length 'epochs'. Then an individual rate for each epoch is used.
+- alpha - defines the learning rate. Default is 1. Can also be the vector of the length 'epochs'. Then an individual rate for each epoch is used.
+- beta - defines the invariant learning rate (see the article). Can also be the vector of the length 'epochs'. Then an individual rate for each epoch is used.
 - momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0. Can also be the vector of the length 'epochs'. Then an individual momentum for each epoch is used.
 - adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
 - maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively. Default is 1.
