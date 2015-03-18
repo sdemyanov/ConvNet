@@ -49,14 +49,16 @@ test_y = single(TestY(1:kTestNum, :));
 clear params;
 params.epochs = 1;
 params.alpha = 0.1;
-params.beta = 0.0002;
+% this is the parameter for invariant backpropagation
+% keep it 0 for standard backpropagation
+params.beta = 0; 
 params.momentum = 0.9;
 params.lossfun = 'logreg';
 params.shuffle = 1;
 params.seed = 0;
 dropout = 0;
 
-norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
+% norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
 
 % !!! IMPORTANT NOTICES FOR GPU VERSION !!!
 % Outputmaps number should be divisible on 16
@@ -66,8 +68,9 @@ norm_x = squeeze(mean(sqrt(sum(sum(train_x.^2))), kSampleDim));
 
 layers = {
   struct('type', 'i', 'mapsize', kXSize(1:2), 'outputmaps', kXSize(3))
+  % remove the following layer in the Matlab version - it is not implemented there
   struct('type', 'j', 'mapsize', [28 28], 'shift', [1 1], ...
-         'scale', [1.40 1.40], 'angle', 0.10, 'defval', 0)
+         'scale', [1.40 1.40], 'angle', 0.10, 'defval', 0)  
   struct('type', 'c', 'filtersize', [4 4], 'outputmaps', 32)
   struct('type', 's', 'scale', [3 3], 'function', 'max', 'stride', [2 2])
   struct('type', 'c', 'filtersize', [5 5], 'outputmaps', 64, 'padding', [2 2])
@@ -87,6 +90,7 @@ for i = 1 : EpochNum
   disp([num2str(err*100) '% error']);  
   errors(i) = err;
   params.alpha = params.alpha * 0.95;
+  params.beta = params.beta * 0.95;
 end;
 plot(errors);
 disp('Done!');

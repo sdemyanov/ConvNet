@@ -19,7 +19,7 @@ for l = n : -1 : 1
     end;
   end;
   
-  elseif strcmp(layers{l}.type, 'c')
+  if strcmp(layers{l}.type, 'c')
     d_cur = layers{l}.d;    
     if (layers{l}.padding(1) > 0 || layers{l}.padding(2) > 0)
       ds = size(layers{l}.d); ds(end+1:4) = 1;
