@@ -116,9 +116,9 @@ void MatGPU::CudaInit() {
   #if USE_CUDNN == 1
     //CUDNN_CALL(cudnnCreate(&_cudnnHandle));
   #endif
-  CURAND_CALL(curandCreateGenerator(&_randGen, CURAND_RNG_PSEUDO_DEFAULT));
-  CUBLAS_CALL(cublasCreate(&_cublasHandle));
   CUDA_CALL(cudaStreamCreate(&_defaultStream));  
+  CURAND_CALL(curandCreateGenerator(&_randGen, CURAND_RNG_PSEUDO_DEFAULT));
+  CUBLAS_CALL(cublasCreate(&_cublasHandle));  
   
   /*
   cudaDeviceProp prop;
@@ -145,9 +145,9 @@ void MatGPU::CudaReset() {
   #if USE_CUDNN == 1
     //CUDNN_CALL(cudnnDestroy(_cudnnHandle));
   #endif
-  CURAND_CALL(curandDestroyGenerator(_randGen));
-  CUDA_CALL(cudaStreamDestroy(_defaultStream));
   CUBLAS_CALL(cublasDestroy(_cublasHandle));
+  CURAND_CALL(curandDestroyGenerator(_randGen));  
+  CUDA_CALL(cudaStreamDestroy(_defaultStream));  
    
   CUDA_CALL(cudaDeviceReset());
 }
