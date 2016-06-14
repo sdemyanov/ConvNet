@@ -1,6 +1,6 @@
 Copyright (C) 2014 Sergey Demyanov
 
-contact: sergey@demyanov.net
+contact: my_name [at] my_sirname.net
 
 http://www.demyanov.net
 
