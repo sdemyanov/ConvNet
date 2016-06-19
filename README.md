@@ -7,6 +7,7 @@ http://www.demyanov.net
 !!! IMPORTANT !!! This toolbox is not supported anymore. You can find and use my [WorkLab for Tensorflow](https://github.com/sdemyanov/tensorflow-worklab) instead.
 
 The [Invariant Backpropagation](http://arxiv.org/abs/1502.04434) (IBP) algorithm  is implemented.
+
 The GPU version works only on devices with the compute capability >= 3.0
 
 This library has been written as a part of my PhD project. It contains the implementation of convolitional neural nets for Matlab, written on Matlab, C++ and CUDA for CPU and GPU processing. All versions work identically. The GPU version uses kernels from Alex Krizhevsky's library [cuda-convnet2](https://code.google.com/p/cuda-convnet2/), so it is _really_ fast. In some cases it is about 400 times faster than CPU version.
