@@ -4,7 +4,7 @@ contact: my_name@my_sirname.net
 
 http://www.demyanov.net
 
-!!! IMPORTANT !!! This toolbox is not supported anymore. You can find and use my [WorkLab for Tensorflow](https://github.com/sdemyanov/tensorflow-worklab) instead.
+!!! IMPORTANT !!! The new update for CUDNN is coming soon! You can also find and use my [WorkLab for Tensorflow](https://github.com/sdemyanov/tensorflow-worklab).
 
 The [Invariant Backpropagation](http://arxiv.org/abs/1502.04434) (IBP) algorithm  is implemented.
 
