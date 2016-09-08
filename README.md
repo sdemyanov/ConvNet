@@ -34,10 +34,10 @@ LAYERS
 
 Define the structure of CNN. Sets up as cell array, with each element representing an independent layer. Currently 6 layer types are implemented:
 
-- *input* - input layer. Must be the first and only the first one. Must contain the "mapsize" field, that is a vector with 2 integer values, representing the objects size (height and width). May also contain the following additional fields:  
+- **input** - input layer. Must be the first and only the first one. Must contain the "mapsize" field, that is a vector with 2 integer values, representing the objects size (height and width). May also contain the following additional fields:  
 1) 'channels' - that specifies the number of data channels, if it differs from 1.
 
-- *jitt* - jittering layer. Performs affine transformations of the image. With the default parameters performs central cropping. Must have the parameter 'mapsize'. Other possible parameters are:  
+- **jitt** - jittering layer. Performs affine transformations of the image. With the default parameters performs central cropping. Must have the parameter 'mapsize'. Other possible parameters are:  
 1) 'shift' - specifies the maximum shift of the image in each dimension,  
 2) 'scale' - specifies the maximum scale in each dimension. Must be more than 1. The image scales with the random factors from [1/x x].  
 3) 'mirror' - determines if the image might be mirrored (1) in a particular dimension or not (0).  
@@ -45,74 +45,74 @@ Define the structure of CNN. Sets up as cell array, with each element representi
 5) 'defval' - specifies the value that is used when the transformed image lies outside the borders of the original image. If this value is not specified, the transformed value should be always inside the original one, otherwise there will be an error.
 On the test stage the images are just centrally cropped to the size 'mapsize', like there were no additional parameters.
 
-- *conv* - convolutional layer. Must contain the "filtersize" field, that identifies the filter size. Must also contain the "channels" field, which is the number of output channels. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m * n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions.
+- **conv** - convolutional layer. Must contain the "filtersize" field, that identifies the filter size. Must also contain the "channels" field, which is the number of output channels. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m ** n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions.
 
-- *deconv* - reverse convolutional layer. Must contain the same fields as the convolutional layer. On the forward pass performs the same operation as performed on the backward pass of the "conv" layer, and otherwise. Therefore, instead of scaling the dimensions by a factor of "stride" it multiplies them on "stride".
+- **deconv** - reverse convolutional layer. Must contain the same fields as the convolutional layer. On the forward pass performs the same operation as performed on the backward pass of the "conv" layer, and otherwise. Therefore, instead of scaling the dimensions by a factor of "stride" it multiplies them on "stride".
 
-- *pool* - pooling layer. The pooling type is specified by "pooling" field, which can be eigther "max" or "avg". Default value is "max". Must contain the "scale" and "stride" fields, which are the vectors with 2 integer values.
+- **pool** - pooling layer. The pooling type is specified by "pooling" field, which can be eigther "max" or "avg". Default value is "max". Must contain the "scale" and "stride" fields, which are the vectors with 2 integer values.
 
-- *full* - fully connected layer. Produces a tensor with height=1 and width=1. Must contain the "channels" field, which defines the number of output channels. Considers its input as a single vector.
+- **full** - fully connected layer. Produces a tensor with height=1 and width=1. Must contain the "channels" field, which defines the number of output channels. Considers its input as a single vector.
 
 
 Additionally, all layers might have the following parameters:
 
-- *function* - defines the non-linear transformation function. It can be "relu", "sigm" or "soft", which correspond to rectified linear unit, sigmoid and softmax respectively. The default value is "relu". The value "soft" must be used only on the last layer.
+- **function** - defines the non-linear transformation function. It can be "relu", "sigm" or "soft", which correspond to rectified linear unit, sigmoid and softmax respectively. The default value is "relu". The value "soft" must be used only on the last layer.
 
-- *padding* - a 2-dimensional vector of non-negative integers. Considered by "conv", "deconv" and "pool" layers. Determines the number of zero padding rows (columns) on the top and bottom (padding[0]) and left and right (padding[1]).
+- **padding** - a 2-dimensional vector of non-negative integers. Considered by "conv", "deconv" and "pool" layers. Determines the number of zero padding rows (columns) on the top and bottom (padding[0]) and left and right (padding[1]).
 
-- *stride* - a 2-dimensional vector of non-negative integers. Considered by "conv", "deconv" and "pool" layers. Determines the distance between the positions of applied kernels in vertical and horizontal dimensions.
+- **stride** - a 2-dimensional vector of non-negative integers. Considered by "conv", "deconv" and "pool" layers. Determines the distance between the positions of applied kernels in vertical and horizontal dimensions.
 
-- *initstd* - the standard deviation of normal distribution that is used to generate the weights. The default value is 0.01. Considered by all layers with weights.
+- **initstd** - the standard deviation of normal distribution that is used to generate the weights. The default value is 0.01. Considered by all layers with weights.
 
-- *add_bias* - whether the layer should add bias to the output or not. The length of the bias vector is equal to the number of output channels. Considered by all layers. Default is true for all layers with weights, false for others.
+- **add_bias** - whether the layer should add bias to the output or not. The length of the bias vector is equal to the number of output channels. Considered by all layers. Default is true for all layers with weights, false for others.
 
-- *bias_coef* - the multiplier for the bias learning rate. Default is 1.
+- **bias_coef** - the multiplier for the bias learning rate. Default is 1.
 
-- *lr_coef* - the multiplier for the learning rate on this layer, both weights and biases. Considered by all layers. Set it to 0 to fix some layers.
+- **lr_coef** - the multiplier for the learning rate on this layer, both weights and biases. Considered by all layers. Set it to 0 to fix some layers.
 
-- *dropout* - a scalar from [0, 1), which determines the probability of dropping the activations on this layer. Should not be too large, otherwise it drops everything.
+- **dropout** - a scalar from [0, 1), which determines the probability of dropping the activations on this layer. Should not be too large, otherwise it drops everything.
 
 
 PARAMS
 
 Define the learning process. It is a structure with the fields described below.
 
-- *seed* - any integer, which allows to repeat the same random numbers. Default is 0. Note that if "conv", "deconv" or "pool" layers are used, the results are not guaranteed to be exactly the same even if the same seed is used. For more details read CUDNN User Guide.
+- **seed** - any integer, which allows to repeat the same random numbers. Default is 0. Note that if "conv", "deconv" or "pool" layers are used, the results are not guaranteed to be exactly the same even if the same seed is used. For more details read CUDNN User Guide.
 
-- *batchsize* - defines the size of batches. Default is 32.
+- **batchsize** - defines the size of batches. Default is 32.
 
-- *epochs* - the number of repeats the training procedure with different batch splits. Default is 1.
+- **epochs** - the number of repeats the training procedure with different batch splits. Default is 1.
 
-- *alpha* - defines the learning rate. Default is 1. 
+- **alpha** - defines the learning rate. Default is 1. 
 
-- *beta* - defines the invariant learning rate (see the [article](http://arxiv.org/abs/1502.04434)). The value '0' corresponds to the standard backpropagation algorithm. Default is 0. 
+- **beta** - defines the invariant learning rate (see the [article](http://arxiv.org/abs/1502.04434)). The value '0' corresponds to the standard backpropagation algorithm. Default is 0. 
 
-- *shift* - defines the shift in the Adversarial Training algorithm (see the [article](http://arxiv.org/abs/1412.6572)). The value '0' corresponds to the standard backpropagation algorithm. Default is 0. 
+- **shift** - defines the shift in the Adversarial Training algorithm (see the [article](http://arxiv.org/abs/1412.6572)). The value '0' corresponds to the standard backpropagation algorithm. Default is 0. 
 
-- *normfun* - defines the type of norm used as second loss function in IBP or used to generate adversarial examples in AT. Default is 1.
+- **normfun** - defines the type of norm used as second loss function in IBP or used to generate adversarial examples in AT. Default is 1.
 
-- *momentum* - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0. 
+- **momentum** - defines the actual direction of weight change according to the formula m ** dp + (1-m) ** d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0. 
 
-- *decay* - defines the weight decay, i.e. every update all weights are multiplied on (1-decay).
+- **decay** - defines the weight decay, i.e. every update all weights are multiplied on (1-decay).
 
-- *lossfun* - string. Specifies the employed loss function. Must be eigher "squared" or "logreg", that correspond to sum of squared differences and negative log likelihood respectively. If you use "logreg", it is better to use "softmax" nonlinear function on the last layer and reduce the learning rate about 10 times. The default value is "logreg".
+- **lossfun** - string. Specifies the employed loss function. Must be eigher "squared" or "logreg", that correspond to sum of squared differences and negative log likelihood respectively. If you use "logreg", it is better to use "softmax" nonlinear function on the last layer and reduce the learning rate about 10 times. The default value is "logreg".
 
-- *shuffle* - determines whether the input dataset will be shuffled or not. If it is set to 0, the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Otherwise, it should be 1. Default is 0.
+- **shuffle** - determines whether the input dataset will be shuffled or not. If it is set to 0, the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Otherwise, it should be 1. Default is 0.
 
-- *verbose* - determines output info during learning. For 0 there is no output, for 1 it prints only number of current epoch, for 2 it prints both numbers of epoch and batch. Default is 0.
+- **verbose** - determines output info during learning. For 0 there is no output, for 1 it prints only number of current epoch, for 2 it prints both numbers of epoch and batch. Default is 0.
 
-- *memory* - determines the maximum number of megabytes of GPU memory allocated as a workspace for convolutional operations. Default is 512.
+- **memory** - determines the maximum number of megabytes of GPU memory allocated as a workspace for convolutional operations. Default is 512.
 
-- *gpu* - allows to specify the index of gpu device to work on. Default is 0.
+- **gpu** - allows to specify the index of gpu device to work on. Default is 0.
 
 
 COMPILATION
 
 If you cannot use the provided binaries, you need to compile them by yourself. The compilation options are defined in the file "settings.h". They are:
 
-- *PRECISION*. Might have two values: 1 - single, uses type 'float'. 2 - double, uses type 'double'. The second version has not been tested.
+- **PRECISION**. Might have two values: 1 - single, uses type 'float'. 2 - double, uses type 'double'. The second version has not been tested.
 
-- *PRECISION_EPS*. Equal to 1e-6 by default. For consistency purposes all values that are less than it are assigned to 0.
+- **PRECISION_EPS**. Equal to 1e-6 by default. For consistency purposes all values that are less than it are assigned to 0.
 
 
 COMPILATION FOR LINUX
@@ -137,9 +137,9 @@ It is possible to use pretrained models from [MatConvNet](http://www.vlfeat.org/
 
 EXAMPLES
 
-- *mnist.m* - provides an example of training a convolutional network on MNIST dataset. The error after 5 epochs should be close to 1%.
+- **mnist.m** - provides an example of training a convolutional network on MNIST dataset. The error after 5 epochs should be close to 1%.
 
-- *fcn.m* - provides an example of loading [pretrained weights](http://www.vlfeat.org/matconvnet/models/pascal-fcn32s-dag.mat) from MatConvNet and segmenting the images. On the provided test set, which is smaller than the original PASCAL test set, the results should be (meanIU = 0.5188, pixelAccuracy = 0.8766, meanAccuracy = 0.6574). This is because one of the classes is not presented, so its IU is 0.
+- **fcn.m** - provides an example of loading [pretrained weights](http://www.vlfeat.org/matconvnet/models/pascal-fcn32s-dag.mat) from MatConvNet and segmenting the images. On the provided test set, which is smaller than the original PASCAL test set, the results should be (meanIU = 0.5188, pixelAccuracy = 0.8766, meanAccuracy = 0.6574). This is because one of the classes is not presented, so its IU is 0.
 
 
 KNOWN ERRORS
