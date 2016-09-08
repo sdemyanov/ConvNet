@@ -21,11 +21,6 @@ train_mean = mean(mean(mean(TrainX, 1), 2), 4);
 TrainX = TrainX - repmat(train_mean, [kXSize(1) kXSize(2) 1 size(TrainX, 4)]);
 TestX = TestX - repmat(train_mean, [kXSize(1) kXSize(2) 1 size(TestX, 4)]);
 
-kWorkspaceFolder = './workspace';
-if (~exist(kWorkspaceFolder, 'dir'))
-  mkdir(kWorkspaceFolder);
-end;
-
 kTrainNum = 60000;
 train_x = single(TrainX(:, :, :, 1:kTrainNum));
 train_y = single(TrainY(:, :, :, 1:kTrainNum));
@@ -62,7 +57,7 @@ layers = {
 layers = setup(layers);
 layers = genweights(layers, params, 'matlab');
 
-EpochNum = 3;
+EpochNum = 5;
 errors = zeros(EpochNum, 1);
 
 for i = 1 : EpochNum

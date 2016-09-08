@@ -34,9 +34,7 @@ public:
   ftype beta_;
   ftype decay_;
   ftype momentum_;
-  ftype maxcoef_;
-  ftype mincoef_;
-  bool balance_;
+  //bool balance_;
   bool shuffle_;
   std::string lossfun_;
   int normfun_;

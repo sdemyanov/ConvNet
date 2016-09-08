@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 LayerPool::LayerPool() {
   function_ = "none";
   add_bias_ = false;
-  lr_coef_ = 0;
   pooling_ = "max";
   CUDNN_CALL(cudnnCreatePoolingDescriptor(&pool_desc_));
 }
@@ -38,7 +37,7 @@ void LayerPool::Init(const mxArray *mx_layer, const Layer *prev_layer) {
     pooling_ = mexGetString(mexGetField(mx_layer, "pooling"));
     mexAssertMsg(pooling_ == "max" || pooling_ == "avg", "Unknown pooling type");
   }
-  mexAssertMsg(mexIsField(mx_layer, "scale"), "The 's' type layer must contain the 'scale' field");
+  mexAssertMsg(mexIsField(mx_layer, "scale"), "The 'pool' type layer must contain the 'scale' field");
   std::vector<ftype> scale = mexGetVector(mexGetField(mx_layer, "scale"));
   mexAssertMsg(scale.size() == 2, "Length of the scale vector and maps dimensionality must coincide");
   for (size_t i = 0; i < 2; ++i) {
@@ -46,9 +45,10 @@ void LayerPool::Init(const mxArray *mx_layer, const Layer *prev_layer) {
      "Scale on the 's' layer must be in the range [1, previous_layer_mapsize]");
     scale_[i] = (int) scale[i];
   }
+  mexAssertMsg(mexIsField(mx_layer, "stride"), "The 'pool' type layer must contain the 'stride' field");
   for (size_t i = 0; i < 2; ++i) {
     mexAssertMsg(1 <= stride_[i] && stride_[i] <= prev_layer->dims_[i+2],
-      "Stride on the 's' layer must be in the range [1, previous_layer_mapsize]");
+      "Stride on the 'pool' layer must be in the range [1, previous_layer_mapsize]");
    }
   // setting CUDNN parameters
   cudnnPoolingMode_t mode;

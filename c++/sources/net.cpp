@@ -232,14 +232,11 @@ void Net::Forward(MatGPU &pred, PassNum passnum, GradInd gradind) {
       mexAssert(false);
     }
   }
-
   pred.attach(layers_.back()->activ_mat_);
   //mexPrintMsg("Forward pass finished");
 }
 
 void Net::Backward(PassNum passnum, GradInd gradind) {
-  Layer *prev_layer;
-  //for (int i = layers_.size() - 1; i >= first_layer_; --i) {
   for (size_t j = first_layer_; j < layers_.size(); ++j) {
     size_t i = first_layer_ + layers_.size() - 1 - j;
     //mexPrintMsg("Backward pass for layer", layers_[i]->type_);
@@ -248,23 +245,17 @@ void Net::Backward(PassNum passnum, GradInd gradind) {
       // special case, final derivaties are already computed in InitDeriv
       layers_[i]->Nonlinear(passnum);
     }
+    layers_[i]->BiasGrads(gradind);
     if (i > 0) {
-      prev_layer = layers_[i-1];
-    } else {
-      prev_layer = NULL;
+      if (gradind != GradInd::Nowhere && layers_[i]->lr_coef_ > 0) {
+        layers_[i]->WeightGrads(layers_[i-1], gradind);
+      }
+      if (params_.shift_ == 0 && params_.beta_ == 0) {
+        if (i <= first_trained_) break;
+      }
+      layers_[i-1]->ResizeDerivMat();
+      layers_[i]->TransformBackward(layers_[i-1]);
     }
-    if (gradind != GradInd::Nowhere && layers_[i]->lr_coef_ > 0) {
-      layers_[i]->WeightGrads(prev_layer, gradind);
-      layers_[i]->BiasGrads(gradind);
-    }/*
-    if (params_.shift_ == 0 && params_.beta_ == 0) {
-      if (i <= first_trained_) break;
-    }*/
-    if (prev_layer != NULL) {
-      prev_layer->ResizeDerivMat();
-      layers_[i]->TransformBackward(prev_layer);
-    }
-    //mexPrintMsg("der sum", layers_[i]->deriv_mat_.sum());
   }
   //mexPrintMsg("Backward pass finished");
 }
@@ -317,9 +308,10 @@ void Net::InitDeriv(const MatGPU &labels_batch, ftype &loss) {
       loss = lossmat_.sum() / (2 * batchsize);
     }
   }
+  /*
   if (params_.balance_) {
     lastlayer->deriv_mat_.MultVect(classcoefs_, 1);
-  }
+  }*/
   lastlayer->deriv_mat_.Validate();
 }
 
@@ -426,7 +418,7 @@ Net::~Net() {
   // remove here all GPU allocated memory manually,
   // otherwise CudaReset causes crash
   weights_.Clear();
-  classcoefs_.clear(); // in fact vector
+  //classcoefs_.clear(); // in fact vector
   lossmat_.clear();
   lossmat2_.clear();
   MatGPU::CudaReset();

@@ -4,15 +4,13 @@ n = numel(layers);
 ind = 0;
 for l = 1 : n   %  layer  
   
-  if (~isfield(layers{l}, 'w'))
-    continue;
+  if (isfield(layers{l}, 'w'))
+    curlen = numel(layers{l}.w);
+    layers{l}.w(:) = weights(ind+1:ind+curlen);
+    ind = ind + curlen;
   end;
   
-  curlen = numel(layers{l}.w);
-  layers{l}.w(:) = weights(ind+1:ind+curlen);
-  ind = ind + curlen;
-  
-  if (~isfield(layers{l}, 'add_bias') || layers{l}.add_bias)
+  if (isfield(layers{l}, 'b'))
     curlen = numel(layers{l}.b);
     layers{l}.b(:) = weights(ind+1:ind+curlen);
     ind = ind + curlen;

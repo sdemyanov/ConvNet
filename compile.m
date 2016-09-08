@@ -1,5 +1,7 @@
 function [] = compile()
 
+% THIS FUNCTION HAS NOT BEEN TESTED ! ADJUST IF NEEDED !
+
 clear mex;
 kMainFolder = fileparts(mfilename('fullpath'));
 cd(kMainFolder);
@@ -41,8 +43,8 @@ end;
 kCudaHeaders = fullfile(kCudaPath, 'include');  
 cudaHeaders = ['-I' kCudaHeaders]; 
 
-% compiling cpp files
 cppfiles = fullfile(kCppSource, '*.cpp');
+% compiling cpp files
 kObjFolder = fullfile(kCPUFolder, 'obj');
 if (~exist(kObjFolder, 'dir'))
   mkdir(kObjFolder);
@@ -51,13 +53,15 @@ mex(['"' cppfiles '"'], '-c', ...
     cppInclude, cudaInclude, cudaHeaders, ...
     '-outdir', kObjFolder, ...
     '-largeArrayDims');
-objfiles = fullfile(kObjFolder, strcat('*', objext));
+cppfiles = fullfile(kObjFolder, strcat('*', objext));
 disp('C++ files compiled');
 
 %objfiles = fullfile(kObjFolder, '*.o');
 
-% compiling cuda files
 cudafiles = fullfile(kCudaSource, '*.cu');
+% you can try to use this if you have Parallel Computing Toolbox installed
+%{
+% compiling cuda files
 kCudaObjFolder = fullfile(kCudaFolder, 'obj');
 if (~exist(kCudaObjFolder, 'dir'))
   mkdir(kCudaObjFolder);
@@ -66,8 +70,9 @@ mexcuda(['"' cudafiles '"'], '-c', ...
     cppInclude, cudaInclude, cudaHeaders, ...
     '-outdir', kCudaObjFolder, ...
     '-largeArrayDims');
-cudaobjfiles = fullfile(kCudaObjFolder, strcat('*.cu', objext));
+cudafiles = fullfile(kCudaObjFolder, strcat('*.cu', objext));
 disp('Cuda files compiled');
+%}
 
 % setup cuda settings
 if (ispc)
@@ -88,7 +93,7 @@ end;
 indices = 1:numel(targets);
 for i = 1 : numel(indices)
   mexfile = fullfile(kCPUFolder, targets{indices(i)});
-  mex(mexfile, ['"' objfiles '"'], ['"' cudaobjfiles '"'], ...      
+  mex(mexfile, ['"' cppfiles '"'], ['"' cudafiles '"'], ...      
       cppInclude, cudaInclude, cudaHeaders, ['-L' kCudaLib], ...
       '-lut', '-lcudart', '-lcurand', '-lcublas', '-lcudnn', ... 
       '-largeArrayDims', ...

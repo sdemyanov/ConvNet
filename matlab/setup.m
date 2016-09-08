@@ -11,11 +11,17 @@ for l = 1 : n   %  layer
     if (~isfield(layers{l}, 'channels'))
       layers{l}.channels = 1;
     end;
+    if (~isfield(layers{l}, 'add_bias'))
+      layers{l}.add_bias = 0;
+    end;
     
   
   elseif strcmp(layers{l}.type, 'jitt') % jittering
     assert(isfield(layers{l}, 'mapsize'), 'The "jitt" type layer must contain the "mapsize" field');    
     layers{l}.channels = layers{l-1}.channels;
+    if (~isfield(layers{l}, 'add_bias'))
+      layers{l}.add_bias = 0;
+    end;
     
   
   elseif strcmp(layers{l}.type, 'pool') % scaling
@@ -26,6 +32,9 @@ for l = 1 : n   %  layer
     layers{l}.padding = [0 0];
     layers{l}.mapsize = 1 + floor((layers{l-1}.mapsize +2*layers{l}.padding - layers{l}.scale) ./ layers{l}.stride);
     layers{l}.channels = layers{l-1}.channels;
+    if (~isfield(layers{l}, 'add_bias'))
+      layers{l}.add_bias = 0;
+    end;
     
     
   elseif strcmp(layers{l}.type, 'conv') % convolutional
@@ -42,7 +51,7 @@ for l = 1 : n   %  layer
       layers{l}.initstd = default_init_std;
     end;
     filtersize = [layers{l}.filtersize(2) layers{l}.filtersize(1) layers{l-1}.channels layers{l}.channels];
-    layers{l}.w = single(zeros(filtersize));
+    layers{l}.w = single(zeros(filtersize));    
     
     
   elseif strcmp(layers{l}.type, 'deconv') % deconvolutional
@@ -73,10 +82,8 @@ for l = 1 : n   %  layer
     error('"%s" - unknown type of the layer %d', layers{l}.type, l);
   end
   
-  if (isfield(layers{l}, 'w'))
-    if (~isfield(layers{l}, 'add_bias') || layers{l}.add_bias)
-      layers{l}.b = single(zeros(layers{l}.channels, 1));
-    end;
+  if (~isfield(layers{l}, 'add_bias') || layers{l}.add_bias > 0)
+    layers{l}.b = single(zeros(layers{l}.channels, 1));
   end;
   
 end

@@ -29,9 +29,7 @@ Params::Params() {
   beta_ = 0;
   momentum_ = 0;
   decay_ = 0;
-  maxcoef_ = 1;
-  mincoef_ = 1;
-  balance_ = false;
+  //balance_ = false;
   shuffle_ = false;
   lossfun_ = "logreg";
   normfun_ = 1;
@@ -82,14 +80,10 @@ void Params::Init(const mxArray *mx_params) {
     decay_ = mexGetScalar(mexGetField(mx_params, "decay"));
     mexAssertMsg(0 <= decay_, "Decay must be non-negative");
   }
-  if (mexIsField(mx_params, "maxcoef")) {
-    maxcoef_ = mexGetScalar(mexGetField(mx_params, "maxcoef"));
-    mexAssertMsg(1 <= maxcoef_ , "Maxcoef must be larger or equal to 1");
-    mincoef_ = 1 / maxcoef_;
-  }
+  /*
   if (mexIsField(mx_params, "balance")) {
     balance_ = (mexGetScalar(mexGetField(mx_params, "balance")) > 0);
-  }
+  }*/
   if (mexIsField(mx_params, "shuffle")) {
     shuffle_ = (mexGetScalar(mexGetField(mx_params, "shuffle")) > 0);
   }

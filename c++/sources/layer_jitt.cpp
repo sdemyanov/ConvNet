@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 LayerJitt::LayerJitt() {
   function_ = "none";
   add_bias_ = false;
-  lr_coef_ = 0;
   shift_.resize(1, 2);
   shift_.assign(0);
   scale_.resize(1, 2);

@@ -22,12 +22,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 Layer::Layer() {
   dims_ = {0, 0, 0, 0};
   function_ = "relu";
+  add_bias_ = true;
   padding_ = {0, 0};
   stride_ = {1, 1};
   init_std_ = 0.01;
   lr_coef_ = 1.0;
   bias_coef_ = 1.0;
-  add_bias_ = true;
   dropout_ = 0;
 }
 
@@ -40,6 +40,10 @@ void Layer::InitGeneral(const mxArray *mx_layer) {
               function_ == "soft" ||
               function_ == "none",
               "Unknown function code");
+  }
+  if (mexIsField(mx_layer, "add_bias")) {
+    // actual value if defined
+    add_bias_ = (mexGetScalar(mexGetField(mx_layer, "add_bias")) > 0);
   }
   if (mexIsField(mx_layer, "mapsize")) {
     std::vector<ftype> mapsize = mexGetVector(mexGetField(mx_layer, "mapsize"));
@@ -54,7 +58,7 @@ void Layer::InitGeneral(const mxArray *mx_layer) {
     mexAssertMsg(1 <= channels && channels < INT_MAX, "Channels num must be >= 1");
     dims_[1] = (int) channels;
     filters_.dims(0) = dims_[1];
-    if (add_bias_) {
+    if (add_bias_) { // using actual value here
       biases_.dims() = {1, dims_[1], 1, 1};
     }
   }
@@ -89,9 +93,6 @@ void Layer::InitGeneral(const mxArray *mx_layer) {
   if (mexIsField(mx_layer, "bias_coef")) {
     bias_coef_ = mexGetScalar(mexGetField(mx_layer, "bias_coef"));
     mexAssertMsg(0 <= bias_coef_, "bias_coef must be non-negative");
-  }
-  if (mexIsField(mx_layer, "add_bias")) {
-    add_bias_ = (mexGetScalar(mexGetField(mx_layer, "add_bias")) > 0);
   }
   if (mexIsField(mx_layer, "lr_coef")) {
     lr_coef_ = mexGetScalar(mexGetField(mx_layer, "lr_coef"));
@@ -154,15 +155,14 @@ void Layer::Nonlinear(PassNum passnum) {
 }
 
 void Layer::AddBias(PassNum passnum) {
-  if (add_bias_ > 0) {
-    if (passnum == PassNum::ForwardTest || passnum == PassNum::Forward) {
-      activ_mat_.AddTensor(biases_.get());
-    }
+  if (add_bias_ == false) return;
+  if (passnum == PassNum::ForwardTest || passnum == PassNum::Forward) {
+    activ_mat_.AddTensor(biases_.get());
   }
 }
 
 void Layer::BiasGrads(GradInd gradind) {
-  if (!add_bias_) return;
+  if (add_bias_ == false) return;
   if (gradind == GradInd::First) {
     ConvolutionBackwardBias(deriv_mat_, biases_.der());
     (biases_.der() *= (lr_coef_ * bias_coef_ / dims_[0])).Validate();

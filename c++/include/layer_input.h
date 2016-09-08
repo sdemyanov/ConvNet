@@ -29,8 +29,8 @@ public:
   ~LayerInput() {};
   void Init(const mxArray *mx_layer, const Layer *prev_layer);
   void TransformForward(Layer *prev_layer, PassNum passnum) {};
-  void TransformBackward(Layer *prev_layer) {};
-  void WeightGrads(Layer *prev_layer, GradInd gradind) {};
+  void TransformBackward(Layer *prev_layer) { /* not called  */ };
+  void WeightGrads(Layer *prev_layer, GradInd gradind) { /* not called  */ };
 
 };
 

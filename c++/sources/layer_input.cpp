@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 LayerInput::LayerInput() {
   function_ = "none";
   add_bias_ = false;
-  lr_coef_ = 0;
   dims_[1] = 1;
 }
 

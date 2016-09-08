@@ -1,144 +1,146 @@
-Copyright (C) 2015 Sergey Demyanov
+Copyright (C) 2016 [Sergey Demyanov](http://www.demyanov.net)
 
 contact: my_name@my_sirname.net
 
-http://www.demyanov.net
+You can also find and use my [WorkLab for Tensorflow](https://github.com/sdemyanov/tensorflow-worklab).
 
-!!! IMPORTANT !!! The new update for CUDNN is coming soon! You can also find and use my [WorkLab for Tensorflow](https://github.com/sdemyanov/tensorflow-worklab).
+This toolbox has been written as a part of my PhD project. It contains the implementation of convolitional neural nets for Matlab, written on C++ and CUDA. The most of the kernels are taken from CUDNN v5 library, others are written manually. Therefore CUDNN, v5 or higher is required.
 
-The [Invariant Backpropagation](http://arxiv.org/abs/1502.04434) (IBP) algorithm  is implemented.
+It also contain the implementation of [Invariant Backpropagation (IBP)](http://arxiv.org/abs/1502.04434) and [Adversarial Training (AT)] (http://arxiv.org/abs/1412.6572) algorithms.
 
-The GPU version works only on devices with the compute capability >= 3.0
-
-This library has been written as a part of my PhD project. It contains the implementation of convolitional neural nets for Matlab, written on Matlab, C++ and CUDA for CPU and GPU processing. All versions work identically. The GPU version uses kernels from Alex Krizhevsky's library [cuda-convnet2](https://code.google.com/p/cuda-convnet2/), so it is _really_ fast. In some cases it is about 400 times faster than CPU version.
-
-It also contain the implementation of the [Invariant Backpropagation](http://arxiv.org/abs/1502.04434) (IBP) algorithm , that allows to train transformation-invariant neural networks. The algorithm is described in the article "Invariant backpropagation: how to train a transformation-invariant neural network".
 
 GENERAL INFORMATION
 
-Convolutional neural net is a type of deep learning classification algorithms, that can learn useful features from raw data by themselves. Learning is performed by tuning its weighs. CNNs consist of several layers, that are usually convolutional and subsampling layers following each other. Convolution layer performs filtering of its input with a small matrix of weights and applies some non-linear function to the result. Subsampling layer does not contain weights and simply reduces the size of its input by averaging of max-pooling operation. The last layer is fully connected by weights with all outputs of the previous layer. The output is also modified by a non-linear function. If your neural net consists of only fully connected layers, you get a classic neural net.
+Convolutional neural network is a type of deep learning classification and segmentation algorithms, which can learn useful features from raw data by themselves. Learning is performed by tuning its weights. CNNs consist of several layers, which are usually convolutional and subsampling layers following each other. Convolutional layer performs filtering of its input with a small matrix of weights and applies some non-linear function to the result. Subsampling layer does not contain weights and simply reduces the size of its input by averaging of max-pooling operation. The number of channels on the last layer should coincide with the number of classes. If used for classification, the height and width of the last layer output should be 1.
 
-Learning process consists of 2 steps: forward and backward passes, that repeat for all objects in a training set. On the forward pass each layer transforms the output from the previous layer according to its function. The output of the last layer is compared with the label values and the total error is computed. On the backward pass the corresponding transformation happens with the derivatives of error with respect to outputs and weights of this layer. After the backward pass finished, the weights are changed in the direction that decreases the total error. This process is performed for a batch of objects simultaneously, in order to decrease the sample bias. After all the object have been processed, the process might repeat for different batch splits.
+Learning process consists of 2 steps: forward and backward passes, which are conducted for all objects in a training set. On the forward pass each layer transforms the output of the previous layer according to its function. The output of the last layer is compared with the label values and the loss function is computed. On the backward pass the derivatives of loss function with respect to outputs are consecutively computed from the last layer to the first, together with the derivatives with respect to weights. After that the weights are changed in the direction which decreases the value of the loss function. This process is performed for a batch of objects simultaneously, in order to decrease the sample bias. Processing of all objects in the dataset is called the epoch. Usually training consists of many epochs, conducted with different batch splits.
 
  
 DESCRIPTION
 
-The library was written for Matlab and its functions can be called only from Matlab scripts. It operates with 2(3)-dimensional objects, like images, that are stored as a 3(4)-dimensional array. The last index represents the object index. The labels must be in a 2-dimensional array where the second index represent the class label (0 or 1). Normally there is only one "1" in a row.
+The toolbox was written for Matlab and its functions can be called only from Matlab scripts. The toolbox requires a Cuda capable GPU. The toolbox DOES NOT REQUIRE Parallel Computing Toolbox as MatConvNet, but you can import and use pretrained MatConvNet models. The toolbox operates with 4-dimensional tensors with incides corresponding to height(H), width(W), channel(C) and number(N). Labels should also be 4-dimensional tensors. If used for classification, labels should have height=1 and width=1. Before passing to c++ code the height and width dimensions are permuted, so the layout becomes NCHW (N is the slowest index). Same layout is used for weights everywhere.
 
-The library contains 3 main functions to call:
+The toolbox contains 3 main functions to call:
 
-- [weights] = genweights(layers, seed, funtype);
-Returns randomly generated initial weights for the net. Has to be called before the training.
-- [weights, trainerr] = cnntrain(layers, weights, params, train_x, train_y, type);  
-Performs neural net training. Returns weights from all layers as a single vector.
-- [err, bad, pred] = cnntest(layers, weights, params, test_x, test_y, type)
-Calculates the test error. Based on cnnclassify, that returns only the predictions.
+- [layers] = genweights(layers, params, funtype);
+Returns randomly generated initial weights for the net. Has to be called before the training. Funtype is either 'matlab' or 'gpu'.  
+- [layers, trainerr] = train(layers, params, train_x, train_y);  
+Performs neural net training. Returns the network with updated weights.
+- [err, bad, pred] = test(layers, params, test_x, test_y)
+Returns predictions and calculates the test error.
 
 
 Parameters:
 
-layers - the structure of CNN. Sets up as cell array, with each element representing an independent layer. Layers can be one of 5 types:
+layers - the structure of CNN. Sets up as cell array, with each element representing an independent layer. Currently 6 layer types are implemented:
 
-- i - input layer. Must be the first and only first one. Must contain the "mapsize" field, that is a vector with 2 integer values, representing the objects size. May also contain the following additional fields:  
-1) 'outputmaps' - that specifies the number of data channels, if it differs from 1.  
-2) 'norm' - determines the desired norm of input vectors. It performs a normalization within a sample.  
-3) 'mean' - determines the desired mean value of each feature across all samples.  
-4) 'maxdev' - determines the maximum standard deviation of each feature across all samples.
+- input - input layer. Must be the first and only the first one. Must contain the "mapsize" field, that is a vector with 2 integer values, representing the objects size (height and width). May also contain the following additional fields:  
+1) 'channels' - that specifies the number of data channels, if it differs from 1.
 
-- j - jitter layer. Specify possible transformations of the input maps, that might be used to achieve transformation invariance. Must have the parameter 'mapsize'. Other possible parameters are:  
+- jitt - jittering layer. Performs affine transformations of the image. With the default parameters performs central cropping. Must have the parameter 'mapsize'. Other possible parameters are:  
 1) 'shift' - specifies the maximum shift of the image in each dimension,  
 2) 'scale' - specifies the maximum scale in each dimension. Must be more than 1. The image scales with the random factors from [1/x x].  
-3) 'mirror' - binary vector, that determines if the image might be mirrored in a particular dimension or not.  
+3) 'mirror' - determines if the image might be mirrored (1) in a particular dimension or not (0).  
 4) 'angle' - scalar, that specifies the maximum angle of rotation. Must be from [0, 1]. The value 1 corresponds to 180 degrees.  
-5) 'defval' - specifies the value that is used when the transformed image lies outside the borders of the original image. If this value is not specified, the transformed value should be always inside the original one, otherwise there will be an error. This layer is not implemented in Matlab version.  
-On the test set the images are just centrally cropped to the size 'mapsize', like there were no additional parameters.
+5) 'defval' - specifies the value that is used when the transformed image lies outside the borders of the original image. If this value is not specified, the transformed value should be always inside the original one, otherwise there will be an error.
+On the test stage the images are just centrally cropped to the size 'mapsize', like there were no additional parameters.
 
-- c - convolutional layer. Must contain the "filtersize" field, that identifies the filter size. Must not be greater than the size of maps on the previous layer. Must also contain the "outputmaps" field, that is the number of maps for each objects on this layer. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m * n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions. May contain the following additional fields:  
-1) 'padding' - specifies the size of zero padding around the maps for each dimension. The default value is 0.  
-2) 'initstd' - the standard deviation of normal distribution that is used to generate the weights. The default value is 0.01. Biases are always initialized by 0.  
-3) 'biascoef' - specifies the multiplier for bias learning rate. Might be used if for some reason you decided to use another learning rate than for other weights. The default value is 1.
+- conv - convolutional layer. Must contain the "filtersize" field, that identifies the filter size. Must also contain the "channels" field, which is the number of output channels. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m * n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions.
 
-- s - scaling layer. Reduces the map size by pooling. Must contain the "scale" field, that is also a vector with 2 integer values. May additionally contain 'stride' field, that determines the distance between neighbouring blocks in each dimension. By default is equal to 'scale'.
+- deconv - reverse convolutional layer. Must contain the same fields as the convolutional layer. On the forward pass performs the same operation as performed on the backward pass of the "conv" layer, and otherwise. Therefore, instead of scaling the dimensions by a factor of "stride" it multiplies them on "stride".
 
-- f - fully connected layer. Must contain the "length" field that defines the number of its outputs. The last layer must have this type. For the last layer the length must coincide with the number of classes. May also contain the following additional fields:  
-1) "dropout" - determines the probability of dropping the activations on this layer. Cannot be used on the last layer. Should not be too large, otherwise it drops everything.  
-2) 'initstd' - the same as for convolutional layers. The default value is 0.1.  
-3) 'biascoef' - the same as for convolutional layers.
+- pool - pooling layer. The pooling type is specified by "pooling" field, which can be eigther "max" or "avg". Default value is "max". Must contain the "scale" and "stride" fields, which are the vectors with 2 integer values.
 
-All layers except "i" may contain the "function" field, that defines their action. For:
-- c and f - it defines the non-linear transformation function. It can be "soft", "sigm" or "relu", that correspond to softmax, sigmoid and rectified linear unit respectively. The default value is "relu". The value "soft" must be used only on the last layer.
-- s - it defines the pooling procedure, that can be either "mean" or "max". The default value is "mean". 
+- full - fully connected layer. Produces a tensor with height=1 and width=1. Must contain the "channels" field, which defines the number of output channels. Considers its input as a single vector.
 
-params - define the learning process. It is a structure with the following fields. If some of them are absent, the value by default is taken.
-- seed - any non-negative integer, that allows to repeat the same random numbers. Default is 0.
-- batchsize - defines the size of batches. Default is 128.
+
+Additionally, all layers might have the following parameters:
+
+- function - defines the non-linear transformation function. It can be "relu", "sigm" or "soft", which correspond to rectified linear unit, sigmoid and softmax respectively. The default value is "relu". The value "soft" must be used only on the last layer.
+
+- padding - a 2-dimensional vector of non-negative integers. Considered by "conv", "deconv" and "pool" layers. Determines the number of zero padding rows (columns) on the top and bottom (padding[0]) and left and right (padding[1]).
+
+- stride - a 2-dimensional vector of non-negative integers. Considered by "conv", "deconv" and "pool" layers. Determines the distance between the positions of applied kernels in vertical and horizontal dimensions.
+
+- initstd - the standard deviation of normal distribution that is used to generate the weights. The default value is 0.01. Considered by all layers with weights.
+
+- add_bias - whether the layer should add bias to the output or not. The length of the bias vector is equal to the number of output channels. Considered by all layers. Default is true for all layers with weights, false for others.
+
+- bias_coef - the multiplier for the bias learning rate. Default is 1.
+
+- lr_coef - the multiplier for the learning rate on this layer, both weights and biases. Considered by all layers. Set it to 0 to fix some layers.
+
+- dropout - a scalar from [0, 1), which determines the probability of dropping the activations on this layer. Should not be too large, otherwise it drops everything.
+
+
+params - define the learning process. It is a structure with the fields described below.
+
+- seed - any integer, which allows to repeat the same random numbers. Default is 0. Note that if "conv", "deconv" or "pool" layers are used, the results are not guaranteed to be exactly the same even if the same seed is used. For more details read CUDNN User Guide.
+
+- batchsize - defines the size of batches. Default is 32.
+
 - epochs - the number of repeats the training procedure with different batch splits. Default is 1.
-- alpha - defines the learning rate. Default is 1. Can also be the vector of the length 'epochs'. Then an individual rate for each epoch is used.
-- beta - defines the invariant learning rate (see the [article](http://arxiv.org/abs/1502.04434)). The value '0' corresponds to the standard backpropagation algorithm. Default is 0. Can also be the vector of the length 'epochs'. Then an individual rate for each epoch is used.
-- momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0. Can also be the vector of the length 'epochs'. Then an individual momentum for each epoch is used.
-- adjustrate - defines how much we change the learning rate for a particular weight. If the signs of previous and current updates coincide we add it to the learning rate. If not, we divide the learning rate on (1 - adjustrate). Default is 0.
-- maxcoef - defines the maximum and minimum learning rates, that are alpha * maxcoef and alpha / maxcoef respectively. Default is 1.
-- balance - boolean variable. Balances errors according to the class appearance frequencies. Useful for highly unbalanced datasets. Default is 0.
-- lossfun - string. Specifies the employed loss function. Must be eigher "squared" or "logreg", that correspond to sum of squared differences and negative log likelihood respectively. If you use "logreg", it is better to use "softmax" nonlinear function on the last layer and reduce the learning rate about 10 times. The default value is "squared".
+
+- alpha - defines the learning rate. Default is 1. 
+
+- beta - defines the invariant learning rate (see the [article](http://arxiv.org/abs/1502.04434)). The value '0' corresponds to the standard backpropagation algorithm. Default is 0. 
+
+- shift - defines the shift in the Adversarial Training algorithm (see the [article](http://arxiv.org/abs/1412.6572)). The value '0' corresponds to the standard backpropagation algorithm. Default is 0. 
+
+- normfun - defines the type of norm used as second loss function in IBP or used to generate adversarial examples in AT. Default is 1.
+
+- momentum - defines the actual direction of weight change according to the formula m * dp + (1-m) * d, where m is momentum, dp is the previous change and d is the current derivative. Default is 0. 
+
+- decay - defines the weight decay, i.e. every update all weights are multiplied on (1-decay).
+
+- lossfun - string. Specifies the employed loss function. Must be eigher "squared" or "logreg", that correspond to sum of squared differences and negative log likelihood respectively. If you use "logreg", it is better to use "softmax" nonlinear function on the last layer and reduce the learning rate about 10 times. The default value is "logreg".
+
 - shuffle - determines whether the input dataset will be shuffled or not. If it is set to 0, the batches are created in a natural order: first "batchsize" objects become the first batch and so on. Otherwise, it should be 1. Default is 0.
+
 - verbose - determines output info during learning. For 0 there is no output, for 1 it prints only number of current epoch, for 2 it prints both numbers of epoch and batch. Default is 0.
 
-weights - the weights vector obtained from genweights or cnntrain, that is used for weights initialization. Can be used for testing or continuing the training procedure. 
+- memory - determines the maximum number of megabytes of GPU memory allocated as a workspace for convolutional operations. Default is 512.
 
-funtype - defines the actual function that is used. Can be either "gpu", "cpu" or "matlab". While "matlab" is slower, it is easier to do some debugging and see the intermediate results.
+- gpu - allows to specify the index of gpu device to work on. Default is 0.
+
 
 COMPILATION
 
-If you cannot use the binaries for C++ CPU and GPU versions, you need to compile them by yourself. The compilation options are defined in the file "settings.h". Here they are:
+If you cannot use the provided binaries, you need to compile them by yourself. The compilation options are defined in the file "settings.h". They are:
 
-- COMP_REGIME. Identifies the version you want to compile. Might have the following values:  
-1) 0 - compiles the single-thread CPU version. Use it if you don't have GPU with CUDA support :)  
-2) 1 - compiles the multi-thread GPU version. Use it to speed-up computations. However, if you run several Matlabs in parallel, I would recommend to use the single-thread version.  
-3) 2 - compiles the GPU version. The main one.
+- PRECISION. Might have two values: 1 - single, uses type 'float'. 2 - double, uses type 'double'. The second version has not been tested.
 
-- PRECISION. Might have two values: 1 - single, uses type 'float'. 2 - double, uses type 'double'. The GPU version supports only single precision.
+- PRECISION_EPS. Equal to 1e-6 by default. For consistency purposes all values that are less than it are assigned to 0.
 
-- PRECISION_EPS. Equal to 1e-6 by default. For consistency purposes all values that are less than it are assigned to 0. In Matlab it is defined in cnnsetup.m.
 
-There are two ways to compile "mex" files. First of them is to run the 'compile' script in the main folder. Run in with the single parameter that specifies the regime. IMPORTANT! Make sure you have the same value in the "settings.h". If they do not correspond, you might get either compilation errors or the GPU version that is performed on CPU. You may also specify the second parameter that identifies the particular files. Use 1 for 'cnntrain', 2 for 'classify', 3 for 'genweights'. While the compilation process takes just several seconds for CPU version, it takes several minutes to compile the GPU version. Please, be patient. If there is an error, you will see red messages.
+COMPILATION FOR LINUX
 
-Alternatively, if you need just a GPU version, you can use the Makefile in Linux, or try to use my project for Visual Studio 2012 in Windows.
+Adjust the paths in the './c++/Makefile' file and run "make". That should be enough.  
 
 
 COMPILATION FOR WINDOWS
 
-- Using 'compile' script.  
+- Using 'compile' script. Has been tested long time ago.
 While CPU compilation is easy, the GPU compilation is tricky and might take some efforts to do it.
-First of all, run 'mex -setup' in order to check that you have a proper C++ compiler. If not, install it. You need either a full version of Visual Studio or an express version with Microsoft SDK, that are free. Of course, you need to install CUDA as well. Download it from NVIDIA site. The CUDA settings for 'mex' are located in file with the name like "mex_CUDA_win64.xml". Read more on the mathworks [website](http://www.mathworks.com.au/help/distcomp/run-mex-functions-containing-cuda-code.html#btrgjh3-1). You must have this file in your Matlab folder. The one that works for me is located in "./c++/cuda" folder. Adjust your Microsoft SDK and CUDA folders, CUDA computation capability and other options there. Make sure you have proper values of environment variables 'CUDA_PATH' and 'VS100COMNTOOLS'. You can do it using functions 'getenv' and 'setenv'. If you don't do it, you might get an error "No supported compiler or SDK was found". You might also get an error about the file 'vcvars64.bat'. In this case use the one that is located in "./c++/cuda" folder. Adjust the path in it as well. After that you should be able to compile.
+First of all, run 'mex -setup' in order to check that you have a proper C++ compiler. If not, install it. You need either a full version of Visual Studio or an express version with Microsoft SDK, that are free. Of course, you need to install CUDA as well. Download it from NVIDIA site. The CUDA settings for 'mex' are located in file with the name like "mex_CUDA_win64.xml". Read more on the MathWorks [website](http://www.mathworks.com.au/help/distcomp/run-mex-functions-containing-cuda-code.html#btrgjh3-1). You must have this file in your Matlab folder. The one that works for me is located in "./c++/cuda" folder. Adjust your Microsoft SDK and CUDA folders, CUDA computation capability and other options there. Make sure you have proper values of environment variables 'CUDA_PATH' and 'VS100COMNTOOLS'. You can do it using functions 'getenv' and 'setenv'. If you don't do it, you might get an error "No supported compiler or SDK was found". You might also get an error about the file 'vcvars64.bat'. In this case use the one that is located in "./c++/cuda" folder. Adjust the path in it as well. After that you should be able to compile.
 
 - Using Visual Studio project.  
 This is a project to compile 'cnntrain_mex'. Add all '.h', '.cpp' and '.cu' files, adjust paths in Include and Libraries fields, and enjoy incremental compilation every time you change just one single file. Create similar project with the same settings to compile 'classify' and 'genweights'.
 
 
-COMPILATION FOR LINUX
+LOADING PRETRAINED WEIGHTS
 
-- Using 'compile' script.  
-If you want to compile via "compile" script, which uses "mex" function, first you need to specify your compiler. This how you do it:  
-1) Install the version of "gcc" and "g++", supported by your version of Matlab,  
-2) Copy the settings file "MatlabRoot"/bin/mexopts.sh to ~/.matlab/"MatlabVersion",  
-3) In this file change the values "CC" and "CXX" to these versions, like "CXX='g++-4.7'.  
-4) Find and change the line "CXXFLAGS='-ansi -D_GNU_SOURCE'" to "CXXFLAGS='-std=c++11 -D_GNU_SOURCE'". The code uses c++11 features, so you need to make "g++" to understand them.
-
-- Using Makefile.  
-In order to compile the GPU version, adjust the paths in the './c++/Makefile' file and run "make". That should be enough.  
-
-If you have problems with loading '.so' files, make sure you have CUDA library folder (usually '/usr/local/cuda/lib64') in the variable LD_LIBRARY_PATH. You can check it by the Matlab 'getevn' command.
+It is possible to use pretrained models from [MatConvNet](http://www.vlfeat.org/matconvnet/). Given that you reconstruct the same architecture, you can use the function 'import_weights.m' to load the pretrained weights to the network. An example for fully convolutional network is provided.
 
 
-NOTICE
+EXAMPLES
 
-Random numbers are used for generating weights, shuffling batches and dropout. Thus, if want to get identical resutls in all Matlab and C++ versions, you need to use the same initial weights, do not use shuffling and set dropout to 0. Note, that these versions produce different random numbers for the same seeds.
+mnist.m - provides an example of training a convolutional network on MNIST dataset. The error after 5 epochs should be close to 1%.
 
-ACKNOLEDGEMENTS
+fcn.m - provides an example of loading [pretrained weights](http://www.vlfeat.org/matconvnet/models/pascal-fcn32s-dag.mat) from MatConvNet and segmenting the images. On the provided test set, which is smaller than the original PASCAL test set, the results should be (meanIU = 0.5188, pixelAccuracy = 0.8766, meanAccuracy = 0.6574). This is because one of the classes is not presented, so its IU is 0.
 
-- Almost all CUDA kernels were taken from the library of Alex Krizhevsky [cuda-convnet2](https://code.google.com/p/cuda-convnet2/). Enormous thanks to Alex for saving so much time.
 
-- The C++ version was inspired by [Yichuan Tang](http://www.cs.toronto.edu/~tang) and his [solution](http://code.google.com/p/deep-learning-faces/) for the Kaggle Facial Expression Recognition Challenge. The structure of C++ code was originated from there.
+KNOWN ERRORS
 
-- The original Matlab code was created by [Rasmus Berg Palm](dtu.academia.edu/RasmusBergPalm) and can be found in his [DeepLearnToolbox](https://github.com/rasmusbergpalm/DeepLearnToolbox). The Matlab version basically remained the same structure as there.
- 
+- When you change gpu index, the first time it might fail. Just run it again.
+
