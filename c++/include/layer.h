@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2014 Sergey Demyanov. 
+Copyright (C) 2016 Sergey Demyanov.
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -20,34 +20,58 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef _LAYER_H_
 #define _LAYER_H_
 
-#include "mat.h"
+#include "mat_gpu.h"
 #include "weights.h"
 #include "params.h"
 #include "mex_util.h"
 
+// ForwardLinear multiplies on the same matrix of gradients as the backward pass.
+// It uses activ_mat from the first pass stored in first_mat.
+enum class PassNum {ForwardTest, Forward, Backward, ForwardLinear};
+
+// index of where the gradients are stored
+enum class GradInd {Nowhere, First, Second};
+
 class Layer {
-  
+
 public:
   // activations, derivatives, first activations
-  Mat activ_mat_, deriv_mat_, first_mat_; 
-  std::vector<size_t> mapsize_;
-  size_t numdim_, outputmaps_, batchsize_;  
-  size_t length_; // total number of values on the layer in one sample
-  size_t length_prev_; // meaning depends on the layer
-  std::string type_, function_;  
-  
-  Layer() {};
-  virtual ~Layer() {};
-  virtual void Init(const mxArray *mx_layer, Layer *prev_layer) = 0;
-  virtual void Forward(Layer *prev_layer, int passnum) = 0;
-  virtual void Backward(Layer *prev_layer) = 0;
-  virtual void InitWeights(Weights &weights, size_t &offset, bool isgen) = 0;
-  virtual void CalcWeights(Layer *prev_layer, int passnum) = 0;
-  virtual void GetWeights(Mat &weights, size_t &offset) const = 0;  
-  virtual size_t NumWeights() const = 0;  
+  MatGPU activ_mat_, deriv_mat_, first_mat_;
+  // batchsize, channels, height, width
+  Dim dims_;
+  std::string type_, function_;
+  ftype lr_coef_;
 
-  void Nonlinear(int passnum);  
-  
+  inline size_t length() const { return dims_[1] * dims_[2] * dims_[3]; }
+
+  Layer();
+  virtual ~Layer() {};
+  virtual void Init(const mxArray *mx_layer, const Layer *prev_layer) = 0;
+  virtual void TransformForward(Layer *prev_layer, PassNum passnum) = 0;
+  virtual void TransformBackward(Layer *prev_layer) = 0;
+  virtual void WeightGrads(Layer *prev_layer, GradInd gradind) = 0;
+
+  void InitGeneral(const mxArray *mx_layer);
+  void InitWeights(Weights &weights, size_t &offset, bool isgen);
+  void ResizeActivMat(size_t batchsize, PassNum passnum);
+  void ResizeDerivMat();
+  void AddBias(PassNum passnum);
+  void BiasGrads(GradInd gradind);
+  void DropoutForward(PassNum passnum);
+  void DropoutBackward();
+  void UpdateWeights(const Params &params);
+  void RestoreOrder();
+  void Nonlinear(PassNum passnum);
+  size_t NumWeights() const;
+
+
+protected:
+  Weights filters_, biases_;
+  Pair padding_, stride_;
+  ftype init_std_, bias_coef_, dropout_;
+  bool add_bias_;
+  MatGPU dropmat_;
+
 };
 
 #endif

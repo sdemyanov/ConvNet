@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2014 Sergey Demyanov. 
+Copyright (C) 2016 Sergey Demyanov.
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -28,22 +28,28 @@ public:
   size_t batchsize_;
   size_t epochs_;
   size_t test_epochs_;
-  std::vector<ftype> alpha_;
-  std::vector<ftype> beta_;
-  std::vector<ftype> momentum_;
-  ftype adjustrate_;
+  ftype alpha_;
+  ftype shift_;
+  ftype testshift_;
+  ftype beta_;
+  ftype decay_;
+  ftype momentum_;
   ftype maxcoef_;
   ftype mincoef_;
   bool balance_;
   bool shuffle_;
   std::string lossfun_;
-  size_t verbose_;
-  size_t seed_;  
+  int normfun_;
+  int verbose_;
+  int seed_;
+  bool fast_;
+  size_t memory_;
+  int gpu_;
 
   Params();
-  
+
   void Init(const mxArray *params);
-  
+
 };
 
 #endif

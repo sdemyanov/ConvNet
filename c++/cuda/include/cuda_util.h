@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2014 Sergey Demyanov. 
+Copyright (C) 2016 Sergey Demyanov.
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -29,6 +29,7 @@ void cuda_log(MatGPU &mat);
 void cuda_exp(MatGPU &mat);
 void cuda_sigmoid(MatGPU &mat);
 
+void cuda_ident(MatGPU &mat);
 void cuda_assval(MatGPU &mat, float val);
 void cuda_addval(MatGPU &mat, float val);
 void cuda_subval(MatGPU &mat, float val);
@@ -44,11 +45,5 @@ void cuda_sigmder(MatGPU &mat, const MatGPU &b);
 void cuda_condassign(MatGPU& mat, const MatGPU& condmat, bool incase, float threshold, float val);
 void cuda_condadd(MatGPU& mat, const MatGPU& condmat, bool incase, float threshold, float val);
 void cuda_condmult(MatGPU& mat, const MatGPU& condmat, bool incase, float threshold, float val);
-
-void cuda_addvect(MatGPU &mat, const MatGPU &vect, size_t dim);
-void cuda_multvect(MatGPU &mat, const MatGPU &vect, size_t dim);
-
-void cuda_sumvect(MatGPU &mat, MatGPU &vect, size_t dim);
-void cuda_maxvect(MatGPU &mat, MatGPU &vect, size_t dim);
 
 #endif

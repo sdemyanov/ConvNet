@@ -1,0 +1,7 @@
+run profiler: nvvp
+
+Parameters:
+Toolkit: CUDA Toolkit 7.5 (/usr/local/cuda-7.5/bin/)
+File: /usr/local/MATLAB/R2016a/bin/matlab
+Arguments: -nodisplay -nosplash -nodesktop -r "run('/path/to/cnnexamples.m');exit;"
+

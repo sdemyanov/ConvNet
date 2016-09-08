@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2014 Sergey Demyanov. 
+Copyright (C) 2016 Sergey Demyanov.
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -14,39 +14,41 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 */
 
 #ifndef _SETTINGS_H_
 #define _SETTINGS_H_
 
-// COMP_REGIME = 0 -> CPU
-// COMP_REGIME = 1 -> MULTITHREAD CPU
-// COMP_REGIME = 2 -> GPU
-#define COMP_REGIME 2
+// N - number, C - channel, H - height, W - width
+// in the layout code first is slowest, last is fastest
+// order = false -> size1 is fastest, corresponds to CWHN (AlexNet) layout
+// order = true  -> size2 is fastest, corresponds to NCHW (CuDNN) layout
 
-// USE_CUDNN = -1 -> NOT APPLICABLE
-// USE_CUDNN = 0 -> NO
-// USE_CUDNN = 1 -> YES
-#define USE_CUDNN 0
+// indicates the layout of containers and maps inside them, fed from Matlab
+static const bool kExternalOrder = true;
+
+// indicates how containers and maps inside them are stored in toolbox memory
+static const bool kInternalOrder = true;
+
+// they are preferred to match, otherwise a lot of reordering is required
 
 // PRECISION = 1 -> float
-// PRECISION = 2 -> double
+// PRECISION = 2 -> double, but it has not been tested
 #define PRECISION 1
-// GPU version is only for float values
-#if COMP_REGIME == 2  
-  #define PRECISION 1
-#else
-  #define USE_CUDNN -1
-#endif
 
 #if PRECISION == 1
   typedef float ftype;
   #define MEX_CLASS mxSINGLE_CLASS
+  #define CUDNN_TYPE CUDNN_DATA_FLOAT
 #elif PRECISION == 2
-  typedef double ftype;  
+  typedef double ftype;
   #define MEX_CLASS mxDOUBLE_CLASS
+  #define CUDNN_TYPE CUDNN_DATA_DOUBLE
 #endif
+
+#define CUDNN_LAYOUT CUDNN_TENSOR_NCHW
 
 #define PRECISION_EPS 1e-6
 static const ftype kEps = (ftype) PRECISION_EPS;

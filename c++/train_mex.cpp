@@ -1,0 +1,46 @@
+/*
+Copyright (C) 2016 Sergey Demyanov.
+contact: sergey@demyanov.net
+http://www.demyanov.net
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+#include "net.h"
+
+#define NARGIN 5
+#define IN_L pRhs[0] // layers
+#define IN_W pRhs[1] // weights
+#define IN_P pRhs[2] // params
+#define IN_X pRhs[3] // data
+#define IN_Y pRhs[4] // labels
+
+#define NARGOUT 2
+#define OUT_W pLhs[0] // weights
+#define OUT_E pLhs[1] // train errors
+
+int print = 0;
+
+void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
+
+  mexAssertMsg(nRhs == NARGIN, "Number of input arguments in wrong!");
+  mexAssertMsg(nLhs == NARGOUT, "Number of output arguments is wrong!" );
+
+  Net net(IN_P);
+  net.InitLayers(IN_L);
+  net.InitWeights(IN_W);
+  net.Train(IN_X, IN_Y);
+  net.GetWeights(OUT_W);
+  net.GetErrors(OUT_E);
+}

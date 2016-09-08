@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2014 Sergey Demyanov. 
+Copyright (C) 2016 Sergey Demyanov.
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -25,25 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 extern int print;
 
-inline void mexAssert(bool b) {
-  if (b) return;  		
-  std::string _errmsg = std::string("Assertion Failed");
-	mexErrMsgTxt(_errmsg.c_str());
-}
-
-inline void mexAssert(bool b, std::string msg) {
-	if (b) return;
-  std::string _errmsg = std::string("Assertion Failed: ") + msg;
-	mexErrMsgTxt(_errmsg.c_str());
-}
-
 inline void mexPrintMsg(std::string msg) {
   mexPrintf((msg + "\n").c_str());
-  mexEvalString("drawnow;");
-}
-
-inline void mexPrintInt(std::string msg, int x) {
-  mexPrintf((msg + ": " + std::to_string((long long) x) + "\n").c_str());
   mexEvalString("drawnow;");
 }
 
@@ -56,5 +39,29 @@ inline void mexPrintMsg(std::string msg, std::string s) {
   mexPrintf((msg + ": " + s + "\n").c_str());
   mexEvalString("drawnow;");
 }
+
+inline void mexPrintInt(std::string msg, size_t x) {
+  mexPrintf((msg + ": " + std::to_string((long long) x) + "\n").c_str());
+  mexEvalString("drawnow;");
+}
+
+inline void _assertFunction(bool cond, std::string msg, const char *file, int line) {
+  if (!(cond)) {
+    if (!msg.empty()) {
+      mexPrintf((msg + "\n").c_str());
+    }
+    mexPrintf((std::string(file) + ": " + std::to_string(line) + "\n").c_str());
+    mexEvalString("drawnow;");
+    mexErrMsgTxt("Assertion Failed!");
+  }
+}
+
+#ifndef mexAssert
+#define mexAssert(cond) { _assertFunction((cond), "", __FILE__, __LINE__); }
+#endif
+
+#ifndef mexAssertMsg
+#define mexAssertMsg(cond, msg) { _assertFunction((cond), (msg), __FILE__, __LINE__); }
+#endif
 
 #endif

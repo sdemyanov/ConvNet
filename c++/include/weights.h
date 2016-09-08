@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2014 Sergey Demyanov. 
+Copyright (C) 2016 Sergey Demyanov.
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -20,32 +20,40 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef _WEIGHTS_H_
 #define _WEIGHTS_H_
 
-#include "mat.h"
+#include "mat_gpu.h"
 #include "params.h"
 
 class Weights {
-  
-public:
-  Weights() {};
-  ~Weights() { Clear(); };
-  void Init(const Mat &weights);
-  void Attach(Weights &weights, size_t offset, size_t size1, size_t size2, bool order);  
-  void Update(const Params &params, size_t epoch, bool isafter);
-  void Clear();
-  inline Mat& get() { return weights_; }
-  inline const Mat& get() const { return weights_; }
-  inline Mat& der() { return weights_der_; }
-  inline Mat& der2() { return weights_der2_; }
-  inline std::vector<size_t> size() const { return size_; }  
-  
+
 private:
-  Mat weights_;
-  Mat weights_der_;
-  Mat weights_der2_;
-  Mat weights_der_prev_;
-  Mat weights_learn_coefs_; 
-  std::vector<size_t> size_;
-  
+  MatGPU weights_;
+  MatGPU weights_der_;
+  MatGPU weights_der2_;
+  MatGPU weights_der_prev_;
+  Dim dims_;
+
+  void attach(Weights &w, size_t offset);
+
+public:
+  Weights();
+  ~Weights() { Clear(); };
+  void Init(const MatCPU &w);
+  void AttachFilters(Weights &w, size_t offset);
+  void AttachBiases(Weights &w, size_t offset);
+  void RestoreOrder();
+  size_t Num() const;
+  void Update(const Params &params);
+  void Clear();
+
+  inline MatGPU& get() { return weights_; }
+  inline const MatGPU& get() const { return weights_; }
+  inline MatGPU& der() { return weights_der_; }
+  inline MatGPU& der2() { return weights_der2_; }
+  inline Dim& dims() { return dims_; }
+  inline const Dim& dims() const { return dims_; }
+  inline int& dims(int i) { return dims_[i]; }
+  inline const int& dims(int i) const { return dims_[i]; }
+
 };
 
 #endif

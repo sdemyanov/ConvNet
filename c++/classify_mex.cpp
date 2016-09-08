@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2014 Sergey Demyanov. 
+Copyright (C) 2016 Sergey Demyanov.
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -19,25 +19,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "net.h"
 
-#define NARGIN 4
+#define NARGIN 5
 #define IN_L pRhs[0] // layers
 #define IN_W pRhs[1] // weights
 #define IN_P pRhs[2] // params
 #define IN_X pRhs[3] // data
+#define IN_Y pRhs[4] // labels
 
 #define NARGOUT 1
-#define OUT_Y	pLhs[0] // predictions
+#define OUT_Y pLhs[0] // predictions
 
 int print = 0;
 
 void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
 
-  mexAssert(nRhs == NARGIN && nLhs == NARGOUT, 
-    "Number of input and/or output arguments is not correct!" );
-  
-  Net net;
-  net.InitLayers(IN_L); 
+  mexAssertMsg(nRhs == NARGIN && nLhs == NARGOUT,
+    "Number of input and/or output arguments is not correct!");
+
+  Net net(IN_P);
+  net.InitLayers(IN_L);
   net.InitWeights(IN_W);
-  net.InitParams(IN_P);
-  net.Classify(IN_X, OUT_Y);  
+  net.Classify(IN_X, IN_Y, OUT_Y);
 }

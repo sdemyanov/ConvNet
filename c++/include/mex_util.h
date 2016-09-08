@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2014 Sergey Demyanov. 
+Copyright (C) 2016 Sergey Demyanov.
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -30,7 +30,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   #include <unistd.h>
 #endif
 
-#ifdef __cplusplus 
+#ifdef __cplusplus
   extern "C" bool utIsInterruptPending();
 #else
   extern bool utIsInterruptPending();
@@ -57,11 +57,14 @@ ftype* mexGetPointer(const mxArray *mx_array);
 ftype mexGetScalar(const mxArray *mx_array);
 std::vector<ftype> mexGetVector(const mxArray *mx_array);
 void mexGetMatrix(const mxArray *mx_array, MatCPU &mat);
+Dim mexGetTensor(const mxArray *mx_array, MatCPU &mat);
 
+mxArray* mexNewArray(const std::vector<size_t> &dimvect);
 mxArray* mexNewMatrix(size_t size1, size_t size2);
 mxArray* mexSetScalar(ftype scalar);
 mxArray* mexSetVector(const std::vector<ftype> &vect);
 mxArray* mexSetMatrix(const MatCPU &mat);
+mxArray* mexSetTensor(const MatCPU &mat, const Dim& dims);
 mxArray* mexSetCellMat(size_t size1, size_t size2);
 void mexSetCell(mxArray* mx_array, size_t ind, mxArray* mx_value);
 

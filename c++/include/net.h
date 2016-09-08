@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2014 Sergey Demyanov. 
+Copyright (C) 2016 Sergey Demyanov.
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -22,43 +22,46 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "layer.h"
 #include "params.h"
+#include "layer_input.h"
+#include "layer_jitt.h"
+#include "layer_conv.h"
+#include "layer_deconv.h"
+#include "layer_pool.h"
+#include "layer_full.h"
 
 class Net {
-  
+
 private:
   std::vector<Layer*> layers_;
-  size_t first_layer_;
+  size_t first_layer_, first_trained_;
   Weights weights_;
   Params params_;
-  MatCPU data_, labels_;
+  MatCPU data_, labels_, preds_;
   MatCPU trainerrors_;
-  Mat classcoefs_; // in fact vector
-  Mat weights_mat_; // also a vector
-  Mat lossmat_, lossmat2_;
-  
+  MatGPU classcoefs_; // in fact vector
+  MatGPU lossmat_, lossmat2_;
+
   void ReadData(const mxArray *mx_data);
-  void ReadLabels(const mxArray *mx_labels);  
-  void InitRand(size_t seed);  
-  void InitNorm();
-  void InitActiv(const Mat &data_batch);
-  void Forward(Mat &pred, int passnum);  
-  void InitDeriv(const Mat &labels_batch, ftype &loss);
-  void InitDeriv2(ftype &loss);
-  void Backward();
-  void UpdateWeights(size_t epoch, bool isafter);  
+  void ReadLabels(const mxArray *mx_labels);
+  void InitActiv(const MatGPU &data_batch);
+  void Forward(MatGPU &pred, PassNum passnum, GradInd gradind);
+  void InitDeriv(const MatGPU &labels_batch, ftype &loss);
+  void InitActiv2(ftype &loss, int normfun);
+  void InitActiv3(ftype coef, int normfun);
+  void Backward(PassNum passnum, GradInd gradind);
+  void UpdateWeights();
 
 public:
-  Net();
+  Net(const mxArray *mx_params);
   ~Net();
   void InitLayers(const mxArray *mx_layers);
-  void InitParams(const mxArray *mx_params);
   void Train(const mxArray *mx_data, const mxArray *mx_labels);
-  void Classify(const mxArray *mx_data, mxArray *&mx_pred);
-  void InitWeights(const mxArray *mx_weights_in);  
+  void Classify(const mxArray *mx_data, const mxArray *mx_labels, mxArray *&mx_pred);
+  void InitWeights(const mxArray *mx_weights_in);
   void GetErrors(mxArray *&mx_errors) const;
   void GetWeights(mxArray *&mx_weights) const;
-  size_t NumWeights() const;  
-  
+  size_t NumWeights() const;
+
 };
 
 #endif

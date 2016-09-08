@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2014 Sergey Demyanov. 
+Copyright (C) 2016 Sergey Demyanov.
 contact: sergey@demyanov.net
 http://www.demyanov.net
 
@@ -16,61 +16,70 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-   
+
 #include "mat_gpu.h"
 #include "cuda_util.h"
 
-#ifndef CUDA_CALL
-	#define CUDA_CALL(fun) { \
-    int my_err_code = (fun); \
-    if (my_err_code != cudaSuccess) { \
-      char errmsg[100];\
-      sprintf(errmsg, "CUDA function call failed![%d] %s:%d", my_err_code, __FILE__, __LINE__);\
-      mexAssert(false, errmsg); \
-    } \
-  }
-#endif
+void MatGPU::SetTensorDesc(const Dim &dims) {
 
-#ifndef CURAND_CALL
-	#define CURAND_CALL(fun) { \
-    int my_err_code = (fun); \
-    if (my_err_code != CURAND_STATUS_SUCCESS) { \
-      char errmsg[100];\
-      sprintf(errmsg, "CURAND function call failed![%d] %s:%d", my_err_code, __FILE__, __LINE__);\
-      mexAssert(false, errmsg); \
-    } \
+  mexAssertMsg(size() == dims[0] * dims[1] * dims[2] * dims[3],
+    "In SetTensorDesc dims assert");
+  if (dims[0] > 0 || dims[1] > 0 || dims[2] > 0 || dims[3] > 0) {
+    if (tensor_desc_ == NULL) {
+      CUDNN_CALL(cudnnCreateTensorDescriptor(&tensor_desc_));
+    }
+    CUDNN_CALL(cudnnSetTensor4dDescriptor(
+      tensor_desc_, CUDNN_LAYOUT, CUDNN_TYPE,
+      dims[0], dims[1], dims[2], dims[3]
+    ));
   }
-#endif
+}
 
-#ifndef CUBLAS_CALL
-	#define CUBLAS_CALL(fun) { \
-    int my_err_code = (fun); \
-    if (my_err_code != CUBLAS_STATUS_SUCCESS) { \
-      char errmsg[100];\
-      sprintf(errmsg, "CUBLAS function call failed![%d] %s:%d", my_err_code, __FILE__, __LINE__);\
-      mexAssert(false, errmsg); \
-    } \
+void MatGPU::SetFilterDesc(const Dim &dims) {
+  mexAssertMsg(size() == dims[0] * dims[1] * dims[2] * dims[3],
+    "In SetFilterDesc dims assert");
+  if (dims[0] > 0 || dims[1] > 0 || dims[2] > 0 || dims[3] > 0) {
+    if (filter_desc_ == NULL) {
+      CUDNN_CALL(cudnnCreateFilterDescriptor(&filter_desc_));
+    }
+    CUDNN_CALL(cudnnSetFilter4dDescriptor(
+      filter_desc_, CUDNN_TYPE, CUDNN_LAYOUT,
+      dims[0], dims[1], dims[2], dims[3]
+    ));
   }
-#endif
+}
 
-#ifndef CUDNN_CALL
-	#define CUDNN_CALL(fun) { \
-    int my_err_code = (fun); \
-    if (my_err_code != CUDNN_STATUS_SUCCESS) { \
-      char errmsg[100];\
-      sprintf(errmsg, "CUDNN function call failed![%d] %s:%d", my_err_code, __FILE__, __LINE__);\
-      mexAssert(false, errmsg); \
-    } \
+cudnnTensorDescriptor_t MatGPU::GetTensorDesc() {
+  mexAssertMsg(tensor_desc_ != NULL, "Empty tensor descriptor");
+  return tensor_desc_;
+}
+
+cudnnFilterDescriptor_t MatGPU::GetFilterDesc() {
+  mexAssertMsg(filter_desc_ != NULL, "Empty filter descriptor");
+  return filter_desc_;
+}
+
+void MatGPU::ClearTensorDesc() {
+  if (tensor_desc_ != NULL) {
+    CUDNN_CALL(cudnnDestroyTensorDescriptor(tensor_desc_));
+    tensor_desc_ = NULL;
   }
-#endif
+}
+
+void MatGPU::ClearFilterDesc() {
+  if (filter_desc_ != NULL) {
+    CUDNN_CALL(cudnnDestroyFilterDescriptor(filter_desc_));
+    filter_desc_ = NULL;
+  }
+}
 
 // static
 
 cudaEvent_t MatGPU::_start, MatGPU::_stop;
 
 void MatGPU::StartCudaTimer() {
-  if (print < 2) return;  
-  cudaEventRecord(_start, 0);  
+  if (print < 2) return;
+  cudaEventRecord(_start, 0);
 }
 
 void MatGPU::MeasureCudaTime(std::string msg) {
@@ -82,56 +91,43 @@ void MatGPU::MeasureCudaTime(std::string msg) {
   mexPrintMsg(msg, elapsedTime);
 }
 
-std::map<int, MatGPU> MatGPU::_buffers;
-
-void MatGPU::swapWithBuffer(MatGPU &mat, int key) {
-  std::map<int, MatGPU>::iterator it = _buffers.find(key);  
-  if (it == _buffers.end()) {
-    //mexPrintMsg("key", key);
-    _buffers[key] = MatGPU();
-    it = _buffers.find(key);
-  }
-  Swap(mat, it->second);
-}
 
 curandGenerator_t MatGPU::_randGen;
 cudaStream_t MatGPU::_defaultStream;
 cublasHandle_t MatGPU::_cublasHandle;
-#if USE_CUDNN == 1
-  cudnnHandle_t MatGPU::_cudnnHandle;
-#endif
+cudnnHandle_t MatGPU::_cudnnHandle;
+size_t MatGPU::_cudnnMemoryLimit;
+MatGPU MatGPU::_workspace;
 
 
 int MatGPU::getDeviceID() {
   int id;
-  CUDA_CALL(cudaGetDevice(&id));  
+  CUDA_CALL(cudaGetDevice(&id));
   return id;
 }
 
-void MatGPU::CudaInit() {
 
-  int num;  
-  mexAssert(cudaGetDeviceCount(&num) == cudaSuccess, "No proper CUDA device is found");
-  
-  #if USE_CUDNN == 1
-    //CUDNN_CALL(cudnnCreate(&_cudnnHandle));
-  #endif
-  CUDA_CALL(cudaStreamCreate(&_defaultStream));  
-  CURAND_CALL(curandCreateGenerator(&_randGen, CURAND_RNG_PSEUDO_DEFAULT));
-  CUBLAS_CALL(cublasCreate(&_cublasHandle));  
-  
-  /*
+void MatGPU::InitCuda(int gpu) {
+
+  int num;
+  CUDA_CALL(cudaGetDeviceCount(&num));
+  mexAssertMsg(gpu < num, "Requested GPU index is not available");
+  CUDA_CALL(cudaSetDevice(gpu));
   cudaDeviceProp prop;
   CUDA_CALL(cudaGetDeviceProperties(&prop, getDeviceID()));
-  mexPrintMsg("Executing on", prop.name);    
-  */
-  
+  mexPrintMsg("Executing on", prop.name);
+
+  CUDA_CALL(cudaStreamCreate(&_defaultStream));
+  CURAND_CALL(curandCreateGenerator(&_randGen, CURAND_RNG_PSEUDO_DEFAULT));
+  CUBLAS_CALL(cublasCreate(&_cublasHandle));
+  CUDNN_CALL(cudnnCreate(&_cudnnHandle));
+
   cudaEventCreate(&_start);
-  cudaEventCreate(&_stop);  
-  
+  cudaEventCreate(&_stop);
+
 }
 
-void MatGPU::InitRand(size_t seed) {  
+void MatGPU::InitRand(int seed) {
   CURAND_CALL(curandSetPseudoRandomGeneratorSeed(_randGen, seed));
 }
 
@@ -139,17 +135,20 @@ void MatGPU::CudaReset() {
 
   cudaEventDestroy(_start);
   cudaEventDestroy(_stop);
-  
-  _buffers.clear();
 
-  #if USE_CUDNN == 1
-    //CUDNN_CALL(cudnnDestroy(_cudnnHandle));
-  #endif
+  _workspace.clear();
+
+  CUDNN_CALL(cudnnDestroy(_cudnnHandle));
   CUBLAS_CALL(cublasDestroy(_cublasHandle));
-  CURAND_CALL(curandDestroyGenerator(_randGen));  
-  CUDA_CALL(cudaStreamDestroy(_defaultStream));  
-   
+  CURAND_CALL(curandDestroyGenerator(_randGen));
+  CUDA_CALL(cudaStreamDestroy(_defaultStream));
+
   CUDA_CALL(cudaDeviceReset());
+}
+
+void MatGPU::SetMemoryLimit(size_t memory) {
+  // converting from megabytes to bytes
+  _cudnnMemoryLimit = memory * 1024 * 1024;
 }
 
 // data access
@@ -176,78 +175,31 @@ MatGPU MatGPU::operator () (size_t ind) {
   return val_mat;
 }
 */
-size_t MatGPU::getNumDataBytes() const {
-  return size1_ * size2_ * sizeof(ftype);
-}
-
-cudaTextureObject_t MatGPU::getTextureObject() {
-  if (texture_ == 0) {    
-    ftype *data_ptr;
-    if (owner_) {
-      data_ptr = data_;
-    } else {      
-      // for some reason textures are not created for non-owner pointers
-      CUDA_CALL(cudaMalloc(&textdata_, getNumDataBytes()));      
-      data_ptr = textdata_;
-    }
-    cudaResourceDesc resDesc;
-    memset(&resDesc, 0, sizeof(resDesc));
-    resDesc.resType = cudaResourceTypeLinear;
-    resDesc.res.linear.devPtr = data_ptr;
-    resDesc.res.linear.sizeInBytes = getNumDataBytes();    
-    resDesc.res.linear.desc = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
-    cudaTextureDesc texDesc;
-    memset(&texDesc, 0, sizeof(texDesc));
-    CUDA_CALL(cudaCreateTextureObject(&texture_, &resDesc, &texDesc, NULL));    
-    /*
-    mexPrintInt("texture", (int) texture_);
-    CUDA_CALL(cudaDestroyTextureObject(texture_));    
-    mexAssert(false, "Success!");
-    */
-  }
-  if (!owner_) {    
-    CUDA_CALL(cudaMemcpy(textdata_, data_, getNumDataBytes(), cudaMemcpyDeviceToDevice));
-  }  
-  return texture_;
+size_t MatGPU::BytesNum() const {
+  return size() * sizeof(ftype);
 }
 
 // memory functions
 
 MatGPU::MatGPU() {
-  //mexPrintMsg("Array constructor 0");
   init();
-  //mexPrintMsg("Array constructor 0 end");
-}
-
-MatGPU::MatGPU(const std::vector<size_t> &newsize) {
-  //mexPrintMsg("Array constructor 2");
-  mexAssert(newsize.size() == 2, "In MatGPU::MatGPU the size vector length != 2");  
-  init();
-  resize(newsize[0], newsize[1]);
-  //mexPrintMsg("Array constructor 2 end");
 }
 
 MatGPU::MatGPU(size_t size1, size_t size2) {
-  //mexPrintMsg("Array constructor 2");
   init();
   resize(size1, size2);
-  //mexPrintMsg("Array constructor 2 end");
 }
 
-MatGPU::MatGPU(const MatGPU &a) {
-  //mexPrintMsg("Array copy constructor");
-  init();  
-  if (a.empty()) return;
-  resize(a.size1_, a.size2_);
-  (*this) = a;  
-  //mexPrintMsg("Array copy constructor end");
-}
-
-MatGPU::MatGPU(MatGPU &&a) {
-  //mexPrintMsg("Array move constructor");   
+MatGPU::MatGPU(const MatGPU &b) {
   init();
-  Swap(*this, a);
-  //mexPrintMsg("Array move constructor end");
+  if (b.empty()) return;
+  resize(b.size1_, b.size2_);
+  (*this) = b;
+}
+
+MatGPU::MatGPU(MatGPU &&b) {
+  init();
+  Swap(*this, b);
 }
 
 MatGPU::~MatGPU() {
@@ -257,117 +209,147 @@ MatGPU::~MatGPU() {
 MatGPU& MatGPU::init() {
   data_ = NULL;
   size1_ = 0;
-  size2_ = 0;  
-  stride_ = 1;
-  order_ = kDefaultOrder;
+  size2_ = 0;
+  order_ = kInternalOrder;
   owner_ = false;
-  textdata_ = NULL;
-  texture_ = 0;
+  tensor_desc_ = NULL;
+  filter_desc_ = NULL;
   return *this;
 }
 
-MatGPU& MatGPU::operator = (const MatGPU &a) {
-  //mexPrintMsg("Array assignment");  
-  mexAssert(size1_ == a.size1_ && size2_ == a.size2_,
+// copies only the content, not other parameters!!
+MatGPU& MatGPU::operator = (const MatGPU &b) {
+  //mexPrintMsg("Array assignment");
+  mexAssertMsg(size1_ == b.size1_ && size2_ == b.size2_,
     "In MatGPU::operator = the arrays have different size");
-  mexAssert(stride_ == 1 && a.stride_ == 1,
-    "In MatGPU::operator = the strides should be 1");
-  if (order_ == a.order_) {
-    CUDA_CALL(cudaMemcpy(data_, a.data_, getNumDataBytes(), cudaMemcpyDeviceToDevice));      
-  } else if (a.order_ != kDefaultOrder) { // order_ == kDefaultOrder    
-    MatGPU ar;
-    ar.attach(a.data_, a.size2_, a.size1_, a.stride_, kDefaultOrder);    
-    Trans(ar, *this);
-  } else { // a.order_ == kDefaultOrder, order_ == !kDefaultOrder      
-    MatGPU ar;
-    ar.attach(data_, size2_, size1_, stride_, kDefaultOrder);    
-    Trans(a, ar);
-  }  
-  //mexPrintMsg("Array assignment end");
-  return *this;  
+  if (order_ == b.order_) {
+    CUDA_CALL(cudaMemcpy(data_, b.data_, BytesNum(), cudaMemcpyDeviceToDevice));
+  } else if (b.order_ != kInternalOrder) { // order_ == kInternalOrder
+    MatGPU br;
+    br.attach(b.data_, b.size2_, b.size1_, kInternalOrder);
+    Trans(br, *this);
+  } else { // b.order_ == kInternalOrder, order_ != kInternalOrder
+    MatGPU br;
+    br.attach(data_, size2_, size1_, kInternalOrder);
+    Trans(b, br);
+  }
+  /*
+  if (b.tensor_desc_ != NULL) {
+    SetTensorDesc(b.tensor_shape());
+  } else {
+    tensor_desc_ = NULL;
+  }
+  if (b.filter_desc_ != NULL) {
+    SetFilterDesc(b.filter_shape());
+  } else {
+    filter_desc_ = NULL;
+  } */
+  return *this;
 }
 
 MatGPU& MatGPU::resize(size_t size1, size_t size2) {
-  //mexPrintMsg("Array resize");
-  if (size1 * size2 != size1_ * size2_) {
+  // required for all cuda opearations
+  mexAssertMsg(size1 <= INT_MAX / size2, "Matrix is too large!");
+  if (size1 * size2 != size()) {
     clear();
-    if (size1 * size2 > 0) {       
+    if (size1 * size2 > 0) {
+      //mexPrintInt("rs1", size1);
+      //mexPrintInt("rs2", size2);
       CUDA_CALL(cudaMalloc(&data_, size1 * size2 * sizeof(ftype)));
       owner_ = true;
     }
   }
-  size1_ = size1;
-  size2_ = size2;  
-  //mexPrintMsg("Array resize end");  
-  return *this;
-}
-
-MatGPU& MatGPU::reshape(size_t size1, size_t size2) {
-  mexAssert(size1_ * size2_ == size1 * size2,
-    "In MatCPU::reshape the sizes do not correspond");
+  if (size1 != size1_ || size2 != size2_) {
+    ClearTensorDesc();
+    ClearFilterDesc();
+  }
   size1_ = size1;
   size2_ = size2;
   return *this;
 }
 
-MatGPU& MatGPU::reorder(bool order, bool real) {
-  //mexAssert(order_ == order, "In MatGPU::reorder order should be the same");
-  if (order_ != order) {
-    if (real == true) {
-      MatGPU mr(size1_, size2_);
-      mr.order_ = order;
-      mr = (*this); // reorder
-      order_ = order;
-      (*this) = mr;
-    } else {
-      order_ = order;
-    }
-  }
+MatGPU& MatGPU::resize_tensor(Dim dims) {
+  resize(dims[0], dims[1] * dims[2] * dims[3]);
+  SetTensorDesc(dims);
   return *this;
 }
 
-MatGPU& MatGPU::attach(const MatGPU &a) {
-  return attach(a.data_, a.size1_, a.size2_, a.stride_, a.order_);
+MatGPU& MatGPU::resize_filter(Dim dims) {
+  resize(dims[0], dims[1] * dims[2] * dims[3]);
+  SetFilterDesc(dims);
+  return *this;
 }
 
-MatGPU& MatGPU::attach(const MatGPU &a, size_t offset, size_t size1, size_t size2, bool order) {  
-  mexAssert(a.size1_ == 1 || a.size2_ == 1, "In MatGPU::attach with offset one of sizes should be 1");
-  mexAssert(offset + size1 * size2 <= a.size1_ * a.size2_, 
+MatGPU& MatGPU::reshape(size_t size1, size_t size2) {
+  mexAssertMsg(size() == size1 * size2,
+    "In MatGPU::reshape the sizes do not correspond");
+  resize(size1, size2);
+  return *this;
+}
+
+MatGPU& MatGPU::reshape_tensor(Dim dims) {
+  mexAssertMsg(size() == dims[0] * dims[1] * dims[2] * dims[3],
+    "In MatGPU::reshape_tensor the dimensions do not correspond");
+  resize_tensor(dims);
+  return *this;
+}
+
+MatGPU& MatGPU::reshape_filter(Dim dims) {
+  mexAssertMsg(size() == dims[0] * dims[1] * dims[2] * dims[3],
+    "In MatGPU::reshape_tensor the dimensions do not correspond");
+  resize_filter(dims);
+  return *this;
+}
+
+MatGPU& MatGPU::attach(const MatGPU &b) {
+  return attach(b.data_, b.size1_, b.size2_, b.order_);
+}
+
+MatGPU& MatGPU::attach(const MatGPU &b, size_t offset, size_t size1, size_t size2, bool order) {
+  //mexAssertMsg(b.size1_ == 1 || b.size2_ == 1, "In MatGPU::attach with offset one of sizes should be 1");
+  mexAssertMsg(offset + size1 * size2 <= b.size(),
             "In MatGPU::attach the sizes don't correspond each other");
-  return attach(a.data_ + offset, size1, size2, a.stride_, order);    
+  return attach(b.data_ + offset, size1, size2, order);
 }
 
 MatGPU& MatGPU::attach(ftype *ptr, size_t size1, size_t size2) {
-  return attach(ptr, size1, size2, 1, kDefaultOrder);
+  return attach(ptr, size1, size2, kInternalOrder);
 }
 
-MatGPU& MatGPU::attach(ftype *ptr, size_t size1, size_t size2, size_t stride, bool order) {  
-  //mexAssert(order == false, "In MatGPU::attach order should be always false");  
+MatGPU& MatGPU::attach(ftype *ptr, size_t size1, size_t size2, bool order) {
+  //mexAssertMsg(order == false, "In MatGPU::attach order should be always false");
   clear();
   data_ = ptr;
   size1_ = size1;
-  size2_ = size2;  
-  stride_ = stride;    
+  size2_ = size2;
   order_ = order;
   return *this;
 }
 
 MatGPU& MatGPU::clear() {
-  //mexPrintMsg("Array clear");
-  if (texture_ != 0) {
-    CUDA_CALL(cudaDestroyTextureObject(texture_));    
-    texture_ = 0;
-    if (textdata_ != NULL) {
-      CUDA_CALL(cudaFree(textdata_));
-      textdata_ = NULL;    
-    }
-  }
+  ClearTensorDesc();
+  ClearFilterDesc();
   if (owner_) {
+    mexAssert(data_ != NULL);
+    mexAssert(size() > 0);
+    //mexPrintInt("clear s1", size1_);
+    //mexPrintInt("clear s2", size2_);
     CUDA_CALL(cudaFree(data_));
-    owner_ = false;    
+    owner_ = false;
   }
+  init();
   //mexPrintMsg("Array clear end");
-  return init();
+  return *this;
+}
+
+// be careful of using it as it does not guarantee
+// that it is not used somewhere else at the same time
+MatGPU& MatGPU::GetFromWorkspace(size_t size1, size_t size2) {
+  if (size1 * size2 > MatGPU::_workspace.size()) {
+    MatGPU::_workspace.resize(size1, size2);
+  }
+  attach(MatGPU::_workspace, 0, size1, size2, kInternalOrder);
+  return *this;
 }
 
 void Swap(MatGPU &a, MatGPU &b) {
@@ -375,37 +357,38 @@ void Swap(MatGPU &a, MatGPU &b) {
   ftype *data_tmp = b.data_;
   b.data_ = a.data_;
   a.data_ = data_tmp;
-  
+
   size_t size1_tmp = b.size1_;
   b.size1_ = a.size1_;
   a.size1_ = size1_tmp;
-  
+
   size_t size2_tmp = b.size2_;
   b.size2_ = a.size2_;
-  a.size2_ = size2_tmp; 
-  
-  size_t stride_tmp = b.stride_;
-  b.stride_ = a.stride_;
-  a.stride_ = stride_tmp;
-    
+  a.size2_ = size2_tmp;
+
   bool order_tmp = b.order_;
   b.order_ = a.order_;
-  a.order_ = order_tmp;  
-  
+  a.order_ = order_tmp;
+
   bool owner_tmp = b.owner_;
   b.owner_ = a.owner_;
-  a.owner_ = owner_tmp;  
+  a.owner_ = owner_tmp;
 
-  ftype *textdata_tmp = b.textdata_;
-  b.textdata_ = a.textdata_;
-  a.textdata_ = textdata_tmp;
-  
-  cudaTextureObject_t texObj_tmp = b.texture_;
-  b.texture_ = a.texture_;
-  a.texture_ = texObj_tmp;  
+  cudnnTensorDescriptor_t tensor_desc_tmp_ = b.tensor_desc_;
+  b.tensor_desc_ = a.tensor_desc_;
+  a.tensor_desc_ = tensor_desc_tmp_;
+
+  cudnnFilterDescriptor_t filter_desc_tmp_ = b.filter_desc_;
+  b.filter_desc_ = a.filter_desc_;
+  a.filter_desc_ = filter_desc_tmp_;
 }
 
 // data functions
+
+MatGPU& MatGPU::ident() {
+  cuda_ident(*this);
+  return *this;
+}
 
 MatGPU& MatGPU::assign(ftype val) {
   cuda_assval(*this, val);
@@ -413,54 +396,93 @@ MatGPU& MatGPU::assign(ftype val) {
 }
 
 MatGPU& MatGPU::rand() {
-  mexAssert(stride_ == 1, "In MatGPU::rand stride_ should be 1");
-  CURAND_CALL(curandGenerateUniform(_randGen, data_, size1_ * size2_));
+  if (!empty()) {
+    CURAND_CALL(curandGenerateUniform(_randGen, data_, size()));
+  }
   return *this;
 }
 
 MatGPU& MatGPU::randnorm() {
-  mexAssert(stride_ == 1, "In MatGPU::randnorm stride_ should be 1");
-  CURAND_CALL(curandGenerateNormal(_randGen, data_, size1_ * size2_, 0, 1));
+  if (!empty()) {
+    CURAND_CALL(curandGenerateNormal(_randGen, data_, size(), 0, 1));
+  }
   return *this;
 }
 
-MatGPU& MatGPU::operator += (const MatGPU &a) {
-  cuda_addmat(*this, a);
+MatGPU& MatGPU::linear(ftype ca, ftype cb, const MatGPU &b, bool b_tr) {
+  mexAssertMsg(cb == 0 || data_ != b.data_, "In linear pointers should be different");
+  mexAssertMsg(order_ == b.order_, "In linear orders should be the same");
+  cublasOperation_t a_op = CUBLAS_OP_N, b_op;
+  if (!b_tr) {
+    mexAssertMsg(size1_ == b.size1_ && size2_ == b.size2_,
+      "In linear sizes does not correspond to each other");
+    b_op = CUBLAS_OP_N;
+  } else {
+    mexAssertMsg(size1_ == b.size2_ && size2_ == b.size1_,
+      "In linear sizes does not correspond to each other");
+    b_op = CUBLAS_OP_T;
+  }
+  int as1, as2, bs1;
+  if (order_ == false) {
+    as1 = size1_; as2 = size2_;
+    bs1 = b.size1_;
+  } else {
+    as1 = size2_; as2 = size1_;
+    bs1 = b.size2_;
+  }
+  cudaStream_t stream = MatGPU::_defaultStream;
+  cublasHandle_t handle = MatGPU::_cublasHandle;
+  const ftype scale1 = ca, scale2 = cb;
+  CUBLAS_CALL(cublasSetStream(handle, stream));
+  CUBLAS_CALL(cublasSgeam(handle, a_op, b_op, as1, as2,
+              &scale1, data_, as1,
+              &scale2, b.data_, bs1,
+              data_, as1));
   return *this;
 }
 
-MatGPU& MatGPU::operator -= (const MatGPU &a) {
-  cuda_submat(*this, a);
+
+MatGPU& MatGPU::operator += (const MatGPU &b) {
+  cuda_addmat(*this, b);
+  //linear(1, 1, b, false);
   return *this;
 }
 
-MatGPU& MatGPU::operator *= (const MatGPU &a) {
-  cuda_multmat(*this, a);
+MatGPU& MatGPU::operator -= (const MatGPU &b) {
+  cuda_submat(*this, b);
+  //linear(1, -1, b, false);
   return *this;
 }
 
-MatGPU& MatGPU::operator /= (const MatGPU &a) {
-  cuda_divmat(*this, a);
+MatGPU& MatGPU::operator *= (const MatGPU &b) {
+  cuda_multmat(*this, b);
   return *this;
 }
 
-MatGPU& MatGPU::operator += (ftype a) {
-  cuda_addval(*this, a);
+MatGPU& MatGPU::operator /= (const MatGPU &b) {
+  cuda_divmat(*this, b);
   return *this;
 }
 
-MatGPU& MatGPU::operator -= (ftype a) {
-  cuda_subval(*this, a);
+MatGPU& MatGPU::operator += (ftype c) {
+  cuda_addval(*this, c);
   return *this;
 }
 
-MatGPU& MatGPU::operator *= (ftype a) {
-  cuda_multval(*this, a);
+MatGPU& MatGPU::operator -= (ftype c) {
+  cuda_subval(*this, c);
   return *this;
 }
 
-MatGPU& MatGPU::operator /= (ftype a) {
-  cuda_divval(*this, a);
+MatGPU& MatGPU::operator *= (ftype c) {
+  cuda_multval(*this, c);
+  //linear(c, 0, *this, false);
+  return *this;
+}
+
+MatGPU& MatGPU::operator /= (ftype c) {
+  cuda_divval(*this, c);
+  //linear(1.0/c, 0, *this, false);
   return *this;
 }
 
@@ -492,32 +514,44 @@ MatGPU& MatGPU::Sigmoid() {
 MatGPU& MatGPU::SigmDer(const MatGPU& a) {
   cuda_sigmder(*this, a);
   return *this;
-}  
+}
 
 MatGPU& MatGPU::SoftMax() {
-  MatGPU maxvect, sumvect;  
-  swapWithBuffer(maxvect, -1);
-  maxvect.resize(size1_, 1);
-  cuda_maxvect(*this, maxvect, 2);
-  this->AddVect(maxvect *= -1, 2);
-  this->Exp();
-  swapWithBuffer(sumvect, -2);  
-  sumvect.resize(size1_, 1);
-  Sum(*this, sumvect, 2);  
-  maxvect.assign(1);
-  maxvect /= sumvect;
-  this->MultVect(maxvect, 2);
-  swapWithBuffer(maxvect, -1);
-  swapWithBuffer(sumvect, -2);
+  mexAssert(kInternalOrder == true);
+  cudnnTensorDescriptor_t src_desc = GetTensorDesc();
+  const ftype scale_res = 1.0, scale_cur = 0.0;
+  CUDNN_CALL(cudnnSoftmaxForward(
+    MatGPU::_cudnnHandle, CUDNN_SOFTMAX_ACCURATE, CUDNN_SOFTMAX_MODE_CHANNEL,
+    &scale_res, src_desc, data_, &scale_cur, src_desc, data_
+  ));
   return *this;
 }
 
-MatGPU& MatGPU::SoftDer(const MatGPU& a) {
-  computeSoftmaxGrad(a, *this, *this);
+MatGPU& MatGPU::SoftDer(const MatGPU& b) {
+  //computeSoftmaxGrad(a, *this, *this);
+  mexAssert(kInternalOrder == true);
+  MatGPU bc;
+  if (b.order_ == false) {
+    MatGPU btr;
+    btr.attach(b, 0, size2_, size1_, true);
+    bc.resize(b.size1_, b.size2_);
+    bc.set_order(true);
+    Trans(btr, bc);
+  } else {
+    bc.attach(b);
+  }
+  cudnnTensorDescriptor_t src_desc = GetTensorDesc();
+  cudnnTensorDescriptor_t par_desc = bc.GetTensorDesc();
+  const ftype scale_res = 1.0, scale_cur = 0.0;
+  CUDNN_CALL(cudnnSoftmaxBackward(
+    MatGPU::_cudnnHandle, CUDNN_SOFTMAX_ACCURATE, CUDNN_SOFTMAX_MODE_CHANNEL,
+    &scale_res, par_desc, bc.data_, src_desc, data_, &scale_cur, src_desc, data_
+  ));
+
   return *this;
 }
 
-MatGPU& MatGPU::CondAssign(const MatGPU &condmat, bool incase, ftype threshold, ftype a) {  
+MatGPU& MatGPU::CondAssign(const MatGPU &condmat, bool incase, ftype threshold, ftype a) {
   cuda_condassign(*this, condmat, incase, threshold, a);
   return *this;
 }
@@ -532,95 +566,218 @@ MatGPU& MatGPU::CondMult(const MatGPU &condmat, bool incase, ftype threshold, ft
   return *this;
 }
 
-MatGPU& MatGPU::AddVect(const MatGPU &vect, size_t dim) {  
-  cuda_addvect(*this, vect, dim);
+MatGPU& MatGPU::AddVect(MatGPU &vect, int dim) {
+  //cuda_addvect(*this, vect, dim);
+  mexAssertMsg(data_ != vect.data_, "In AddVect pointers should be different");
+  if (dim == 1) {
+    mexAssertMsg(vect.size1_ == 1 && vect.size2_ == size2_,
+              "In AddVect the sizes don't correspond");
+  } else if (dim == 2) {
+    mexAssertMsg(vect.size1_ == size1_ && vect.size2_ == 1,
+              "In AddVect the sizes don't correspond");
+  } else {
+    mexAssertMsg(false, "In MatGPU::AddVect the dimension parameter must be either 1 or 2");
+  }
+  Dim dims = {(int) size1_, (int) size2_, 1, 1};
+  Dim vect_dims = {(int) vect.size1_, (int) vect.size2_, 1, 1};
+  reshape_tensor(dims);
+  vect.reshape_tensor(vect_dims);
+  AddTensor(vect);
   return *this;
 }
 
-MatGPU& MatGPU::MultVect(const MatGPU &vect, size_t dim) {  
-  cuda_multvect(*this, vect, dim);
+
+MatGPU& MatGPU::MultVect(const MatGPU &vect, int dim) {
+  //cuda_multvect(*this, vect, dim);
+
+  mexAssertMsg(data_ != vect.data_, "In MultVect pointers should be different");
+
+  cudaStream_t stream = MatGPU::_defaultStream;
+  cublasHandle_t handle = MatGPU::_cublasHandle;
+  CUBLAS_CALL(cublasSetStream(handle, stream));
+
+  int as1, as2;
+  cublasSideMode_t side_mode;
+  if (order_ == false) {
+    as1 = size1_; as2 = size2_;
+  } else {
+    as1 = size2_; as2 = size1_;
+  }
+
+  if (dim == 1) {
+    mexAssertMsg(vect.size1_ == 1 && vect.size2_ == size2_,
+      "In MultVect the sizes don't correspond");
+    if (order_ == true) {
+      side_mode = CUBLAS_SIDE_LEFT;
+    } else {
+      side_mode = CUBLAS_SIDE_RIGHT;
+    }
+  } else if (dim == 2) {
+    mexAssertMsg(vect.size1_ == size1_ && vect.size2_ == 1,
+      "In MultVect the sizes don't correspond");
+    if (order_ == true) {
+      side_mode = CUBLAS_SIDE_RIGHT;
+    } else {
+      side_mode = CUBLAS_SIDE_LEFT;
+    }
+  } else {
+    mexAssertMsg(false, "In MatGPU::MultVect the dimension parameter must be either 1 or 2");
+  }
+  CUBLAS_CALL(cublasSdgmm(handle, side_mode, as1, as2,
+              data_, as1, vect.data_, 1, data_, as1));
+
   return *this;
 }
 
-MatGPU& MatGPU::Normalize(ftype norm) {
-  mexAssert(false, "All normalization should be on the CPU");  
+MatGPU& MatGPU::Reorder(bool order) {
+  //mexAssertMsg(order_ == order, "In MatGPU::reorder order should be the same");
+  if (order_ != order) {
+    if (size1_ > 1 && size2_ > 1) {
+      MatGPU mr(size1_, size2_);
+      mr.order_ = order;
+      mr = (*this); // reorder
+      order_ = order;
+      (*this) = mr;
+    } else {
+      order_ = order;
+    }
+  }
   return *this;
 }
 
-MatGPU& MatGPU::Validate() {    
+MatGPU& MatGPU::ReorderMaps(bool cur_order, bool order) {
+  if (cur_order != order) {
+    mexAssertMsg(order_ == true, "In ReorderMaps the order should be true");
+    std::vector< std::vector<MatGPU> > maps = InitMaps();
+    for (size_t i = 0; i < maps.size(); ++i) {
+      for (size_t j = 0; j < maps[i].size(); ++j) {
+        // setting the correct order instead of default kInternalOrder
+        maps[i][j].set_order(cur_order);
+        // actual reordering
+        maps[i][j].Reorder(order);
+      }
+    }
+  }
+  return *this;
+}
+
+MatGPU& MatGPU::Validate() {
   cuda_validate(*this);
-  //CUDA_CALL(cudaDeviceSynchronize());
   return *this;
+}
+
+// const functions
+
+Dim MatGPU::tensor_shape() const {
+  mexAssertMsg(tensor_desc_ != NULL, "Tensor descriptor is not defined");
+  Dim shape, stride;
+  cudnnDataType_t data_type = CUDNN_TYPE;
+  CUDNN_CALL(cudnnGetTensor4dDescriptor(
+    tensor_desc_, &data_type,
+    &shape[0], &shape[1], &shape[2], &shape[3],
+    &stride[0], &stride[1], &stride[2], &stride[3]
+  ));
+  return shape;
+}
+
+Dim MatGPU::filter_shape() const {
+  mexAssertMsg(filter_desc_ != NULL, "Filter descriptor is not defined");
+  Dim shape;
+  cudnnDataType_t data_type = CUDNN_TYPE;
+  cudnnTensorFormat_t tensor_format = CUDNN_LAYOUT;
+  CUDNN_CALL(cudnnGetFilter4dDescriptor(
+    filter_desc_, &data_type, &tensor_format,
+    &shape[0], &shape[1], &shape[2], &shape[3]
+  ));
+  return shape;
+}
+
+std::vector< std::vector<MatGPU> > MatGPU::InitMaps() const {
+  mexAssertMsg(order_ == true, "In InitMaps the order should be true");
+  mexAssertMsg(tensor_desc_ == NULL || filter_desc_ == NULL, "Both descriptors are defined");
+  Dim dims;
+  if (tensor_desc_ != NULL) {
+    dims = tensor_shape();
+  } else if (filter_desc_ != NULL) {
+    dims = filter_shape();
+  } else {
+    mexAssertMsg(false, "Neither of descriptors is defined");
+  }
+  mexAssertMsg(size() == dims[0] * dims[1] * dims[2] * dims[3],
+    "In InitMaps dims assert");
+  // splitting the 2nd dimension
+  size_t batchsize = dims[0], channels = dims[1], numel = dims[2] * dims[3];
+  size_t pixels_num = channels * numel;
+  std::vector< std::vector<MatGPU> > matrices(batchsize);
+  for (size_t k = 0; k < batchsize; ++k) {
+    matrices[k].resize(channels);
+    for (size_t j = 0; j < channels; ++j) {
+      matrices[k][j].attach(data_ + k * pixels_num + j * numel,
+          dims[2], dims[3], kInternalOrder);
+    }
+  }
+  return matrices;
+}
+
+ftype MatGPU::sum() const {
+  return cuda_sum(*this);
 }
 
 // CPU <-> GPU functions
 
 MatGPU& MatGPU::operator = (const MatCPU &a) {
   // no resize in order to ensure that b.data_ is fixed
-  mexAssert(!a.empty() && !empty(), "In HostToDevice one of the arrays is empty");
-  mexAssert(a.size1() == size1_ && a.size2() == size2_,
-    "In HostToDevice the sizes of matrices do not correspond");  
+  mexAssertMsg(!a.empty() && !empty(), "In HostToDevice one of the arrays is empty");
+  mexAssertMsg(a.size1() == size1_ && a.size2() == size2_,
+    "In HostToDevice the sizes of matrices do not correspond");
   // conversion is to get access to protected members
   const MatGPU *a_ptr = static_cast<const MatGPU*>(&a);
-  mexAssert(a_ptr->stride_ == 1 && stride_ == 1, "In HostToDevice strides should be 1");
   if (a.order() == order_) {
-    CUDA_CALL(cudaMemcpy(data_, a_ptr->data_, getNumDataBytes(), cudaMemcpyHostToDevice));
+    CUDA_CALL(cudaMemcpy(data_, a_ptr->data_, BytesNum(), cudaMemcpyHostToDevice));
   } else {
     MatGPU br(a.size1(), a.size2());
     br.order_ = a.order();
     br = a; // previous case
-    (*this) = br; // reorder    
+    (*this) = br; // reorder
   }
   return *this;
 }
 
 void DeviceToHost(const MatGPU &b, MatCPU &a) {
   // no resize in order to ensure that b.data_ is fixed
-  mexAssert(!a.empty() && !b.empty(), "In DeviceToHost one of the arrays is empty");
-  mexAssert(a.size1() == b.size1_ && a.size2() == b.size2_,
-    "In DeviceToHost the sizes of matrices do not correspond");  
-  // conversion is to get access to protected members  
-  const MatGPU *b_ptr = &b;
-  MatGPU *a_ptr = static_cast<MatGPU*>(&a);  
-  mexAssert(a_ptr->stride_ == 1 && b_ptr->stride_ == 1, "In HostToDevice strides should be 1");
+  mexAssertMsg(!a.empty() && !b.empty(), "In DeviceToHost one of the arrays is empty");
+  mexAssertMsg(a.size1() == b.size1_ && a.size2() == b.size2_,
+    "In DeviceToHost the sizes of matrices do not correspond");
+  // conversion is to get access to protected members
+  MatGPU *a_ptr = static_cast<MatGPU*>(&a);
   if (a.order() == b.order()) {
-    CUDA_CALL(cudaMemcpy(a_ptr->data_, b_ptr->data_, b_ptr->getNumDataBytes(), cudaMemcpyDeviceToHost));
+    CUDA_CALL(cudaMemcpy(a_ptr->data_, b.data_, b.BytesNum(), cudaMemcpyDeviceToHost));
   } else {
     MatGPU br(a.size1(), a.size2());
     br.order_ = a.order();
     br = b; // reorder
-    a = br; // previous case    
-  }  
+    a = br; // previous case
+  }
 }
 
 void SubSet(MatCPU &a, MatGPU &b, size_t offset, bool dir) {
-  
+
   if (print >= 3) {
     MatGPU::StartCudaTimer();
   }
-  
+
   MatGPU *a_ptr = static_cast<MatGPU*>(&a);
-  mexAssert(a_ptr->order_ == true, "In SubSet 'a.order_' should be true");
-  mexAssert(b.order_ == false, "In SubSet 'b.order_' should be false");  
-  mexAssert(offset + b.size1_ <= a_ptr->size1_ && b.size2_ == a_ptr->size2_,
-            "In SubSet the sizes don't correspond each other");  
+  mexAssertMsg(a_ptr->order_ == true, "In SubSet 'a.order_' should be true");
+  mexAssertMsg(b.order_ == true, "In SubSet 'b.order_' should be true");
+  mexAssertMsg(offset + b.size1_ <= a_ptr->size1_ && b.size2_ == a_ptr->size2_,
+            "In SubSet the sizes don't correspond each other");
   MatCPU as;
-  as.attach(a_ptr->data_ + offset * a_ptr->size2_, b.size1_, b.size2_, 1, true);
-  // we declare additional array here in order to use buffers
-  MatGPU br;
-  int bufsize = (int) (b.size1_ * b.size2_);
-  MatGPU::swapWithBuffer(br, bufsize);
-  br.resize(b.size1_, b.size2_);
-  br.order_ = true;
-  if (dir) {        
-    br = as; // HostToDevice    
-    b = br; //changes the order, if necessary
+  as.attach(a_ptr->data_ + offset * a_ptr->size2_, b.size1_, b.size2_, true);
+  if (dir) {
+    b = as; // HostToDevice
   } else {
-    br = b; //changes the order, if necessary
-    DeviceToHost(br, as);
+    DeviceToHost(b, as);
   }
-  MatGPU::swapWithBuffer(br, bufsize);
-  
   if (print >= 3) {
     MatGPU::MeasureCudaTime("SubSet");
   }
@@ -628,320 +785,420 @@ void SubSet(MatCPU &a, MatGPU &b, size_t offset, bool dir) {
 
 // friend functions
 
-// exact copy from MatCPU
-void InitMaps(const MatGPU &a, const std::vector<size_t> &mapsize,
-              std::vector< std::vector<MatGPU> > &matrices) {
-  mexAssert(kMapsOrder == false, "In InitMaps kMapsOrder should be always false");
-  mexAssert(mapsize.size() == 2, "In InitMaps the size vector length != 2");
-  // splitting the 2nd dimension
-  size_t batchsize = a.size1_, pixels_num = a.size2_;
-  if (matrices.size() != batchsize) matrices.resize(batchsize);
-  size_t numel = mapsize[0] * mapsize[1];
-  mexAssert(pixels_num % numel == 0, "In 'MatGPU::InitMaps' the matrix sizes do not correspond");
-  size_t outputmaps = pixels_num / numel;
-  for (size_t k = 0; k < batchsize; ++k) {
-    if (matrices[k].size() != outputmaps) matrices[k].resize(outputmaps);
-    size_t ind = 0;
-    for (size_t j = 0; j < outputmaps; ++j) {
-      if (!a.order_) {
-        matrices[k][j].attach(a.data_ + ind * batchsize + k,
-          mapsize[0], mapsize[1], batchsize, kMapsOrder);
-      } else {
-        matrices[k][j].attach(a.data_ + k * pixels_num + ind,
-          mapsize[0], mapsize[1], 1, kMapsOrder);
-      }
-      ind += numel;
-    }    
+void Sum(MatGPU &a, MatGPU &vect, int dim) {
+  //cuda_sumvect(a, vect, dim);
+
+  mexAssertMsg(a.data_ != vect.data_, "In Sum pointers should be different");
+
+  cudaStream_t stream = MatGPU::_defaultStream;
+  cublasHandle_t handle = MatGPU::_cublasHandle;
+  CUBLAS_CALL(cublasSetStream(handle, stream));
+  const ftype scale1 = 1.0, scale2 = 0.0;
+
+  cublasOperation_t op;
+  MatGPU ones_vect;
+  if (dim == 1) {
+    mexAssertMsg(vect.size1_ == 1 && vect.size2_ == a.size2_,
+      "In Sum the sizes do not correspond each other");
+    if (a.order_ == false) {
+      op = CUBLAS_OP_T;
+    } else {
+      op = CUBLAS_OP_N;
+    }
+    ones_vect.GetFromWorkspace(1, a.size1_);
+
+  } else if (dim == 2) {
+    mexAssertMsg(vect.size1_ == a.size1_ && vect.size2_ == 1,
+      "In Sum the sizes do not correspond each other");
+    if (a.order_ == false) {
+      op = CUBLAS_OP_N;
+    } else {
+      op = CUBLAS_OP_T;
+    }
+    ones_vect.GetFromWorkspace(a.size2_, 1);
+  } else {
+    mexAssertMsg(false, "In MatGPU::Sum the dimension parameter must be either 1 or 2");
+  }
+  int as1, as2;
+  if (a.order_ == false) {
+    as1 = a.size1_;
+    as2 = a.size2_;
+  } else {
+    as1 = a.size2_;
+    as2 = a.size1_;
+  }
+  ones_vect.assign(1);
+  CUBLAS_CALL(cublasSgemv(handle, op, as1, as2,
+              &scale1, a.data_, as1,
+              ones_vect.data_, 1,
+              &scale2, vect.data_, 1));
+}
+
+
+void Mean(MatGPU &a, MatGPU &vect, int dim) {
+  Sum(a, vect, dim);
+  if (dim == 1) {
+    vect /= (ftype) a.size1_;
+  } else if (dim == 2) {
+    vect /= (ftype) a.size2_;
+  } else {
+    mexAssertMsg(false, "In MatGPU::Mean the dimension parameter must be either 1 or 2");
   }
 }
 
-void Sum(MatGPU &a, MatGPU &vect, size_t dim) {  
-  if (dim == 1) {
-    mexAssert(vect.size1_ == 1 && vect.size2_ == a.size2_,
-      "In Sum the sizes do not correspond each other");    
-  } else if (dim == 2) {
-    mexAssert(vect.size1_ == a.size1_ && vect.size2_ == 1,
-      "In Sum the sizes do not correspond each other");       
-  } else {
-    mexAssert(false, "In MatGPU Sum the dimension parameter must be either 1 or 2");
-  }  
-  cuda_sumvect(a, vect, dim);  
-}
-
-void Mean(MatGPU &a, MatGPU &vect, size_t dim) {
-  Sum(a, vect, dim);  
-  if (dim == 1) {    
-    vect /= (ftype) a.size1_;    
-  } else if (dim == 2) {    
-    vect /= (ftype) a.size2_;    
-  } else {
-    mexAssert(false, "In MatGPU Mean the dimension parameter must be either 1 or 2");
-  }  
-}
-
 void Trans(const MatGPU &a, MatGPU &b) {
-  // no resize to ensure that b.data_ is not relocated
-  cuda_trans(a, b);  
+  //cuda_trans(a, b);
+  b.linear(0, 1, a, true);
 }
 
 // layer transformation functions
 
-void Prod(const MatGPU &a, bool a_tr, const MatGPU &b, bool b_tr, MatGPU &c) {  
-  
-  mexAssert(a.order_ == b.order_ && b.order_ == c.order_, "In Prod the orders should be the same");
-  mexAssert(a.stride_ == 1 && b.stride_ == 1 && c.stride_ == 1, "In Prod one of strides is not 1"); 
-  
+void Prod(const MatGPU &a, bool a_tr, const MatGPU &b, bool b_tr, MatGPU &c) {
+
+  mexAssertMsg(a.order_ == b.order_ && b.order_ == c.order_, "In Prod the orders should be the same");
+
   cudaStream_t stream = MatGPU::_defaultStream;
   cublasHandle_t handle = MatGPU::_cublasHandle;
-  const ftype scale_prod = 1.0, scale_cur = 0.0;    
-  CUBLAS_CALL(cublasSetStream(handle, stream));    
-  
-  size_t as1, as2, bs1, bs2;
-  cublasOperation_t a_op, b_op;    
-  
+  const ftype scale_res = 1.0, scale_cur = 0.0;
+  CUBLAS_CALL(cublasSetStream(handle, stream));
+
+  cublasOperation_t a_op, b_op;
+  if (!a_tr) {
+    a_op = CUBLAS_OP_N;
+  } else {
+    a_op = CUBLAS_OP_T;
+  }
+  if (!b_tr) {
+    b_op = CUBLAS_OP_N;
+  } else {
+    b_op = CUBLAS_OP_T;
+  }
+
+  int as1, as2, bs1, bs2;
   if (a.order_ == false) { // Alex kernels
     if (!a_tr) { // a
       as1 = a.size1_; as2 = a.size2_;
-      a_op = CUBLAS_OP_N;
     } else { // aT
-      as1 = a.size2_; as2 = a.size1_;    
-      a_op = CUBLAS_OP_T;
+      as1 = a.size2_; as2 = a.size1_;
     }
-    if (!b_tr) { //b
+    if (!b_tr) { // b
       bs1 = b.size1_; bs2 = b.size2_;
-      b_op = CUBLAS_OP_N;
-    } else { //bT
+    } else { // bT
       bs1 = b.size2_; bs2 = b.size1_;
-      b_op = CUBLAS_OP_T;
     }
+    mexAssertMsg(as2 == bs1, "In Prod the sizes of matrices do not correspond");
+    mexAssertMsg(c.size1_ == as1 && c.size2_ == bs2, "In Prod the size of output matrix is wrong");
 
-    mexAssert(as2 == bs1, "In Prod the sizes of matrices do not correspond");   
-    mexAssert(c.size1_ == as1 && c.size2_ == bs2, "In Prod the size of output matrix is wrong"); 
-    
-    CUBLAS_CALL(cublasSgemm(handle, a_op, b_op, (int) as1, (int) bs2, (int) as2,
-                           &scale_prod, a.data_, (int) a.size1_, b.data_, (int) b.size1_,
-                           &scale_cur, c.data_, (int) c.size1_));                         
+    CUBLAS_CALL(cublasSgemm(handle, a_op, b_op, as1, bs2, as2,
+                           &scale_res, a.data_, a.size1_, b.data_, b.size1_,
+                           &scale_cur, c.data_, c.size1_));
   } else { // cuDNN kernels
     if (!a_tr) { // a
       as1 = a.size2_; as2 = a.size1_;
-      a_op = CUBLAS_OP_T;
     } else { // aT
-      as1 = a.size1_; as2 = a.size2_;    
-      a_op = CUBLAS_OP_N;
+      as1 = a.size1_; as2 = a.size2_;
     }
-    if (!b_tr) { //b
+    if (!b_tr) { // b
       bs1 = b.size2_; bs2 = b.size1_;
-      b_op = CUBLAS_OP_T;
-    } else { //bT
+    } else { // bT
       bs1 = b.size1_; bs2 = b.size2_;
-      b_op = CUBLAS_OP_N;
     }
+    mexAssertMsg(as1 == bs2, "In Prod the sizes of matrices do not correspond");
+    mexAssertMsg(c.size1_ == as2 && c.size2_ == bs1, "In Prod the size of output matrix is wrong");
 
-    mexAssert(as1 == bs2, "In Prod the sizes of matrices do not correspond");   
-    mexAssert(c.size1_ == as2 && c.size2_ == bs1, "In Prod the size of output matrix is wrong"); 
-    
-    CUBLAS_CALL(cublasSgemm(handle, b_op, a_op, (int) bs1, (int) as2, (int) bs2,
-                           &scale_prod, b.data_, (int) b.size2_, a.data_, (int) a.size2_,
-                           &scale_cur, c.data_, (int) c.size2_));
+    CUBLAS_CALL(cublasSgemm(handle, b_op, a_op, bs1, as2, bs2,
+                           &scale_res, b.data_, b.size2_, a.data_, a.size2_,
+                           &scale_cur, c.data_, c.size2_));
   }
-}
-
-void TransformActs(const MatGPU &images, MatGPU &targets, 
-                   const std::vector<size_t> &prev_mapsize, const std::vector<size_t> &mapsize,
-                   const std::vector<ftype> &shift, const std::vector<ftype> &scale, 
-                   const std::vector<bool> &mirror, ftype angle, ftype defval) {
-      
-  size_t numdim = 2;
-  mexAssert(shift.size() == numdim && scale.size() == numdim && mirror.size() == numdim,
-    "In TransformActs one of the vectors has the wrong size");
-  
-  size_t batchsize = images.size1();
-  MatGPU shift_mat, scale_mat, mirror_mat, angle_mat;  
-  
-  MatGPU::swapWithBuffer(shift_mat, -3);
-  shift_mat.resize(batchsize, numdim);
-  shift_mat.assign(0);
-  
-  MatGPU::swapWithBuffer(scale_mat, -4);
-  scale_mat.resize(batchsize, numdim);
-  scale_mat.assign(1);
-  
-  MatGPU::swapWithBuffer(mirror_mat, -5);
-  mirror_mat.resize(batchsize, numdim);
-  mirror_mat.assign(0);
-  
-  MatGPU::swapWithBuffer(angle_mat, -6);
-  angle_mat.resize(batchsize, 1);
-  angle_mat.assign(0);
-  
-  MatGPU dim_vect;
-  //MatGPU randvect(batchsize, 1);
-  mexAssert(kDefaultOrder == false, "In TransformActs the default order should be false");  
-  for (size_t j = 0; j < numdim; ++j) {    
-    if (shift[j] > 0) {
-      dim_vect.attach(shift_mat.data_ + batchsize * j, batchsize, 1);
-      (dim_vect.rand() *= 2) -= 1;
-      dim_vect *= shift[j];
-      /*
-      (randvect.rand() *= 2) -= 1;
-      dim_vect.CondAssign(randvect, false, -0.333, -shift[j]);      
-      dim_vect.CondAssign(randvect, true, 0.333, shift[j]);
-      */
-    }
-    if (scale[j] > 1) {
-      dim_vect.attach(scale_mat.data_ + batchsize * j, batchsize, 1);
-      (dim_vect.rand() *= 2) -= 1;
-      (dim_vect *= log(scale[j])).Exp();
-      /*
-      (randvect.rand() *= 2) -= 1;      
-      dim_vect.CondAssign(randvect, false, -0.333, (float) 1 / scale[j]);      
-      dim_vect.CondAssign(randvect, true, 0.333, scale[j]);
-      */
-    }
-    if (mirror[j] == true) {
-      dim_vect.attach(mirror_mat.data_ + batchsize * j, batchsize, 1);
-      dim_vect.rand();    
-    }    
-  } 
-  if (angle > 0) {
-    ((angle_mat.rand() *= 2) -= 1) *= kPi * angle;
-    /*
-    (randvect.rand() *= 2) -= 1;      
-    angle_mat.CondAssign(randvect, false, -0.333, -angle);      
-    angle_mat.CondAssign(randvect, true, 0.333, angle);
-    */
-  }
-  
-  _transformActs(images, targets,
-                 prev_mapsize[0], prev_mapsize[1], mapsize[0], mapsize[1], 
-                 shift_mat, scale_mat, mirror_mat, angle_mat, defval);  
-                 
-  MatGPU::swapWithBuffer(shift_mat, -3);
-  MatGPU::swapWithBuffer(scale_mat, -4);
-  MatGPU::swapWithBuffer(mirror_mat, -5);
-  MatGPU::swapWithBuffer(angle_mat, -6);
 }
 
 // filter functions
 
-void FilterActs(MatGPU& images, MatGPU& filters, MatGPU& targets,
-                const std::vector<size_t> &prev_mapsize,
-                size_t filterSize, size_t padding, bool conv) {
-  
+MatGPU& MatGPU::AddTensor(MatGPU &tensor) {
+  mexAssert(kInternalOrder == true);
+
+  cudnnTensorDescriptor_t desc = GetTensorDesc();
+  cudnnTensorDescriptor_t tns_desc = tensor.GetTensorDesc();
+
+  const ftype scale_res = 1.0, scale_cur = 1.0;
+  CUDNN_CALL(cudnnAddTensor(MatGPU::_cudnnHandle,
+    &scale_res, tns_desc, tensor.data_,
+    &scale_cur, desc, data_
+  ));
+  return *this;
+}
+
+void ConvolutionForward(MatGPU& activs, MatGPU& filters, MatGPU& targets,
+                        const cudnnConvolutionDescriptor_t &conv_desc) {
+  mexAssert(kInternalOrder == true);
+
   if (print >= 3) {
     MatGPU::StartCudaTimer();
   }
-  
-  #if USE_CUDNN == 0
-    _filterActs(images, filters, targets, 
-                prev_mapsize[0], prev_mapsize[1], 
-                filterSize, padding, conv);
-  #else
-    
-  #endif
-  
+  cudnnTensorDescriptor_t act_desc = activs.GetTensorDesc();
+  cudnnFilterDescriptor_t flt_desc = filters.GetFilterDesc();
+  cudnnTensorDescriptor_t trg_desc = targets.GetTensorDesc();
+  Dim dims;
+  CUDNN_CALL(cudnnGetConvolution2dForwardOutputDim(
+    conv_desc, act_desc, flt_desc, &dims[0], &dims[1], &dims[2], &dims[3]
+  ));
+  Dim trg_shape = targets.tensor_shape();
+  mexAssertMsg(trg_shape[0] == dims[0] && trg_shape[1] == dims[1] &&
+               trg_shape[2] == dims[2] && trg_shape[3] == dims[3],
+               "ConvolutionForward shape assert");
+
+  cudnnConvolutionFwdAlgo_t algo;
+  CUDNN_CALL(cudnnGetConvolutionForwardAlgorithm(
+    MatGPU::_cudnnHandle, act_desc, flt_desc, conv_desc, trg_desc,
+    CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT,
+    MatGPU::_cudnnMemoryLimit, &algo
+  ));
+
+  size_t ws_size;
+  CUDNN_CALL(cudnnGetConvolutionForwardWorkspaceSize(
+    MatGPU::_cudnnHandle, act_desc, flt_desc, conv_desc, trg_desc,
+    algo, &ws_size
+  ));
+
+  MatGPU workspace;
+  workspace.GetFromWorkspace(1, ws_size / sizeof(ftype));
+
+  const ftype scale_res = 1.0, scale_cur = 0.0;
+  CUDNN_CALL(cudnnConvolutionForward(MatGPU::_cudnnHandle,
+    &scale_res, act_desc, activs.data_, flt_desc, filters.data_,
+    conv_desc, algo, workspace.data_, ws_size,
+    &scale_cur, trg_desc, targets.data_
+  ));
+
   if (print >= 3) {
     MatGPU::MeasureCudaTime("FilterActs");
   }
 }
 
-void ImgActs(MatGPU& hidActs, MatGPU& filters, MatGPU& targets,
-             const std::vector<size_t> &prev_mapsize, 
-             size_t filterSize, size_t padding, bool conv) {
+
+void ConvolutionBackwardData(MatGPU& derivs, MatGPU& filters, MatGPU& targets,
+                             const cudnnConvolutionDescriptor_t &conv_desc) {
+  mexAssert(kInternalOrder == true);
 
   if (print >= 3) {
     MatGPU::StartCudaTimer();
   }
-             
-  _imgActs(hidActs, filters, targets, 
-          prev_mapsize[0], prev_mapsize[1],
-          filterSize, padding, conv);  
-  
+  cudnnTensorDescriptor_t trg_desc = targets.GetTensorDesc();
+  cudnnFilterDescriptor_t flt_desc = filters.GetFilterDesc();
+  cudnnTensorDescriptor_t der_desc = derivs.GetTensorDesc();
+  Dim dims;
+  CUDNN_CALL(cudnnGetConvolution2dForwardOutputDim(
+    conv_desc, trg_desc, flt_desc, &dims[0], &dims[1], &dims[2], &dims[3]
+  ));
+  Dim der_shape = derivs.tensor_shape();
+  mexAssertMsg(der_shape[0] == dims[0] && der_shape[1] == dims[1] &&
+               der_shape[2] == dims[2] && der_shape[3] == dims[3],
+               "ConvolutionBackwardData shape assert");
+
+  cudnnConvolutionBwdDataAlgo_t algo;
+  CUDNN_CALL(cudnnGetConvolutionBackwardDataAlgorithm(
+    MatGPU::_cudnnHandle, flt_desc, der_desc, conv_desc, trg_desc,
+    CUDNN_CONVOLUTION_BWD_DATA_SPECIFY_WORKSPACE_LIMIT,
+    MatGPU::_cudnnMemoryLimit, &algo
+  ));
+
+  size_t ws_size;
+  CUDNN_CALL(cudnnGetConvolutionBackwardDataWorkspaceSize(
+    MatGPU::_cudnnHandle, flt_desc, der_desc, conv_desc, trg_desc,
+    algo, &ws_size
+  ));
+
+  MatGPU workspace;
+  workspace.GetFromWorkspace(1, ws_size / sizeof(ftype));
+
+  const ftype scale_res = 1.0, scale_cur = 0.0;
+  CUDNN_CALL(cudnnConvolutionBackwardData(MatGPU::_cudnnHandle,
+    &scale_res, flt_desc, filters.data_, der_desc, derivs.data_,
+    conv_desc, algo, workspace.data_, ws_size,
+    &scale_cur, trg_desc, targets.data_
+  ));
+
   if (print >= 3) {
     MatGPU::MeasureCudaTime("ImgActs");
   }
-  
 }
 
-void WeightActs(MatGPU& images, MatGPU& hidActs, MatGPU& targets,
-                const std::vector<size_t> &prev_mapsize, 
-                size_t filtersize, size_t padding, 
-                size_t sum_width, bool conv) {
-  size_t mapsize1 = prev_mapsize[0] + 2 * padding + 1 - filtersize;
-  size_t mapsize2 = prev_mapsize[1] + 2 * padding + 1 - filtersize;
-  size_t chunks_x = DIVUP(mapsize1, sum_width);
-  size_t chunks_y = DIVUP(mapsize2, sum_width);
-  size_t chunks_num = chunks_x * chunks_y;      
-  
-  MatGPU tmpbuf;
-  int bufsize = (int) (targets.size1_ * targets.size2_ * chunks_num);
-  if (conv && chunks_num > 1) {
-    MatGPU::swapWithBuffer(tmpbuf, bufsize);    
-    tmpbuf.resize(targets.size1_, targets.size2_ * chunks_num);    
-  } else {
-    tmpbuf.attach(targets);
-  }
-  
-  if (print >= 3) {
-    MatGPU::StartCudaTimer();
-  }
-  
-  _weightActs(images, hidActs, tmpbuf,
-              prev_mapsize[0], prev_mapsize[1],
-              filtersize, padding, chunks_num, sum_width);      
-  
-  if (print >= 3) {
-    MatGPU::MeasureCudaTime("WeightActs");
-  }
-  
-  if (conv && chunks_num > 1) {
-    size_t outputmaps = targets.size1_;  
-    tmpbuf.reshape(targets.size1_ * targets.size2_, chunks_num);
-    targets.reshape(targets.size1_ * targets.size2_, 1);
-    Sum(tmpbuf, targets, 2);
-    targets.reshape(outputmaps, targets.size1_ / outputmaps);    
-    tmpbuf.reshape(targets.size1_, targets.size2_ * chunks_num);
-    MatGPU::swapWithBuffer(tmpbuf, bufsize);    
-  }
+
+void ConvolutionBackwardFilter(MatGPU& activs, MatGPU& derivs, MatGPU& targets,
+                               const cudnnConvolutionDescriptor_t &conv_desc) {
+  mexAssert(kInternalOrder == true);
+
+  cudnnTensorDescriptor_t act_desc = activs.GetTensorDesc();
+  cudnnFilterDescriptor_t trg_desc = targets.GetFilterDesc();
+  cudnnTensorDescriptor_t der_desc = derivs.GetTensorDesc();
+  Dim dims;
+  CUDNN_CALL(cudnnGetConvolution2dForwardOutputDim(
+    conv_desc, act_desc, trg_desc, &dims[0], &dims[1], &dims[2], &dims[3]
+  ));
+  Dim der_shape = derivs.tensor_shape();
+  mexAssertMsg(der_shape[0] == dims[0] && der_shape[1] == dims[1] &&
+               der_shape[2] == dims[2] && der_shape[3] == dims[3],
+               "ConvolutionBackwardFilter shape assert");
+
+  cudnnConvolutionBwdFilterAlgo_t algo;
+  CUDNN_CALL(cudnnGetConvolutionBackwardFilterAlgorithm(
+    MatGPU::_cudnnHandle, act_desc, der_desc, conv_desc, trg_desc,
+    CUDNN_CONVOLUTION_BWD_FILTER_SPECIFY_WORKSPACE_LIMIT,
+    MatGPU::_cudnnMemoryLimit, &algo
+  ));
+
+  size_t ws_size;
+  CUDNN_CALL(cudnnGetConvolutionBackwardFilterWorkspaceSize(
+    MatGPU::_cudnnHandle, act_desc, der_desc, conv_desc, trg_desc,
+    algo, &ws_size
+  ));
+
+  MatGPU workspace;
+  workspace.GetFromWorkspace(1, ws_size / sizeof(ftype));
+
+  const ftype scale_res = 1.0, scale_cur = 0.0;
+  CUDNN_CALL(cudnnConvolutionBackwardFilter(MatGPU::_cudnnHandle,
+    &scale_res, act_desc, activs.data_, der_desc, derivs.data_,
+    conv_desc, algo, workspace.data_, ws_size,
+    &scale_cur, trg_desc, targets.data_
+  ));
 }
+
+
+void ConvolutionBackwardBias(MatGPU& derivs, MatGPU &targets) {
+  mexAssert(kInternalOrder == true);
+
+  cudnnTensorDescriptor_t der_desc = derivs.GetTensorDesc();
+  cudnnTensorDescriptor_t trg_desc = targets.GetTensorDesc();
+
+  const ftype scale_res = 1.0, scale_cur = 0.0;
+  CUDNN_CALL(cudnnConvolutionBackwardBias(MatGPU::_cudnnHandle,
+    &scale_res, der_desc, derivs.data_,
+    &scale_cur, trg_desc, targets.data_
+  ));
+};
 
 // scaling functions
-void AvgPooling(MatGPU& images, MatGPU& targets,
-                const std::vector<size_t> &prev_mapsize, size_t scale, size_t stride) {
-  _convLocalAvgPool(images, targets, prev_mapsize[0], prev_mapsize[1], scale, stride);  
-}
-void MaxPooling(MatGPU& images, MatGPU& targets,
-                const std::vector<size_t> &prev_mapsize, size_t scale, size_t stride) {
-  _convLocalMaxPool(images, targets, prev_mapsize[0], prev_mapsize[1], scale, stride);  
+void Pooling(MatGPU& activs, MatGPU& targets,
+             cudnnPoolingDescriptor_t pool_desc) {
+
+  mexAssert(kInternalOrder == true);
+  cudnnTensorDescriptor_t act_desc = activs.GetTensorDesc();
+  cudnnTensorDescriptor_t trg_desc = targets.GetTensorDesc();
+  Dim dims;
+  CUDNN_CALL(cudnnGetPooling2dForwardOutputDim(
+    pool_desc, act_desc, &dims[0], &dims[1], &dims[2], &dims[3]
+  ));
+  Dim trg_shape = targets.tensor_shape();
+  mexAssertMsg(trg_shape[0] == dims[0] && trg_shape[1] == dims[1] &&
+            trg_shape[2] == dims[2] && trg_shape[3] == dims[3],
+            "Pooling shape assert");
+
+  const ftype scale_res = 1.0, scale_cur = 0.0;
+  CUDNN_CALL(cudnnPoolingForward(MatGPU::_cudnnHandle, pool_desc,
+    &scale_res, act_desc, activs.data_,
+    &scale_cur, trg_desc, targets.data_
+  ));
 }
 
-void AvgPoolingUndo(MatGPU& avgGrads, MatGPU& targets,
-                    const std::vector<size_t> &prev_mapsize, size_t scale, size_t stride) {
-  _convLocalAvgUndo(avgGrads, targets, prev_mapsize[0], prev_mapsize[1], scale, stride);  
+
+void PoolingUndo(MatGPU& activs, MatGPU& pool_activs,
+                 MatGPU& pool_derivs, MatGPU& derivs,
+                 cudnnPoolingDescriptor_t pool_desc, bool dir) {
+  // dir == true -> backward, derivs are targets
+  // dir == false -> forward, pool_derivs are targets
+  mexAssert(kInternalOrder == true);
+  mexAssertMsg(activs.size1_ == derivs.size1_ &&
+               activs.size2_ == derivs.size2_,
+            "In 'PoolingUndo' activs size assert");
+  mexAssertMsg(pool_activs.size1_ == pool_derivs.size1_ &&
+            pool_activs.size2_ == pool_derivs.size2_,
+            "In 'PoolingUndo' pool_activs.size assert");
+  cudnnTensorDescriptor_t act_desc = activs.GetTensorDesc();
+  cudnnTensorDescriptor_t trg_desc = derivs.GetTensorDesc();
+  cudnnTensorDescriptor_t pool_act_desc = pool_activs.GetTensorDesc();
+  cudnnTensorDescriptor_t pool_der_desc = pool_derivs.GetTensorDesc();
+  Dim dims;
+  CUDNN_CALL(cudnnGetPooling2dForwardOutputDim(
+    pool_desc, act_desc, &dims[0], &dims[1], &dims[2], &dims[3]
+  ));
+  Dim pool_act_shape = pool_activs.tensor_shape();
+  mexAssertMsg(pool_act_shape[0] == dims[0] && pool_act_shape[1] == dims[1] &&
+            pool_act_shape[2] == dims[2] && pool_act_shape[3] == dims[3],
+            "PoolingUndo shape assert");
+
+  if (dir == true) {
+    const ftype scale_res = 1.0, scale_cur = 0.0;
+    CUDNN_CALL(cudnnPoolingBackward(MatGPU::_cudnnHandle, pool_desc,
+      &scale_res, pool_act_desc, pool_activs.data_,
+      pool_der_desc, pool_derivs.data_, act_desc, activs.data_,
+      &scale_cur, trg_desc, derivs.data_
+    ));
+  } else {
+    Dim prev_dims = activs.tensor_shape();
+    Pair scale, padding, stride;
+    cudnnPoolingMode_t pool_mode = CUDNN_POOLING_MAX;
+    cudnnNanPropagation_t nan_prop_mode = CUDNN_PROPAGATE_NAN;
+    CUDNN_CALL(cudnnGetPooling2dDescriptor(pool_desc,
+      &pool_mode, &nan_prop_mode,
+      &scale[0], &scale[1], &padding[0], &padding[1], &stride[0], &stride[1]
+    ));
+    _maxPoolThirdPass(activs, pool_activs, derivs, pool_derivs,
+                      prev_dims[2], prev_dims[3], dims[2], dims[3],
+                      scale, padding, stride);
+  }
 }
 
-void MaxPoolingUndo(MatGPU& images, MatGPU& maxActs, MatGPU& maxGrads, MatGPU& imgGrads,
-                    const std::vector<size_t> &prev_mapsize, size_t scale, size_t stride, bool dir) {                    
-  if (dir) {
-    // imgGrads are targets
-    _convLocalMaxUndo(images, maxActs, maxGrads, imgGrads, prev_mapsize[0], prev_mapsize[1], scale, stride);    
-  } else {    
-    // maxGrads are targets
-    _convLocalMaxUndoDer(images, maxActs, imgGrads, maxGrads, prev_mapsize[0], prev_mapsize[1], scale, stride);    
-  }  
+
+void AffineTransform(const MatGPU &images, MatGPU &targets,
+                   const MatGPU &shift_mat, const MatGPU &scale_mat,
+                   const MatGPU &mirror_mat, const MatGPU &angle_mat,
+                   ftype defval, bool dir) {
+  Dim img_dims = images.tensor_shape();
+  Dim trg_dims = targets.tensor_shape();
+
+  _affineTransform(images, targets,
+                 img_dims[2], img_dims[3], trg_dims[2], trg_dims[3],
+                 shift_mat, scale_mat, mirror_mat, angle_mat, defval, dir);
 }
 
-void LocalResponseNorm(MatGPU& images, MatGPU& targets,
-                       const std::vector<size_t> &prev_mapsize, size_t normsize, ftype scale, ftype pow) {
-  _convContrastNormCrossMap(images, images, targets, prev_mapsize[0], prev_mapsize[1], normsize, scale, pow);
-}
-void LocalResponseNormUndo(MatGPU& images, MatGPU& maxActs, MatGPU& maxGrads, MatGPU& imgGrads,
-                           const std::vector<size_t> &prev_mapsize, size_t normsize, ftype scale, ftype pow) {
-  _convResponseNormCrossMapUndo(images, maxActs, maxGrads, imgGrads, prev_mapsize[0], prev_mapsize[1], normsize, scale, pow);
-}
+/*
 
-// class nonspecific
+void VaryColors(MatGPU &images, const Dim &dims,
+                const MatGPU &eigenvectors, ftype noise_std) {
 
-ftype MatGPU::sum() const {
-  return cuda_sum(*this);  
-}
+  int batchsize = images.size1();
+  int channels = images.size2() / (dims[2] * dims[3]);
+
+  MatGPU noise_mat, add_mat;
+  MatGPU::swapWithBuffer(noise_mat, -7);
+  noise_mat.resize(batchsize, channels);
+  // hack, because randnorm does not work for odd numbers. Start.
+  if (noise_mat.size1() * noise_mat.size2() % 2 > 0) {
+    MatGPU rndmat;
+    rndmat.attach(
+      noise_mat, 0,
+      noise_mat.size1() * noise_mat.size2() - 1, 1, noise_mat.order()
+    );
+    rndmat.randnorm() *= noise_std;
+
+    rndmat.attach(
+      noise_mat, noise_mat.size1() * noise_mat.size2() - 1,
+      1, 1, noise_mat.order()
+    );
+    (rndmat.rand() -= 0.5) *= noise_std;
+  } else {
+    noise_mat.randnorm() *= noise_std;
+  }
+  // hack, because randnorm does not work for odd numbers. End.
+
+  MatGPU::swapWithBuffer(add_mat, -8);
+  add_mat.resize(batchsize, channels);
+  Prod(noise_mat, false, eigenvectors, true, add_mat);
+
+  _varyColors(images, add_mat);
+
+  MatGPU::swapWithBuffer(noise_mat, -7);
+  MatGPU::swapWithBuffer(add_mat, -8);
+} */
+
