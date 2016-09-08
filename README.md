@@ -18,7 +18,7 @@ Learning process consists of 2 steps: forward and backward passes, which are con
  
 **DESCRIPTION**
 
-The toolbox was written for Matlab and its functions can be called only from Matlab scripts. The toolbox requires a Cuda capable GPU. The toolbox **DOES NOT REQUIRE Parallel Computing Toolbox** as MatConvNet, but you can import and use pretrained MatConvNet models. The toolbox operates with 4-dimensional tensors with incides corresponding to height(H), width(W), channel(C) and number(N). Labels should also be 4-dimensional tensors. If used for classification, labels should have height=1 and width=1. Before passing to c++ code the height and width dimensions are permuted, so the layout becomes NCHW (N is the slowest index). Same layout is used for weights everywhere.
+The toolbox was written for Matlab and its functions can be called only from Matlab scripts. The toolbox requires a Cuda capable GPU. **The toolbox DOES NOT REQUIRE Parallel Computing Toolbox as MatConvNet, but you can import and use pretrained MatConvNet models.** The toolbox operates with 4-dimensional tensors with incides corresponding to height(H), width(W), channel(C) and number(N). Labels should also be 4-dimensional tensors. If used for classification, labels should have height=1 and width=1. Before passing to c++ code the height and width dimensions are permuted, so the layout becomes NCHW (N is the slowest index). Same layout is used for weights everywhere.
 
 The toolbox contains 3 main functions to call:
 
