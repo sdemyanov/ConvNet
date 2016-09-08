@@ -9,14 +9,14 @@ This toolbox has been written as a part of my PhD project. It contains the imple
 It also contain the implementation of [Invariant Backpropagation (IBP)](http://arxiv.org/abs/1502.04434) and [Adversarial Training (AT)] (http://arxiv.org/abs/1412.6572) algorithms.
 
 
-GENERAL INFORMATION
+**GENERAL INFORMATION**
 
 Convolutional neural network is a type of deep learning classification and segmentation algorithms, which can learn useful features from raw data by themselves. Learning is performed by tuning its weights. CNNs consist of several layers, which are usually convolutional and subsampling layers following each other. Convolutional layer performs filtering of its input with a small matrix of weights and applies some non-linear function to the result. Subsampling layer does not contain weights and simply reduces the size of its input by averaging of max-pooling operation. The number of channels on the last layer should coincide with the number of classes. If used for classification, the height and width of the last layer output should be 1.
 
 Learning process consists of 2 steps: forward and backward passes, which are conducted for all objects in a training set. On the forward pass each layer transforms the output of the previous layer according to its function. The output of the last layer is compared with the label values and the loss function is computed. On the backward pass the derivatives of loss function with respect to outputs are consecutively computed from the last layer to the first, together with the derivatives with respect to weights. After that the weights are changed in the direction which decreases the value of the loss function. This process is performed for a batch of objects simultaneously, in order to decrease the sample bias. Processing of all objects in the dataset is called the epoch. Usually training consists of many epochs, conducted with different batch splits.
 
  
-DESCRIPTION
+**DESCRIPTION**
 
 The toolbox was written for Matlab and its functions can be called only from Matlab scripts. The toolbox requires a Cuda capable GPU. The toolbox DOES NOT REQUIRE Parallel Computing Toolbox as MatConvNet, but you can import and use pretrained MatConvNet models. The toolbox operates with 4-dimensional tensors with incides corresponding to height(H), width(W), channel(C) and number(N). Labels should also be 4-dimensional tensors. If used for classification, labels should have height=1 and width=1. Before passing to c++ code the height and width dimensions are permuted, so the layout becomes NCHW (N is the slowest index). Same layout is used for weights everywhere.
 
@@ -30,7 +30,7 @@ Performs neural net training. Returns the network with updated weights.
 Returns predictions and calculates the test error.
 
 
-LAYERS
+**LAYERS**
 
 Define the structure of CNN. Sets up as cell array, with each element representing an independent layer. Currently 6 layer types are implemented:
 
@@ -73,7 +73,7 @@ Additionally, all layers might have the following parameters:
 - **dropout** - a scalar from [0, 1), which determines the probability of dropping the activations on this layer. Should not be too large, otherwise it drops everything.
 
 
-PARAMS
+**PARAMS**
 
 Define the learning process. It is a structure with the fields described below.
 
@@ -106,7 +106,7 @@ Define the learning process. It is a structure with the fields described below.
 - **gpu** - allows to specify the index of gpu device to work on. Default is 0.
 
 
-COMPILATION
+**COMPILATION**
 
 If you cannot use the provided binaries, you need to compile them by yourself. The compilation options are defined in the file "settings.h". They are:
 
@@ -115,34 +115,33 @@ If you cannot use the provided binaries, you need to compile them by yourself. T
 - **PRECISION_EPS**. Equal to 1e-6 by default. For consistency purposes all values that are less than it are assigned to 0.
 
 
-COMPILATION FOR LINUX
+**COMPILATION**
 
-Adjust the paths in the './c++/Makefile' file and run "make". That should be enough.  
+- **Linux** - adjust the paths in the './c++/Makefile' file and run "make". That should be enough.  
 
+- **Windows** - has been tested long time ago.
 
-COMPILATION FOR WINDOWS
-
-- Using 'compile' script. Has been tested long time ago.
+1) Using 'compile' script. 
 While CPU compilation is easy, the GPU compilation is tricky and might take some efforts to do it.
 First of all, run 'mex -setup' in order to check that you have a proper C++ compiler. If not, install it. You need either a full version of Visual Studio or an express version with Microsoft SDK, that are free. Of course, you need to install CUDA as well. Download it from NVIDIA site. The CUDA settings for 'mex' are located in file with the name like "mex_CUDA_win64.xml". Read more on the MathWorks [website](http://www.mathworks.com.au/help/distcomp/run-mex-functions-containing-cuda-code.html#btrgjh3-1). You must have this file in your Matlab folder. The one that works for me is located in "./c++/cuda" folder. Adjust your Microsoft SDK and CUDA folders, CUDA computation capability and other options there. Make sure you have proper values of environment variables 'CUDA_PATH' and 'VS100COMNTOOLS'. You can do it using functions 'getenv' and 'setenv'. If you don't do it, you might get an error "No supported compiler or SDK was found". You might also get an error about the file 'vcvars64.bat'. In this case use the one that is located in "./c++/cuda" folder. Adjust the path in it as well. After that you should be able to compile.
 
-- Using Visual Studio project.  
+2) Using Visual Studio project.  
 This is a project to compile 'cnntrain_mex'. Add all '.h', '.cpp' and '.cu' files, adjust paths in Include and Libraries fields, and enjoy incremental compilation every time you change just one single file. Create similar project with the same settings to compile 'classify' and 'genweights'.
 
 
-LOADING PRETRAINED WEIGHTS
+**LOADING PRETRAINED WEIGHTS**
 
 It is possible to use pretrained models from [MatConvNet](http://www.vlfeat.org/matconvnet/). Given that you reconstruct the same architecture, you can use the function 'import_weights.m' to load the pretrained weights to the network. An example for fully convolutional network is provided.
 
 
-EXAMPLES
+**EXAMPLES**
 
 - **mnist.m** - provides an example of training a convolutional network on MNIST dataset. The error after 5 epochs should be close to 1%.
 
 - **fcn.m** - provides an example of loading [pretrained weights](http://www.vlfeat.org/matconvnet/models/pascal-fcn32s-dag.mat) from MatConvNet and segmenting the images. On the provided test set, which is smaller than the original PASCAL test set, the results should be (meanIU = 0.5188, pixelAccuracy = 0.8766, meanAccuracy = 0.6574). This is because one of the classes is not presented, so its IU is 0.
 
 
-KNOWN ERRORS
+**KNOWN ERRORS**
 
 - When you change gpu index, the first time it might fail. Just run it again.
 
