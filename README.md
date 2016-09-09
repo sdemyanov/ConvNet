@@ -56,7 +56,7 @@ On the test stage the images are just centrally cropped to the size 'mapsize', l
 
 Additionally, all layers might have the following parameters:
 
-- **function** - defines the non-linear transformation function. It can be "relu", "sigm" or "soft", which correspond to rectified linear unit, sigmoid and softmax respectively. The default value is "relu". The value "soft" must be used only on the last layer.
+- **function** - defines the non-linear transformation function. It can be "relu", "sigm", "soft" or "none", which correspond to rectified linear unit, sigmoid, softmax or no transformation respectively. The default value is "relu". The value "soft" must be used only on the last layer.
 
 - **padding** - a 2-dimensional vector of non-negative integers. Considered by "conv", "deconv" and "pool" layers. Determines the number of zero padding rows (columns) on the top and bottom (padding[0]) and left and right (padding[1]).
 
