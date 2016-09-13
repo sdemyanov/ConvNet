@@ -31,7 +31,7 @@ CUDABIN   := $(CUDADIR)/bin
 CUDAINC   := $(CUDADIR)/include
 CUDALIB   := $(CUDADIR)/lib64
 INCLUDES  += -I$(CUDAINC)
-LIBRARIES += -L$(CUDALIB) -lcudart -lcurand -lcublas -lcudnn
+LIBRARIES += -L$(CUDALIB) -lcudart -lcurand -lcublas -lcudnn5
 
 NVCC           := $(CUDABIN)/nvcc
 GENCODE_SM35   := -gencode arch=compute_35,code=sm_35

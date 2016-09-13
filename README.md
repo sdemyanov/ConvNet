@@ -22,11 +22,11 @@ The toolbox was written for Matlab and its functions can be called only from Mat
 
 The toolbox contains 3 main functions to call:
 
-- **[layers] = genweights(layers, params, funtype)**  
-Returns randomly generated initial weights for the net. Has to be called before the training. Funtype is either 'gpu' or 'matlab'.  
-- **[layers, trainerr] = train(layers, params, train_x, train_y)**  
-Performs neural net training. Returns the network with updated weights.
-- **[err, bad, pred] = test(layers, params, test_x, test_y)**  
+- **[weights] = genweights(layers, params)**  
+Returns randomly generated initial weights for the net. Has to be called before the training.
+- **[weights, trainerr] = train(layers, weights, params, train_x, train_y)**  
+Performs neural net training. Returns the set of updated weights and values of the main and additional loss functions.
+- **[err, bad, pred] = test(layers, weights, params, test_x, test_y)**  
 Returns predictions and calculates the test error.
 
 
@@ -138,7 +138,7 @@ It is possible to use pretrained models from [MatConvNet](http://www.vlfeat.org/
 
 - **mnist.m** - provides an example of training a convolutional network on MNIST dataset. The error after 5 epochs should be close to 1%.
 
-- **fcn.m** - provides an example of loading [pretrained weights](http://www.vlfeat.org/matconvnet/models/pascal-fcn32s-dag.mat) from MatConvNet and segmenting the images. On the provided test set, which is smaller than the original PASCAL test set, the results should be (meanIU = 0.5188, pixelAccuracy = 0.8766, meanAccuracy = 0.6574). This is because one of the classes is not presented, so its IU is 0.
+- **fcn_test.m** - provides an example of loading [pretrained weights](http://www.vlfeat.org/matconvnet/models/pascal-fcn32s-dag.mat) from MatConvNet and segmenting the images. On the provided test set, which is smaller than the original PASCAL test set, the results should be (meanIU = 0.5188, pixelAccuracy = 0.8766, meanAccuracy = 0.6574). This is because one of the classes is not presented, so its IU is 0.
 
 
 **KNOWN ERRORS**

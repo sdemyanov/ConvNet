@@ -37,7 +37,7 @@ private:
   Weights weights_;
   Params params_;
   MatCPU data_, labels_, preds_;
-  MatCPU trainerrors_;
+  MatCPU losses_;
   //MatGPU classcoefs_; // in fact vector
   MatGPU lossmat_, lossmat2_;
 
@@ -58,7 +58,7 @@ public:
   void Train(const mxArray *mx_data, const mxArray *mx_labels);
   void Classify(const mxArray *mx_data, const mxArray *mx_labels, mxArray *&mx_pred);
   void InitWeights(const mxArray *mx_weights_in);
-  void GetErrors(mxArray *&mx_errors) const;
+  void GetLosses(mxArray *&mx_losses) const;
   void GetWeights(mxArray *&mx_weights) const;
   size_t NumWeights() const;
 

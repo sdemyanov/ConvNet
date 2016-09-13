@@ -35,6 +35,8 @@ LayerJitt::LayerJitt() {
 }
 
 void LayerJitt::Init(const mxArray *mx_layer, const Layer *prev_layer) {
+  dims_[1] = prev_layer->dims_[1];
+
   std::vector<ftype> shift(2);
   shift[0] = 0; shift[1] = 0;
   if (mexIsField(mx_layer, "shift")) {
@@ -142,7 +144,6 @@ void LayerJitt::TransformForward(Layer *prev_layer, PassNum passnum) {
   scale_mat_.resize(dims_[0], 2);
   mirror_mat_.resize(dims_[0], 2);
   angle_mat_.resize(dims_[0], 1);
-
   if (passnum == PassNum::ForwardTest) {
     if (dims_[2] == prev_layer->dims_[2] &&
         dims_[3] == prev_layer->dims_[3]) {

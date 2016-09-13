@@ -2,7 +2,7 @@
 close all; clear mex;
 
 restoredefaultpath;
-kCNNFolder = '.';  
+kCNNFolder = '.';
 kMexFolder = fullfile(kCNNFolder, 'c++', 'build');
 addpath(kMexFolder);
 
@@ -40,13 +40,13 @@ params.seed = 1;
 dropout = 0;
 params.balance = 0;
 params.verbose = 0;
-params.gpu = 1;
+params.gpu = 0;
 gamma = 0.95;
 
 layers = {
   struct('type', 'input', 'mapsize', kXSize(1:2), 'channels', kXSize(3))
   struct('type', 'jitt', 'mapsize', kXSize(1:2), 'shift', [3 3], ...
-         'scale', [1.2 1.2], 'angle', 0.1, 'defval', -train_mean) 
+         'scale', [1.2 1.2], 'angle', 0.1, 'defval', -train_mean)
   struct('type', 'conv', 'filtersize', [4 4], 'channels', 32)
   struct('type', 'pool', 'scale', [3 3], 'stride', [2 2])
   struct('type', 'conv', 'filtersize', [5 5], 'channels', 64)
@@ -54,23 +54,28 @@ layers = {
   struct('type', 'full', 'channels', kOutputs, 'function', 'soft')
 };
 
-layers = setup(layers);
-layers = genweights(layers, params, 'matlab');
+weights = genweights(layers, params);
 
 EpochNum = 5;
+losses = zeros(EpochNum, 2);
 errors = zeros(EpochNum, 1);
 
-for i = 1 : EpochNum
-  disp(['Epoch: ' num2str((i-1) * params.epochs + 1)]);
-  
-  [layers, trainerr] = train(layers, params, train_x, train_y);  
-  disp([num2str(mean(trainerr(:, 1))) ' loss']);  
-  [err, bad, pred_y] = test(layers, params, test_x, test_y);  
-  disp([num2str(err*100) '% error']);
-  errors(i) = err;
+for epoch = 1 : EpochNum
+  disp(['Epoch: ' num2str((epoch-1) * params.epochs + 1)]);
+
+  [weights, curlosses] = train(layers, weights, params, train_x, train_y);
+  losses(epoch, :) = mean(curloss, 1); 
+  disp([num2str(losses(epoch, 1)) ' loss']);
+  disp([num2str(losses(epoch, 2)) ' loss2']);
+  [err, bad, pred_y] = test(layers, weights, params, test_x, test_y);
+  errors(epoch) = err;
+  disp([num2str(errors(epoch)*100) '% error']);
   params.alpha = params.alpha * gamma;
   params.beta = params.beta * gamma;
   disp('');
-  
+
 end;
+
+%layers = setweights(layers, weights);
+save('results.mat', 'layers', 'weights', 'params', 'losses', 'errors');
 disp('Done!');

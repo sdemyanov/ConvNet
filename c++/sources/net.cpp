@@ -108,10 +108,10 @@ void Net::Classify(const mxArray *mx_data, const mxArray *mx_labels, mxArray *&m
       InitActiv(data_batch);
       Forward(pred_batch, PassNum::ForwardTest, GradInd::Nowhere);
       if (params_.testshift_ > 0) {
-        ftype error1;
+        ftype loss1;
         labels_batch.resize(batchsize, labels_.size2());
         SubSet(labels_, labels_batch, offset, true);
-        InitDeriv(labels_batch, error1);
+        InitDeriv(labels_batch, loss1);
         // shift and beta cannot be positive together
         Backward(PassNum::Backward, GradInd::Nowhere);
         InitActiv3(params_.testshift_, 1); // L1-norm adversarial loss
@@ -150,8 +150,8 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
 
   size_t train_num = data_.size1();
   size_t numbatches = DIVUP(train_num, params_.batchsize_);
-  trainerrors_.resize(params_.epochs_, 2);
-  trainerrors_.assign(0);
+  losses_.resize(2, params_.epochs_);
+  losses_.assign(0);
   MatGPU data_batch, labels_batch, pred_batch;
   for (size_t epoch = 0; epoch < params_.epochs_; ++epoch) {
     //print = 1;
@@ -168,30 +168,30 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       SubSet(data_, data_batch, offset, true);
       SubSet(labels_, labels_batch, offset, true);
 
-      ftype error1, error2;
+      ftype loss1 = 0, loss2 = 0;
       InitActiv(data_batch);
       Forward(pred_batch, PassNum::Forward, GradInd::Nowhere);
-      InitDeriv(labels_batch, error1);
-      trainerrors_(epoch, 0) += error1;
+      InitDeriv(labels_batch, loss1);
+      losses_(0, epoch) += loss1;
       // shift and beta cannot be positive together
       if (params_.shift_ > 0 && params_.fast_) {
         Backward(PassNum::Backward, GradInd::Nowhere);
         InitActiv3(params_.shift_, params_.normfun_);
         Forward(pred_batch, PassNum::Forward, GradInd::Nowhere);
-        InitDeriv(labels_batch, error2);
+        InitDeriv(labels_batch, loss2);
       }
       Backward(PassNum::Backward, GradInd::First);
       if (params_.shift_ > 0 && !params_.fast_) {
         InitActiv3(params_.shift_, params_.normfun_);
         Forward(pred_batch, PassNum::Forward, GradInd::Nowhere);
-        InitDeriv(labels_batch, error2);
+        InitDeriv(labels_batch, loss2);
         Backward(PassNum::Backward, GradInd::Second);
       }
       if (params_.shift_ == 0 && params_.beta_ > 0) {
-        InitActiv2(error2, 2);
+        InitActiv2(loss2, 2);
         Forward(pred_batch, PassNum::ForwardLinear, GradInd::Second);
       }
-      trainerrors_(epoch, 1) += error2;
+      losses_(1, epoch) += loss2;
       UpdateWeights();
       offset += batchsize;
       if (params_.verbose_ == 2) {
@@ -205,7 +205,7 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       mexPrintInt("Epoch", epoch + 1);
     }
   } // epoch
-  trainerrors_ /= (ftype) numbatches;
+  losses_ /= (ftype) numbatches;
   //mexPrintMsg("Training finished");
 }
 
@@ -397,8 +397,8 @@ void Net::GetWeights(mxArray *&mx_weights) const {
   DeviceToHost(weights_.get(), weights_cpu);
 }
 
-void Net::GetErrors(mxArray *&mx_errors) const {
-  mx_errors = mexSetMatrix(trainerrors_);
+void Net::GetLosses(mxArray *&mx_losses) const {
+  mx_losses = mexSetMatrix(losses_);
 }
 
 size_t Net::NumWeights() const {

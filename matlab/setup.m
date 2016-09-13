@@ -2,7 +2,6 @@ function layers = setup(layers)
     
 assert(strcmp(layers{1}.type, 'input'), 'The first layer must be the type of "input"');
 n = numel(layers);
-default_init_std = 0.01;
 for l = 1 : n   %  layer
   
   if strcmp(layers{l}.type, 'input') % input
@@ -47,11 +46,7 @@ for l = 1 : n   %  layer
       layers{l}.stride = [1 1];
     end;
     layers{l}.mapsize = 1 + floor(layers{l-1}.mapsize + 2*layers{l}.padding - layers{l}.filtersize) ./ layers{l}.stride;
-    if (~isfield(layers{l}, 'initstd'))
-      layers{l}.initstd = default_init_std;
-    end;
-    filtersize = [layers{l}.filtersize(2) layers{l}.filtersize(1) layers{l-1}.channels layers{l}.channels];
-    layers{l}.w = single(zeros(filtersize));    
+    layers{l}.weightsize = [layers{l}.filtersize(2) layers{l}.filtersize(1) layers{l-1}.channels layers{l}.channels];    
     
     
   elseif strcmp(layers{l}.type, 'deconv') % deconvolutional
@@ -61,21 +56,13 @@ for l = 1 : n   %  layer
       layers{l}.stride = [1 1];
     end;
     layers{l}.mapsize = (layers{l-1}.mapsize - 1) .* layers{l}.stride + layers{l}.filtersize;
-    if (~isfield(layers{l}, 'initstd'))
-      layers{l}.initstd = default_init_std;
-    end;
-    filtersize = [layers{l}.filtersize(2) layers{l}.filtersize(1) layers{l}.channels layers{l-1}.channels];
-    layers{l}.w = single(zeros(filtersize));
+    layers{l}.weightsize = [layers{l}.filtersize(2) layers{l}.filtersize(1) layers{l}.channels layers{l-1}.channels];    
     
 
   elseif strcmp(layers{l}.type, 'full') % fully connected
     assert(isfield(layers{l}, 'channels'), 'The "full" type layer must contain the "channels" field');
     layers{l}.mapsize = [1 1];
-    if (~isfield(layers{l}, 'initstd'))
-      layers{l}.initstd = default_init_std;
-    end;    
-    filtersize = [prod(layers{l-1}.mapsize) * layers{l-1}.channels layers{l}.channels];
-    layers{l}.w = single(zeros(filtersize));
+    layers{l}.weightsize = [prod(layers{l-1}.mapsize) * layers{l-1}.channels layers{l}.channels];    
     
     
   else
@@ -83,7 +70,7 @@ for l = 1 : n   %  layer
   end
   
   if (~isfield(layers{l}, 'add_bias') || layers{l}.add_bias > 0)
-    layers{l}.b = single(zeros(layers{l}.channels, 1));
+    layers{l}.biassize = [layers{l}.channels 1];
   end;
   
 end

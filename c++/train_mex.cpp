@@ -28,7 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define NARGOUT 2
 #define OUT_W pLhs[0] // weights
-#define OUT_E pLhs[1] // train errors
+#define OUT_E pLhs[1] // train losses
 
 int print = 0;
 
@@ -42,5 +42,5 @@ void mexFunction(int nLhs, mxArray* pLhs[], int nRhs, const mxArray* pRhs[]) {
   net.InitWeights(IN_W);
   net.Train(IN_X, IN_Y);
   net.GetWeights(OUT_W);
-  net.GetErrors(OUT_E);
+  net.GetLosses(OUT_E);
 }
