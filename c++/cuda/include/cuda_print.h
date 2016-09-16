@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cuda.h>
 #include <cublas_v2.h>
 #include <curand.h>
-#include <cudnn5.h>
+#include <cudnn.h>
 
 const char* curandGetErrorString(curandStatus_t error);
 const char* cublasGetErrorString(cublasStatus_t status);
