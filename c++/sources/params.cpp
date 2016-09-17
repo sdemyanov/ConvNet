@@ -99,8 +99,8 @@ void Params::Init(const mxArray *mx_params) {
   }
   if (mexIsField(mx_params, "verbose")) {
     verbose_ = (int) mexGetScalar(mexGetField(mx_params, "verbose"));
-    mexAssertMsg(verbose_ == 0 || verbose_ == 1 || verbose_ == 2,
-      "Verbose might be equal to 0, 1, or 2");
+    mexAssertMsg(0 <= verbose_ && verbose_ <= 4,
+      "Verbose must be from 0 to 4");
   }
   if (mexIsField(mx_params, "seed")) {
     seed_ = (int) mexGetScalar(mexGetField(mx_params, "seed"));
