@@ -25,10 +25,10 @@ for l = 1 : n   %  layer
   
   elseif strcmp(layers{l}.type, 'pool') % scaling
     assert(isfield(layers{l}, 'scale'), 'The "pool" type layer must contain the "scale" field');
-    if (~isfield(layers{l}, 'stride'))
-      layers{l}.stride = layers{l}.scale;
+    assert(isfield(layers{l}, 'stride'), 'The "pool" type layer must contain the "stride" field');
+    if (~isfield(layers{l}, 'padding'))
+      layers{l}.padding = [0 0];
     end;
-    layers{l}.padding = [0 0];
     layers{l}.mapsize = 1 + floor((layers{l-1}.mapsize +2*layers{l}.padding - layers{l}.scale) ./ layers{l}.stride);
     layers{l}.channels = layers{l-1}.channels;
     if (~isfield(layers{l}, 'add_bias'))
