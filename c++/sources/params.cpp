@@ -78,7 +78,7 @@ void Params::Init(const mxArray *mx_params) {
   }
   if (mexIsField(mx_params, "decay")) {
     decay_ = mexGetScalar(mexGetField(mx_params, "decay"));
-    mexAssertMsg(0 <= decay_, "Decay must be non-negative");
+    mexAssertMsg(0 <= decay_ && decay_ < 1, "Decay is out of range [0, 1)");
   }
   /*
   if (mexIsField(mx_params, "balance")) {
@@ -99,7 +99,7 @@ void Params::Init(const mxArray *mx_params) {
   }
   if (mexIsField(mx_params, "verbose")) {
     verbose_ = (int) mexGetScalar(mexGetField(mx_params, "verbose"));
-    mexAssertMsg(0 <= verbose_ && verbose_ <= 4,
+    mexAssertMsg(0 <= verbose_ && verbose_ <= 5,
       "Verbose must be from 0 to 4");
   }
   if (mexIsField(mx_params, "seed")) {
@@ -107,9 +107,10 @@ void Params::Init(const mxArray *mx_params) {
   }
   if (mexIsField(mx_params, "fast")) {
     fast_ = (mexGetScalar(mexGetField(mx_params, "fast")) > 0);
-    if (!fast_ && shift_ > 0) { // beta = 0
+    // I don't know why the below is needed
+    /* if (!fast_ && shift_ > 0) { // beta = 0
       beta_ = 1;
-    }
+    } */
   }
   if (mexIsField(mx_params, "memory")) {
     memory_ = (size_t) mexGetScalar(mexGetField(mx_params, "memory"));

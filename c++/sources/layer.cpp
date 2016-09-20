@@ -125,6 +125,8 @@ void Layer::Nonlinear(PassNum passnum) {
       deriv_mat_.CondAssign(activ_mat_, false, kEps, 0);
     } else if (passnum == PassNum::ForwardLinear) {
       activ_mat_.CondAssign(first_mat_, false, kEps, 0);
+    } else if (passnum == PassNum::BackwardLinear) {
+      deriv_mat_.CondAssign(first_mat_, false, kEps, 0);
     }
   } else if (function_ == "soft") {
     if (passnum == PassNum::ForwardTest || passnum == PassNum::Forward) { // test and train forward
@@ -132,21 +134,20 @@ void Layer::Nonlinear(PassNum passnum) {
     } else if (passnum == PassNum::Backward) {
       deriv_mat_.SoftDer(activ_mat_);
     } else if (passnum == PassNum::ForwardLinear) { // third pass
-      // no actions as this is the last layer of the third pass,
-      // so the results don't go anywhere anyway
-      //activ_mat_.SoftDer(first_mat_);
-      //activ_mat_.Validate();
+      activ_mat_.SoftDer(first_mat_);
+    } else if (passnum == PassNum::BackwardLinear) {
+      deriv_mat_.SoftDer(first_mat_);
     }
-    activ_mat_.Validate();
   } else if (function_ == "sigm") {
     if (passnum == PassNum::ForwardTest || passnum == PassNum::Forward) { // test and train forward
-      activ_mat_.Sigmoid();
+      (activ_mat_.Sigmoid()).Validate();
     } else if (passnum == PassNum::Backward) {
-      activ_mat_.SigmDer(first_mat_);
+      (deriv_mat_.SigmDer(first_mat_)).Validate();
     } else if (passnum == PassNum::ForwardLinear) { // third pass
-      activ_mat_.SigmDer(first_mat_);
+      (activ_mat_.SigmDer(first_mat_)).Validate();
+    } else if (passnum == PassNum::BackwardLinear) {
+      (deriv_mat_.SigmDer(first_mat_)).Validate();
     }
-    activ_mat_.Validate();
   } else if (function_ == "none") {
     return;
   } else {
@@ -161,16 +162,16 @@ void Layer::AddBias(PassNum passnum) {
   }
 }
 
-void Layer::BiasGrads(GradInd gradind) {
+void Layer::BiasGrads(PassNum passnum, GradInd gradind) {
   if (add_bias_ == false) return;
-  if (gradind == GradInd::First) {
-    ConvolutionBackwardBias(deriv_mat_, biases_.der());
-    (biases_.der() *= (lr_coef_ * bias_coef_ / dims_[0])).Validate();
-  } else if (gradind == GradInd::Second) {
-    ConvolutionBackwardBias(deriv_mat_, biases_.der2());
-    (biases_.der2() *= (lr_coef_ * bias_coef_ / dims_[0])).Validate();
-  } else {
-    mexAssertMsg(false, "Wrong gradind for WeightGrads");
+  if (passnum == PassNum::Backward) {
+    if (gradind == GradInd::First) {
+      ConvolutionBackwardBias(deriv_mat_, biases_.der());
+      biases_.der() *= (lr_coef_ * bias_coef_ / dims_[0]);
+    } else if (gradind == GradInd::Second) {
+      ConvolutionBackwardBias(deriv_mat_, biases_.der2());
+      biases_.der2() *= (lr_coef_ * bias_coef_ / dims_[0]);
+    }
   }
 }
 

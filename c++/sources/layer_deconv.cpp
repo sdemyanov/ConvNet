@@ -57,16 +57,13 @@ void LayerDeconv::TransformBackward(Layer *prev_layer) {
 }
 
 void LayerDeconv::WeightGrads(Layer *prev_layer, GradInd gradind) {
-
   if (gradind == GradInd::First) {
     ConvolutionBackwardFilter(deriv_mat_, prev_layer->activ_mat_,
                               filters_.der(), conv_desc_);
-    (filters_.der() *= (lr_coef_ / dims_[0])).Validate();
+    filters_.der() *= (lr_coef_ / dims_[0]);
   } else if (gradind == GradInd::Second) {
     ConvolutionBackwardFilter(deriv_mat_, prev_layer->activ_mat_,
                               filters_.der2(), conv_desc_);
-    (filters_.der2() *= (lr_coef_ / dims_[0])).Validate();
-  } else {
-    mexAssertMsg(false, "Wrong gradind for WeightGrads");
+    filters_.der2() *= (lr_coef_ / dims_[0]);
   }
 }

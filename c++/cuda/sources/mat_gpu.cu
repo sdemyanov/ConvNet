@@ -527,27 +527,16 @@ MatGPU& MatGPU::SoftMax() {
   return *this;
 }
 
-MatGPU& MatGPU::SoftDer(const MatGPU& b) {
+MatGPU& MatGPU::SoftDer(MatGPU& b) {
   //computeSoftmaxGrad(a, *this, *this);
   mexAssert(kInternalOrder == true);
-  MatGPU bc;
-  if (b.order_ == false) {
-    MatGPU btr;
-    btr.attach(b, 0, size2_, size1_, true);
-    bc.resize(b.size1_, b.size2_);
-    bc.set_order(true);
-    Trans(btr, bc);
-  } else {
-    bc.attach(b);
-  }
   cudnnTensorDescriptor_t src_desc = GetTensorDesc();
-  cudnnTensorDescriptor_t par_desc = bc.GetTensorDesc();
+  cudnnTensorDescriptor_t par_desc = b.GetTensorDesc();
   const ftype scale_res = 1.0, scale_cur = 0.0;
   CUDNN_CALL(cudnnSoftmaxBackward(
     MatGPU::_cudnnHandle, CUDNN_SOFTMAX_ACCURATE, CUDNN_SOFTMAX_MODE_CHANNEL,
-    &scale_res, par_desc, bc.data_, src_desc, data_, &scale_cur, src_desc, data_
+    &scale_res, par_desc, b.data_, src_desc, data_, &scale_cur, src_desc, data_
   ));
-
   return *this;
 }
 
@@ -1156,7 +1145,6 @@ void AffineTransform(const MatGPU &images, MatGPU &targets,
                    ftype defval, bool dir) {
   Dim img_dims = images.tensor_shape();
   Dim trg_dims = targets.tensor_shape();
-
   _affineTransform(images, targets,
                  img_dims[2], img_dims[3], trg_dims[2], trg_dims[3],
                  shift_mat, scale_mat, mirror_mat, angle_mat, defval, dir);

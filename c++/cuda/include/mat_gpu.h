@@ -112,7 +112,7 @@ public:
   MatGPU& Log();
   MatGPU& Exp();
   MatGPU& SoftMax();
-  MatGPU& SoftDer(const MatGPU& b);
+  MatGPU& SoftDer(MatGPU& b);
   MatGPU& Sigmoid();
   MatGPU& SigmDer(const MatGPU& b);
   MatGPU& CondAssign(const MatGPU &condMatGPU, bool incase, ftype threshold, ftype a);

@@ -31,7 +31,7 @@ Net::Net(const mxArray *mx_params) {
 }
 
 void Net::InitLayers(const mxArray *mx_layers) {
-  if (params_.verbose_ >= 3) {
+  if (params_.verbose_ >= 1) {
     mexPrintMsg("Start layers initialization...");
   }
   size_t layers_num = mexGetNumel(mx_layers);
@@ -60,17 +60,45 @@ void Net::InitLayers(const mxArray *mx_layers) {
     } else {
       mexAssertMsg(false, layer_type + " - unknown layer type");
     }
-    if (params_.verbose_ >= 3) {
-     mexPrintMsg("Initializing layer of type", layer_type);
-   }
+    if (params_.verbose_ >= 1) {
+     mexPrintMsg("\nInitializing layer of type", layer_type);
+    }
     layers_[i]->InitGeneral(mx_layer);
     layers_[i]->Init(mx_layer, prev_layer);
     mexAssertMsg(layers_[i]->function_ != "soft" || i == layers_num - 1,
                 "Softmax function may be only on the last layer");
-    if (layers_[i]->NumWeights() > 0 && first_trained_ > i) {
-      first_trained_ = i;
+    if (layers_[i]->NumWeights() > 0 && layers_[i]->lr_coef_ > 0) {
+      if (first_trained_ > i) {
+        first_trained_ = i;
+      }
     }
     prev_layer = layers_[i];
+    if (params_.verbose_ >= 1) {
+      if (layers_[i]->NumWeights() > 0) {
+        mexPrintMsg("Kernels:");
+        mexPrintInt("Output channels", layers_[i]->filters_.dims(0));
+        mexPrintInt("Input channels", layers_[i]->filters_.dims(1));
+        mexPrintInt("Height", layers_[i]->filters_.dims(2));
+        mexPrintInt("Width", layers_[i]->filters_.dims(3));
+      }
+      if (layers_[i]->add_bias_) {
+        mexPrintMsg("Bias added");
+      } else {
+        mexPrintMsg("Bias not added");
+      }
+      if (layers_[i]->NumWeights() > 0 && layers_[i]->lr_coef_ > 0) {
+        mexPrintMsg("Trainable");
+      } else {
+        mexPrintMsg("Fixed");
+      }
+      mexPrintMsg("Mapsize:");
+      mexPrintInt("Channels", layers_[i]->dims_[1]);
+      mexPrintInt("Height", layers_[i]->dims_[2]);
+      mexPrintInt("Width", layers_[i]->dims_[3]);
+    }
+  }
+  if (params_.verbose_ >= 1) {
+    mexPrintInt("First trained layer", first_trained_);
   }
   if (params_.lossfun_ == "logreg") {
     Layer *lastlayer = layers_.back();
@@ -81,7 +109,7 @@ void Net::InitLayers(const mxArray *mx_layers) {
   //mexAssertMsg(layer_type == "full", "The last layer must be the type of 'f'");
   //mexAssertMsg(layers_.back()->function_ == "soft" || layers_.back()->function_ == "sigm",
   //          "The last layer function must be either 'soft' or 'sigm'");
-  if (params_.verbose_ >= 3) {
+  if (params_.verbose_ >= 1) {
     mexPrintMsg("Layers initialization finished");
   }
 }
@@ -121,12 +149,12 @@ void Net::Classify(const mxArray *mx_data, const mxArray *mx_labels, mxArray *&m
         InitDeriv(labels_batch, loss1);
         // shift and beta cannot be positive together
         Backward(PassNum::Backward, GradInd::Nowhere);
-        InitActiv3(params_.testshift_, 1); // L1-norm adversarial loss
+        InitActivAT(params_.testshift_, 1); // L1-norm adversarial loss
         Forward(pred_batch, PassNum::ForwardTest, GradInd::Nowhere);
       }
       SubSet(curpreds, pred_batch, offset, false);
       offset += batchsize;
-      if (params_.verbose_ == 2) {
+      if (params_.verbose_ >= 4) {
         mexPrintInt("Test epoch", epoch + 1);
         mexPrintInt("Test batch", batch + 1);
       }
@@ -134,7 +162,7 @@ void Net::Classify(const mxArray *mx_data, const mxArray *mx_labels, mxArray *&m
     if (params_.test_epochs_ > 1) {
       preds_ += curpreds;
     }
-    if (params_.verbose_ == 1) {
+    if (params_.verbose_ >= 3) {
       mexPrintInt("Test epoch", epoch + 1);
     }
   }
@@ -185,34 +213,38 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       InitDeriv(labels_batch, loss1);
       losses_(0, epoch) += loss1;
       // shift and beta cannot be positive together
-      if (params_.shift_ > 0 && params_.fast_) {
+      if (params_.shift_ > 0) {
         Backward(PassNum::Backward, GradInd::Nowhere);
-        InitActiv3(params_.shift_, params_.normfun_);
+        InitActivAT(params_.shift_, params_.normfun_);
         Forward(pred_batch, PassNum::Forward, GradInd::Nowhere);
         InitDeriv(labels_batch, loss2);
       }
       Backward(PassNum::Backward, GradInd::First);
-      if (params_.shift_ > 0 && !params_.fast_) {
-        InitActiv3(params_.shift_, params_.normfun_);
-        Forward(pred_batch, PassNum::Forward, GradInd::Nowhere);
-        InitDeriv(labels_batch, loss2);
-        Backward(PassNum::Backward, GradInd::Second);
-      }
       if (params_.shift_ == 0 && params_.beta_ > 0) {
-        InitActiv2(loss2, 2);
-        Forward(pred_batch, PassNum::ForwardLinear, GradInd::Second);
+        InitActivIBP(loss2, 2);
+        if (params_.fast_) {
+          Forward(pred_batch, PassNum::ForwardLinear, GradInd::Second);
+        } else {
+          Forward(pred_batch, PassNum::ForwardLinear, GradInd::Nowhere);
+          labels_batch.assign(0);
+          std::string lf = params_.lossfun_;
+          params_.lossfun_ = "L-norm";
+          InitDeriv(labels_batch, loss2);
+          Backward(PassNum::BackwardLinear, GradInd::Second);
+          params_.lossfun_ = lf;
+        }
       }
       losses_(1, epoch) += loss2;
       UpdateWeights();
       offset += batchsize;
-      if (params_.verbose_ == 2) {
+      if (params_.verbose_ >= 4) {
         mexPrintInt("Epoch", epoch + 1);
         mexPrintInt("Batch", batch + 1);
       }
     } // batch
     //MatGPU::MeasureCudaTime("totaltime");
     MeasureTime("totaltime");
-    if (params_.verbose_ == 1) {
+    if (params_.verbose_ >= 3) {
       mexPrintInt("Epoch", epoch + 1);
     }
   } // epoch
@@ -225,6 +257,13 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
 void Net::Forward(MatGPU &pred, PassNum passnum, GradInd gradind) {
   if (params_.verbose_ >= 4) {
     mexPrintMsg("Forward pass started");
+    int gi = 0;
+    if (gradind == GradInd::First) {
+      gi = 1;
+    } else if (gradind == GradInd::Second) {
+      gi = 2;
+    }
+    mexPrintInt("Computing gradients", gi);
   }
   size_t batchsize = layers_[0]->activ_mat_.size1();
   Layer *prev_layer = NULL;
@@ -245,6 +284,9 @@ void Net::Forward(MatGPU &pred, PassNum passnum, GradInd gradind) {
     layers_[i]->AddBias(passnum);
     layers_[i]->Nonlinear(passnum);
     layers_[i]->DropoutForward(passnum);
+    if (params_.verbose_ >= 5) {
+      mexPrintMsg("ActivSum", layers_[i]->activ_mat_.sum());
+    }
     prev_layer = layers_[i];
     if (utIsInterruptPending()) {
       mexAssert(false);
@@ -259,25 +301,37 @@ void Net::Forward(MatGPU &pred, PassNum passnum, GradInd gradind) {
 void Net::Backward(PassNum passnum, GradInd gradind) {
   if (params_.verbose_ >= 4) {
     mexPrintMsg("Backward pass started");
+    int gi = 0;
+    if (gradind == GradInd::First) {
+      gi = 1;
+    } else if (gradind == GradInd::Second) {
+      gi = 2;
+    }
+    mexPrintInt("Computing gradients", gi);
   }
   for (size_t j = first_layer_; j < layers_.size(); ++j) {
     size_t i = first_layer_ + layers_.size() - 1 - j;
     if (params_.verbose_ >= 4) {
       mexPrintMsg("Backward pass for layer", layers_[i]->type_);
     }
+    if (params_.verbose_ >= 5) {
+      mexPrintMsg("DerivSum", layers_[i]->deriv_mat_.sum());
+    }
     layers_[i]->DropoutBackward();
     if (layers_[i]->function_ != "soft" || params_.lossfun_ != "logreg") {
       // special case, final derivaties are already computed in InitDeriv
       layers_[i]->Nonlinear(passnum);
     }
-    layers_[i]->BiasGrads(gradind);
-    if (i > 0) {
-      if (gradind != GradInd::Nowhere && layers_[i]->lr_coef_ > 0) {
+    if (gradind != GradInd::Nowhere && layers_[i]->lr_coef_ > 0) {
+      layers_[i]->BiasGrads(passnum, gradind);
+      if (i > 0) {
         layers_[i]->WeightGrads(layers_[i-1], gradind);
       }
-      if (params_.shift_ == 0 && params_.beta_ == 0) {
-        if (i <= first_trained_) break;
-      }
+    }
+    if (params_.beta_ == 0 && params_.shift_ == 0) {
+      if (i <= first_trained_) break;
+    }
+    if (i > 0) {
       layers_[i-1]->ResizeDerivMat();
       layers_[i]->TransformBackward(layers_[i-1]);
     }
@@ -288,19 +342,31 @@ void Net::Backward(PassNum passnum, GradInd gradind) {
 }
 
 void Net::InitActiv(const MatGPU &data) {
+  if (params_.verbose_ >= 4) {
+    mexPrintMsg("Initializing activations");
+  }
   mexAssertMsg(layers_.size() >= 1 , "The net is not initialized");
   first_layer_ = 0;
   Layer *firstlayer = layers_[first_layer_];
   firstlayer->activ_mat_.attach(data);
   firstlayer->activ_mat_.Validate();
+  if (params_.verbose_ >= 5) {
+    mexPrintMsg("InitActivSum", firstlayer->activ_mat_.sum());
+  }
+  if (params_.verbose_ >= 4) {
+    mexPrintMsg("Activations initialized");
+  }
 }
 
 void Net::InitDeriv(const MatGPU &labels_batch, ftype &loss) {
+  if (params_.verbose_ >= 4) {
+    mexPrintMsg("Initializing gradients");
+  }
   size_t batchsize = labels_batch.size1();
   size_t classes_num = labels_batch.size2();
   Layer *lastlayer = layers_.back();
   ftype matsum = lastlayer->activ_mat_.sum();
-  mexAssertMsg(!std::isnan(matsum), "Training diverged");
+  mexAssertMsg(!std::isnan(matsum), "NaNs in the network output");
   mexAssertMsg(batchsize == lastlayer->dims_[0],
     "The number of objects in data and label batches is different");
   mexAssertMsg(classes_num == lastlayer->length(),
@@ -340,9 +406,18 @@ void Net::InitDeriv(const MatGPU &labels_batch, ftype &loss) {
     lastlayer->deriv_mat_.MultVect(classcoefs_, 1);
   }*/
   lastlayer->deriv_mat_.Validate();
+  if (params_.verbose_ >= 5) {
+    mexPrintMsg("InitDerivSum", lastlayer->deriv_mat_.sum());
+  }
+  if (params_.verbose_ >= 4) {
+    mexPrintMsg("Gradients initialized");
+  }
 }
 
-void Net::InitActiv2(ftype &loss, int normfun) {
+void Net::InitActivIBP(ftype &loss, int normfun) {
+  if (params_.verbose_ >= 4) {
+    mexPrintMsg("Initializing activations for the IBP pass");
+  }
   Layer *firstlayer = layers_[first_layer_];
   size_t batchsize = firstlayer->dims_[0];
   size_t length = firstlayer->length();
@@ -359,18 +434,31 @@ void Net::InitActiv2(ftype &loss, int normfun) {
     lossmat2_ *= firstlayer->first_mat_;
     loss = lossmat2_.sum() / (2 * batchsize);
   }
+  if (params_.verbose_ >= 5) {
+    mexPrintMsg("InitActivIBPSum", firstlayer->first_mat_.sum());
+  }
+  if (params_.verbose_ >= 4) {
+    mexPrintMsg("Activations initialized");
+  }
 }
 
-void Net::InitActiv3(ftype coef, int normfun) {
+void Net::InitActivAT(ftype coef, int normfun) {
+  if (params_.verbose_ >= 4) {
+    mexPrintMsg("Initializing activations for the AT pass");
+  }
   Layer *firstlayer = layers_[first_layer_];
   if (normfun == 1) {
     firstlayer->deriv_mat_.Sign();
   }
   firstlayer->deriv_mat_ *= coef;
-  firstlayer->first_mat_.resize_tensor(firstlayer->dims_);
-  firstlayer->first_mat_ = firstlayer->activ_mat_;
-  firstlayer->first_mat_ += firstlayer->deriv_mat_;
-  firstlayer->first_mat_.Validate();
+  firstlayer->activ_mat_ += firstlayer->deriv_mat_;
+  firstlayer->activ_mat_.Validate();
+  if (params_.verbose_ >= 5) {
+    mexPrintMsg("InitActivATSum", firstlayer->first_mat_.sum());
+  }
+  if (params_.verbose_ >= 4) {
+    mexPrintMsg("Activations initialized");
+  }
 }
 
 void Net::UpdateWeights() {
@@ -394,16 +482,16 @@ void Net::ReadLabels(const mxArray *mx_labels) {
 }
 
 void Net::InitWeights(const mxArray *mx_weights_in) {
-  if (params_.verbose_ >= 3) {
-    mexPrintMsg("start init weights");
+  if (params_.verbose_ >= 1) {
+    mexPrintMsg("Start init weights");
   }
   bool isgen = false;
   size_t num_weights = NumWeights();
   MatCPU weights_cpu;
   if (mx_weights_in != NULL) { // training, testing
-    if (params_.verbose_ >= 3) {
-      mexPrintInt("num_weights", num_weights);
-      mexPrintInt("mexGetNumel", mexGetNumel(mx_weights_in));
+    if (params_.verbose_ >= 1) {
+      mexPrintInt("Model weights num", num_weights);
+      mexPrintInt("Input weights num", mexGetNumel(mx_weights_in));
     }
     mexAssertMsg(num_weights == mexGetNumel(mx_weights_in),
       "The vector of weights has the wrong length!");
@@ -417,8 +505,8 @@ void Net::InitWeights(const mxArray *mx_weights_in) {
   for (size_t i = 0; i < layers_.size(); ++i) {
     layers_[i]->InitWeights(weights_, offset, isgen);
   }
-  if (params_.verbose_ >= 3) {
-    mexPrintMsg("finish init weights");
+  if (params_.verbose_ >= 1) {
+    mexPrintMsg("Finish init weights");
   }
 }
 

@@ -82,7 +82,6 @@ size_t Weights::Num() const {
 }
 
 void Weights::Update(const Params &params) {
-
   if (params.beta_ > 0) {
     weights_der2_ *= params.beta_;
     weights_der_ += weights_der2_;
@@ -95,11 +94,10 @@ void Weights::Update(const Params &params) {
   }
   weights_der_ *= params.alpha_;
   if (params.decay_ > 0) {
-    weights_ *= (1 - params.decay_);
+    weights_ *= (1 - params.decay_ * params.alpha_);
   }
   // direction that decreases the error
   weights_ -= weights_der_;
-  weights_.Validate();
   weights_der_.assign(0);
   weights_der2_.assign(0);
 }

@@ -46,8 +46,8 @@ private:
   void InitActiv(const MatGPU &data_batch);
   void Forward(MatGPU &pred, PassNum passnum, GradInd gradind);
   void InitDeriv(const MatGPU &labels_batch, ftype &loss);
-  void InitActiv2(ftype &loss, int normfun);
-  void InitActiv3(ftype coef, int normfun);
+  void InitActivIBP(ftype &loss, int normfun);
+  void InitActivAT(ftype coef, int normfun);
   void Backward(PassNum passnum, GradInd gradind);
   void UpdateWeights();
 

@@ -27,7 +27,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // ForwardLinear multiplies on the same matrix of gradients as the backward pass.
 // It uses activ_mat from the first pass stored in first_mat.
-enum class PassNum {ForwardTest, Forward, Backward, ForwardLinear};
+// BackwardLinear is the same as Backward, but uses first_mat_ for nonlinearities.
+enum class PassNum {ForwardTest, Forward, Backward, ForwardLinear, BackwardLinear};
 
 // index of where the gradients are stored
 enum class GradInd {Nowhere, First, Second};
@@ -56,7 +57,7 @@ public:
   void ResizeActivMat(size_t batchsize, PassNum passnum);
   void ResizeDerivMat();
   void AddBias(PassNum passnum);
-  void BiasGrads(GradInd gradind);
+  void BiasGrads(PassNum passnum, GradInd gradind);
   void DropoutForward(PassNum passnum);
   void DropoutBackward();
   void UpdateWeights(const Params &params);
@@ -64,12 +65,12 @@ public:
   void Nonlinear(PassNum passnum);
   size_t NumWeights() const;
 
+  Weights filters_, biases_;
+  bool add_bias_;
 
 protected:
-  Weights filters_, biases_;
   Pair padding_, stride_;
   ftype init_std_, bias_coef_, dropout_;
-  bool add_bias_;
   MatGPU dropmat_;
 
 };

@@ -44,11 +44,9 @@ void LayerFull::TransformBackward(Layer *prev_layer) {
 void LayerFull::WeightGrads(Layer *prev_layer, GradInd gradind) {
   if (gradind == GradInd::First) {
     Prod(deriv_mat_, true, prev_layer->activ_mat_, false, filters_.der());
-    (filters_.der() *= (lr_coef_ / dims_[0])).Validate();
+    filters_.der() *= (lr_coef_ / dims_[0]);
   } else if (gradind == GradInd::Second) {
     Prod(deriv_mat_, true, prev_layer->activ_mat_, false, filters_.der2());
-    (filters_.der2() *= (lr_coef_ / dims_[0])).Validate();
-  } else {
-    mexAssertMsg(false, "Wrong gradind for WeightGrads");
+    filters_.der2() *= (lr_coef_ / dims_[0]);
   }
 }
