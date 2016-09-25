@@ -62,7 +62,7 @@ Additionally, all layers might have the following parameters:
 
 - **stride** - a 2-dimensional vector of non-negative integers. Considered by "conv", "deconv" and "pool" layers. Determines the distance between the positions of applied kernels in vertical and horizontal dimensions.
 
-- **init_std** - the standard deviation of normal distribution that is used to generate the weights. When is not defined, the init_std = $\sqrt{2/n_{in}}, n_in = h * w * m$, where 'h' and 'w' is the filter size and 'm' is the number of input channels. Considered by all layers with weights.
+- **init_std** - the standard deviation of normal distribution that is used to generate the weights. When is not defined, init_std = sqrt(2/(h * w * m)), where 'h' and 'w' is the filter size and 'm' is the number of input channels. Considered by all layers with weights.
 
 - **add_bias** - whether the layer should add bias to the output or not. The length of the bias vector is equal to the number of output channels. Considered by all layers. Default is true for all layers with weights, false for others.
 
@@ -105,7 +105,7 @@ Define the learning process. It is a structure with the fields described below.
 
 - **gpu** - allows to specify the index of gpu device to work on. Default is 0.
 
-- **classcoefs** - allow to specify coefficients of class importance, for example if the dataset is unbalanced. Should be a vector of 1xN, where N is the number of classes. By default all coefficients are 1. Recommended class coefficients for an unbalanced dataset are c<sub>i</sub> = (sum<sub>i</sub><sup>N</sup> n<sub>i</sub> / n<sub>i</sub>)/N$.
+- **classcoefs** - allow to specify coefficients of class importance, for example if the dataset is unbalanced. Should be a vector of 1xN, where N is the number of classes. By default all coefficients are 1. Recommended class coefficients for an unbalanced dataset are c<sub>i</sub> = (sum<sub>i</sub><sup>N</sup> n<sub>i</sub> / (n<sub>i</sub> * N).
 
 
 **COMPILATION**
