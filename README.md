@@ -105,7 +105,7 @@ Define the learning process. It is a structure with the fields described below.
 
 - **gpu** - allows to specify the index of gpu device to work on. Default is 0.
 
-- **classcoefs** - allow to specify coefficients of class importance, for example if the dataset is unbalanced. Should be a vector of 1xN, where N is the number of classes. By default all coefficients are 1. Recommended class coefficients for an unbalanced dataset are $c_i = (\sum_i^N n_i / n_i)/N$.
+- **classcoefs** - allow to specify coefficients of class importance, for example if the dataset is unbalanced. Should be a vector of 1xN, where N is the number of classes. By default all coefficients are 1. Recommended class coefficients for an unbalanced dataset are c<sub>i</sub> = (sum<sub>i</sub><sup>N</sup> n<sub>i</sub> / n<sub>i</sub>)/N$.
 
 
 **COMPILATION**
