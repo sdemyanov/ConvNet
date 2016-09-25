@@ -45,7 +45,7 @@ Define the structure of CNN. Sets up as cell array, with each element representi
 5) 'defval' - specifies the value that is used when the transformed image lies outside the borders of the original image. If this value is not specified, the transformed value should be always inside the original one, otherwise there will be an error.
 On the test stage the images are just centrally cropped to the size 'mapsize', like there were no additional parameters.
 
-- **conv** - convolutional layer. Must contain the "filtersize" field, that identifies the filter size. Must also contain the "channels" field, which is the number of output channels. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m ** n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions.
+- **conv** - convolutional layer. Must contain the "filtersize" field, that identifies the filter size. Must also contain the "channels" field, which is the number of output channels. If the previous layer has "m" maps and the current one has "n" maps, the total number of filters on it is m * n. Despite that it is called convolutional, it performs filtering, that is a convolution operation with flipped dimensions.
 
 - **deconv** - reverse convolutional layer. Must contain the same fields as the convolutional layer. On the forward pass performs the same operation as performed on the backward pass of the "conv" layer, and otherwise. Therefore, instead of scaling the dimensions by a factor of "stride" it multiplies them on "stride".
 
@@ -62,7 +62,7 @@ Additionally, all layers might have the following parameters:
 
 - **stride** - a 2-dimensional vector of non-negative integers. Considered by "conv", "deconv" and "pool" layers. Determines the distance between the positions of applied kernels in vertical and horizontal dimensions.
 
-- **initstd** - the standard deviation of normal distribution that is used to generate the weights. The default value is 0.01. Considered by all layers with weights.
+- **init_std** - the standard deviation of normal distribution that is used to generate the weights. When is not defined, the init_std = $\sqrt{2/n_{in}}, n_in = h * w * m$, where 'h' and 'w' is the filter size and 'm' is the number of input channels. Considered by all layers with weights.
 
 - **add_bias** - whether the layer should add bias to the output or not. The length of the bias vector is equal to the number of output channels. Considered by all layers. Default is true for all layers with weights, false for others.
 
@@ -104,6 +104,8 @@ Define the learning process. It is a structure with the fields described below.
 - **memory** - determines the maximum number of megabytes of GPU memory allocated as a workspace for convolutional operations. Default is 512.
 
 - **gpu** - allows to specify the index of gpu device to work on. Default is 0.
+
+- **classcoefs** - allow to specify coefficients of class importance, for example if the dataset is unbalanced. Should be a vector of 1xN, where N is the number of classes. By default all coefficients are 1. Recommended class coefficients for an unbalanced dataset are $c_i = (\sum_i^N n_i / n_i)/N$.
 
 
 **COMPILATION**
