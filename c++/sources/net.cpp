@@ -21,13 +21,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Net::Net(const mxArray *mx_params) {
   mexAssertMsg(PRECISION == 1, "In the GPU version PRECISION should be 1");
-  //mexPrintMsg("Start params initialization...");
+  if (params_.verbose_ >= 1) {
+    mexPrintMsg("Start params initialization...");
+  }
   params_.Init(mx_params);
   MatGPU::InitCuda(params_.gpu_);
   MatGPU::SetMemoryLimit(params_.memory_);
   MatGPU::InitRand(params_.seed_);
   std::srand((unsigned int) params_.seed_);
-  //mexPrintMsg("Params initialization finished");
+  if (!params_.classcoefs_.empty()) {
+    classcoefs_.resize(params_.classcoefs_.size1(), params_.classcoefs_.size2());
+    classcoefs_ = params_.classcoefs_;
+  }
+  if (params_.verbose_ >= 1) {
+    mexPrintMsg("Params initialization finished");
+  }
 }
 
 void Net::InitLayers(const mxArray *mx_layers) {
@@ -35,7 +43,6 @@ void Net::InitLayers(const mxArray *mx_layers) {
     mexPrintMsg("Start layers initialization...");
   }
   size_t layers_num = mexGetNumel(mx_layers);
-  //mexAssertMsg(layers_num >= 2, "The net must contain at least 2 layers");
   layers_.resize(layers_num);
   first_trained_ = layers_num;
   Layer *prev_layer = NULL;
@@ -373,6 +380,11 @@ void Net::InitDeriv(const MatGPU &labels_batch, ftype &loss) {
     "Labels in batch and last layer must have equal number of classes");
   lossmat_.resize(batchsize, classes_num);
   lastlayer->deriv_mat_.resize_tensor(lastlayer->dims_);
+  MatGPU coef_batch;
+  if (!classcoefs_.empty()) {
+    coef_batch.resize(batchsize, 1);
+    Prod(labels_batch, false, classcoefs_, false, coef_batch);
+  }
   if (params_.lossfun_ == "logreg") {
     lossmat_ = lastlayer->activ_mat_;
     // to get the log(1) = 0 after and to avoid 0/0;
@@ -387,25 +399,24 @@ void Net::InitDeriv(const MatGPU &labels_batch, ftype &loss) {
       lastlayer->deriv_mat_ = labels_batch;
       (lastlayer->deriv_mat_ /= lossmat_) *= -1;
     }
-    loss = -(lossmat_.Log()).sum() / batchsize;
+    lossmat_.Log() *= -1;
   } else if (params_.lossfun_ == "L-norm") {
-    lossmat_ = lastlayer->activ_mat_;
     lastlayer->deriv_mat_ = lastlayer->activ_mat_;
     lastlayer->deriv_mat_ -= labels_batch;
+    lossmat_ = lastlayer->deriv_mat_;
     if (params_.normfun_ == 1) {
       lastlayer->deriv_mat_.Sign();
-      lossmat_ *= lastlayer->deriv_mat_; // abs
-      loss = lossmat_.sum() / batchsize;
+      lossmat_ *= lastlayer->deriv_mat_; // |f(x)-y|
     } else if (params_.normfun_ == 2) {
-      lossmat_ *= lastlayer->deriv_mat_;
-      loss = lossmat_.sum() / (2 * batchsize);
+      (lossmat_ *= lastlayer->deriv_mat_) /= 2; // (f(x)-y)^2 / 2
     }
   }
-  /*
-  if (params_.balance_) {
-    lastlayer->deriv_mat_.MultVect(classcoefs_, 1);
-  }*/
+  if (!coef_batch.empty()) {
+    lastlayer->deriv_mat_.MultVect(coef_batch, 2);
+    lossmat_.MultVect(coef_batch, 2);
+  }
   lastlayer->deriv_mat_.Validate();
+  loss = lossmat_.sum() / batchsize;
   if (params_.verbose_ >= 5) {
     mexPrintMsg("InitDerivSum", lastlayer->deriv_mat_.sum());
   }
@@ -429,11 +440,10 @@ void Net::InitActivIBP(ftype &loss, int normfun) {
   if (normfun == 1) { // L1-norm
     firstlayer->first_mat_.Sign();
     lossmat2_ *= firstlayer->first_mat_; // abs
-    loss = lossmat2_.sum() / batchsize;
   } else if (normfun == 2) { // L2-norm
-    lossmat2_ *= firstlayer->first_mat_;
-    loss = lossmat2_.sum() / (2 * batchsize);
+    (lossmat2_ *= firstlayer->deriv_mat_) /= 2;
   }
+  loss = lossmat2_.sum() / batchsize;
   if (params_.verbose_ >= 5) {
     mexPrintMsg("InitActivIBPSum", firstlayer->first_mat_.sum());
   }
@@ -479,6 +489,10 @@ void Net::ReadLabels(const mxArray *mx_labels) {
             layers_.back()->dims_[2] == dims[2] &&
             layers_.back()->dims_[3] == dims[3],
             "Label's dimensions don't correspond to the output layer");
+  if (!classcoefs_.empty()) {
+    mexAssertMsg(classcoefs_.size1() == layers_.back()->dims_[1],
+      "Classcoefs vector length don't correspond to the label matrix");
+  }
 }
 
 void Net::InitWeights(const mxArray *mx_weights_in) {
@@ -543,7 +557,7 @@ Net::~Net() {
   // remove here all GPU allocated memory manually,
   // otherwise CudaReset causes crash
   weights_.Clear();
-  //classcoefs_.clear(); // in fact vector
+  classcoefs_.clear(); // in fact vector
   lossmat_.clear();
   lossmat2_.clear();
   MatGPU::CudaReset();

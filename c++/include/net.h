@@ -38,7 +38,7 @@ private:
   Params params_;
   MatCPU data_, labels_, preds_;
   MatCPU losses_;
-  //MatGPU classcoefs_; // in fact vector
+  MatGPU classcoefs_; // in fact vector
   MatGPU lossmat_, lossmat2_;
 
   void ReadData(const mxArray *mx_data);

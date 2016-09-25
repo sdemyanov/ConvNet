@@ -34,7 +34,6 @@ public:
   ftype beta_;
   ftype decay_;
   ftype momentum_;
-  //bool balance_;
   bool shuffle_;
   std::string lossfun_;
   int normfun_;
@@ -43,6 +42,7 @@ public:
   bool fast_;
   size_t memory_;
   int gpu_;
+  MatCPU classcoefs_;
 
   Params();
 

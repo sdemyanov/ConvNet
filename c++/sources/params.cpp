@@ -29,7 +29,6 @@ Params::Params() {
   beta_ = 0;
   momentum_ = 0;
   decay_ = 0;
-  //balance_ = false;
   shuffle_ = false;
   lossfun_ = "logreg";
   normfun_ = 1;
@@ -80,10 +79,6 @@ void Params::Init(const mxArray *mx_params) {
     decay_ = mexGetScalar(mexGetField(mx_params, "decay"));
     mexAssertMsg(0 <= decay_ && decay_ < 1, "Decay is out of range [0, 1)");
   }
-  /*
-  if (mexIsField(mx_params, "balance")) {
-    balance_ = (mexGetScalar(mexGetField(mx_params, "balance")) > 0);
-  }*/
   if (mexIsField(mx_params, "shuffle")) {
     shuffle_ = (mexGetScalar(mexGetField(mx_params, "shuffle")) > 0);
   }
@@ -118,5 +113,10 @@ void Params::Init(const mxArray *mx_params) {
   if (mexIsField(mx_params, "gpu")) {
     gpu_ = (int) mexGetScalar(mexGetField(mx_params, "gpu"));
     mexAssertMsg(0 <= gpu_ , "GPU index should be non-negative");
+  }
+  if (mexIsField(mx_params, "classcoefs")) {
+    mexGetMatrix(mexGetField(mx_params, "classcoefs"), classcoefs_);
+    mexAssertMsg(classcoefs_.size2() == 1,
+      "Classcoefs should be an 1xN vector");
   }
 }

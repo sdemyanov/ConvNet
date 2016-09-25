@@ -25,7 +25,7 @@ Layer::Layer() {
   add_bias_ = true;
   padding_ = {0, 0};
   stride_ = {1, 1};
-  init_std_ = 0.01;
+  init_std_ = 0;
   lr_coef_ = 1.0;
   bias_coef_ = 1.0;
   dropout_ = 0;
@@ -200,7 +200,11 @@ void Layer::DropoutBackward() {
 void Layer::InitWeights(Weights &weights, size_t &offset, bool isgen) {
   filters_.AttachFilters(weights, offset);
   offset += filters_.Num();
-  if (isgen) {
+  if (filters_.Num() > 0 && isgen) {
+    if (init_std_ == 0) {
+      size_t n_in = filters_.dims(1) * filters_.dims(2) * filters_.dims(3);
+      init_std_ = std::sqrt((ftype) 2 / (ftype) n_in);
+    }
     (filters_.get().rand() -= 0.5) *= init_std_;
     //filters_.get().randnorm() *= init_std_;
   }
