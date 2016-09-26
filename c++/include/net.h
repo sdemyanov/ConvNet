@@ -45,7 +45,7 @@ private:
   void ReadLabels(const mxArray *mx_labels);
   void InitActiv(const MatGPU &data_batch);
   void Forward(MatGPU &pred, PassNum passnum, GradInd gradind);
-  void InitDeriv(const MatGPU &labels_batch, ftype &loss);
+  void InitDeriv(const MatGPU &labels_batch, const MatGPU &coef_batch, ftype &loss);
   void InitActivIBP(ftype &loss, int normfun);
   void InitActivAT(ftype coef, int normfun);
   void Backward(PassNum passnum, GradInd gradind);

@@ -140,7 +140,7 @@ void Net::Classify(const mxArray *mx_data, const mxArray *mx_labels, mxArray *&m
     curpreds.attach(preds_);
   }
   size_t numbatches = DIVUP(test_num, params_.batchsize_);
-  MatGPU data_batch, labels_batch, pred_batch;
+  MatGPU data_batch, labels_batch, pred_batch, coef_batch;
   for (size_t epoch = 0; epoch < params_.test_epochs_; ++epoch) {
     size_t offset = 0;
     for (size_t batch = 0; batch < numbatches; ++batch) {
@@ -153,7 +153,11 @@ void Net::Classify(const mxArray *mx_data, const mxArray *mx_labels, mxArray *&m
         ftype loss1;
         labels_batch.resize(batchsize, labels_.size2());
         SubSet(labels_, labels_batch, offset, true);
-        InitDeriv(labels_batch, loss1);
+        if (!classcoefs_.empty()) {
+          coef_batch.resize(batchsize, 1);
+          Prod(labels_batch, false, classcoefs_, false, coef_batch);
+        }
+        InitDeriv(labels_batch, coef_batch, loss1);
         // shift and beta cannot be positive together
         Backward(PassNum::Backward, GradInd::Nowhere);
         InitActivAT(params_.testshift_, 1); // L1-norm adversarial loss
@@ -198,7 +202,7 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
   size_t numbatches = DIVUP(train_num, params_.batchsize_);
   losses_.resize(2, params_.epochs_);
   losses_.assign(0);
-  MatGPU data_batch, labels_batch, pred_batch;
+  MatGPU data_batch, labels_batch, pred_batch, coef_batch, empty_batch;
   for (size_t epoch = 0; epoch < params_.epochs_; ++epoch) {
     //print = 1;
     if (params_.shuffle_) {
@@ -213,18 +217,21 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
       labels_batch.resize(batchsize, labels_.size2());
       SubSet(data_, data_batch, offset, true);
       SubSet(labels_, labels_batch, offset, true);
-
+      if (!classcoefs_.empty()) {
+        coef_batch.resize(batchsize, 1);
+        Prod(labels_batch, false, classcoefs_, false, coef_batch);
+      }
       ftype loss1 = 0, loss2 = 0;
       InitActiv(data_batch);
       Forward(pred_batch, PassNum::Forward, GradInd::Nowhere);
-      InitDeriv(labels_batch, loss1);
+      InitDeriv(labels_batch, coef_batch, loss1);
       losses_(0, epoch) += loss1;
       // shift and beta cannot be positive together
       if (params_.shift_ > 0) {
         Backward(PassNum::Backward, GradInd::Nowhere);
         InitActivAT(params_.shift_, params_.normfun_);
         Forward(pred_batch, PassNum::Forward, GradInd::Nowhere);
-        InitDeriv(labels_batch, loss2);
+        InitDeriv(labels_batch, coef_batch, loss2);
       }
       Backward(PassNum::Backward, GradInd::First);
       if (params_.shift_ == 0 && params_.beta_ > 0) {
@@ -236,7 +243,9 @@ void Net::Train(const mxArray *mx_data, const mxArray *mx_labels) {
           labels_batch.assign(0);
           std::string lf = params_.lossfun_;
           params_.lossfun_ = "L-norm";
-          InitDeriv(labels_batch, loss2);
+          // we don't multiply on the coef_batch again here
+          // as the gradients are already multiplied on the first pass
+          InitDeriv(labels_batch, empty_batch, loss2);
           Backward(PassNum::BackwardLinear, GradInd::Second);
           params_.lossfun_ = lf;
         }
@@ -365,7 +374,7 @@ void Net::InitActiv(const MatGPU &data) {
   }
 }
 
-void Net::InitDeriv(const MatGPU &labels_batch, ftype &loss) {
+void Net::InitDeriv(const MatGPU &labels_batch, const MatGPU &coef_batch, ftype &loss) {
   if (params_.verbose_ >= 4) {
     mexPrintMsg("Initializing gradients");
   }
@@ -380,11 +389,6 @@ void Net::InitDeriv(const MatGPU &labels_batch, ftype &loss) {
     "Labels in batch and last layer must have equal number of classes");
   lossmat_.resize(batchsize, classes_num);
   lastlayer->deriv_mat_.resize_tensor(lastlayer->dims_);
-  MatGPU coef_batch;
-  if (!classcoefs_.empty()) {
-    coef_batch.resize(batchsize, 1);
-    Prod(labels_batch, false, classcoefs_, false, coef_batch);
-  }
   if (params_.lossfun_ == "logreg") {
     lossmat_ = lastlayer->activ_mat_;
     // to get the log(1) = 0 after and to avoid 0/0;
